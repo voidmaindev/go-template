@@ -10,16 +10,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/spf13/cobra"
 	"github.com/voidmaindev/GoTemplate/internal/config"
+	"github.com/voidmaindev/GoTemplate/internal/container"
 	"github.com/voidmaindev/GoTemplate/internal/database"
+	"github.com/voidmaindev/GoTemplate/internal/domain"
 	"github.com/voidmaindev/GoTemplate/internal/logger"
 	"github.com/voidmaindev/GoTemplate/internal/middleware"
 	"github.com/voidmaindev/GoTemplate/internal/redis"
-
-	"github.com/voidmaindev/GoTemplate/internal/domain/city"
-	"github.com/voidmaindev/GoTemplate/internal/domain/country"
-	"github.com/voidmaindev/GoTemplate/internal/domain/document"
-	"github.com/voidmaindev/GoTemplate/internal/domain/item"
-	"github.com/voidmaindev/GoTemplate/internal/domain/user"
 )
 
 // serveCmd represents the serve command
@@ -79,19 +75,23 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Create dependency container
+	c := container.New(db, redisClient, cfg)
+
+	// Register all domains
+	for _, d := range domain.All() {
+		c.AddDomain(d)
+	}
+
 	// Run database migrations
 	slog.Info("Running migrations...")
-	if err := database.Migrate(db,
-		&user.User{},
-		&item.Item{},
-		&country.Country{},
-		&city.City{},
-		&document.Document{},
-		&document.DocumentItem{},
-	); err != nil {
+	if err := database.Migrate(db, c.GetAllModels()...); err != nil {
 		slog.Error("Failed to run migrations", "error", err)
 		os.Exit(1)
 	}
+
+	// Register all domain components (repos, services, handlers)
+	c.RegisterAll()
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
@@ -120,37 +120,8 @@ func runServe(cmd *cobra.Command, args []string) {
 	// API v1 routes
 	api := app.Group("/api/v1")
 
-	// Initialize token store
-	tokenStore := user.NewTokenStore(redisClient)
-
-	// Initialize repositories
-	userRepo := user.NewRepository(db)
-	itemRepo := item.NewRepository(db)
-	countryRepo := country.NewRepository(db)
-	cityRepo := city.NewRepository(db)
-	documentRepo := document.NewRepository(db)
-	documentItemRepo := document.NewItemRepository(db)
-
-	// Initialize services
-	userService := user.NewService(userRepo, tokenStore, &cfg.JWT)
-	itemService := item.NewService(itemRepo)
-	countryService := country.NewService(countryRepo)
-	cityService := city.NewService(cityRepo, countryRepo)
-	documentService := document.NewService(documentRepo, documentItemRepo, cityRepo, itemRepo)
-
-	// Initialize handlers
-	userHandler := user.NewHandler(userService)
-	itemHandler := item.NewHandler(itemService)
-	countryHandler := country.NewHandler(countryService)
-	cityHandler := city.NewHandler(cityService)
-	documentHandler := document.NewHandler(documentService)
-
-	// Register routes
-	user.RegisterRoutes(api, userHandler, &cfg.JWT, tokenStore)
-	item.RegisterRoutes(api, itemHandler, &cfg.JWT, tokenStore)
-	country.RegisterRoutes(api, countryHandler, &cfg.JWT, tokenStore)
-	city.RegisterRoutes(api, cityHandler, &cfg.JWT, tokenStore)
-	document.RegisterRoutes(api, documentHandler, &cfg.JWT, tokenStore)
+	// Register all domain routes
+	c.RegisterRoutes(api)
 
 	// 404 handler
 	app.Use(func(c *fiber.Ctx) error {

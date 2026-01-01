@@ -7,14 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/voidmaindev/GoTemplate/internal/config"
+	"github.com/voidmaindev/GoTemplate/internal/container"
 	"github.com/voidmaindev/GoTemplate/internal/database"
+	"github.com/voidmaindev/GoTemplate/internal/domain"
 	"github.com/voidmaindev/GoTemplate/internal/logger"
-
-	"github.com/voidmaindev/GoTemplate/internal/domain/city"
-	"github.com/voidmaindev/GoTemplate/internal/domain/country"
-	"github.com/voidmaindev/GoTemplate/internal/domain/document"
-	"github.com/voidmaindev/GoTemplate/internal/domain/item"
-	"github.com/voidmaindev/GoTemplate/internal/domain/user"
 )
 
 // migrateCmd represents the migrate command
@@ -50,17 +46,16 @@ func runMigrate(cmd *cobra.Command, args []string) {
 	}
 	defer database.Close(db)
 
+	// Create container and register domains (for model discovery)
+	c := container.New(db, nil, cfg)
+	for _, d := range domain.All() {
+		c.AddDomain(d)
+	}
+
 	slog.Info("Running migrations...")
 
-	// Run migrations
-	if err := database.Migrate(db,
-		&user.User{},
-		&item.Item{},
-		&country.Country{},
-		&city.City{},
-		&document.Document{},
-		&document.DocumentItem{},
-	); err != nil {
+	// Run migrations using models from all registered domains
+	if err := database.Migrate(db, c.GetAllModels()...); err != nil {
 		slog.Error("Failed to run migrations", "error", err)
 		os.Exit(1)
 	}
