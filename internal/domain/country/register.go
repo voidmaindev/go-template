@@ -7,6 +7,13 @@ import (
 	"github.com/voidmaindev/GoTemplate/internal/middleware"
 )
 
+// Component keys for this domain
+const (
+	RepositoryKey = "country.repository"
+	ServiceKey    = "country.service"
+	HandlerKey    = "country.handler"
+)
+
 // domain implements container.Domain interface
 type domain struct{}
 
@@ -31,21 +38,21 @@ func (d *domain) Models() []interface{} {
 func (d *domain) Register(c *container.Container) {
 	// Initialize repository
 	repo := NewRepository(c.DB)
-	c.Set(container.CountryRepository, repo)
+	c.Set(RepositoryKey, repo)
 
 	// Initialize service
 	service := NewService(repo)
-	c.Set(container.CountryService, service)
+	c.Set(ServiceKey, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(container.CountryHandler, handler)
+	c.Set(HandlerKey, handler)
 }
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := c.MustGet(container.CountryHandler).(*Handler)
-	tokenStore := c.MustGet(container.TokenStore).(*user.TokenStore)
+	handler := c.MustGet(HandlerKey).(*Handler)
+	tokenStore := c.MustGet(user.TokenStoreKey).(*user.TokenStore)
 	jwtConfig := &c.Config.JWT
 
 	countries := api.Group("/countries", middleware.JWTMiddleware(jwtConfig, tokenStore))

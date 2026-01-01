@@ -9,6 +9,14 @@ import (
 	"github.com/voidmaindev/GoTemplate/internal/middleware"
 )
 
+// Component keys for this domain
+const (
+	RepositoryKey     = "document.repository"
+	ItemRepositoryKey = "document.itemRepository"
+	ServiceKey        = "document.service"
+	HandlerKey        = "document.handler"
+)
+
 // domain implements container.Domain interface
 type domain struct{}
 
@@ -34,28 +42,28 @@ func (d *domain) Models() []interface{} {
 func (d *domain) Register(c *container.Container) {
 	// Initialize repositories
 	repo := NewRepository(c.DB)
-	c.Set(container.DocumentRepository, repo)
+	c.Set(RepositoryKey, repo)
 
 	itemRepo := NewItemRepository(c.DB)
-	c.Set(container.DocumentItemRepository, itemRepo)
+	c.Set(ItemRepositoryKey, itemRepo)
 
 	// Get cross-domain dependencies
-	cityRepo := c.MustGet(container.CityRepository).(city.Repository)
-	productRepo := c.MustGet(container.ItemRepository).(item.Repository)
+	cityRepo := c.MustGet(city.RepositoryKey).(city.Repository)
+	productRepo := c.MustGet(item.RepositoryKey).(item.Repository)
 
 	// Initialize service with cross-domain dependencies
 	service := NewService(repo, itemRepo, cityRepo, productRepo)
-	c.Set(container.DocumentService, service)
+	c.Set(ServiceKey, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(container.DocumentHandler, handler)
+	c.Set(HandlerKey, handler)
 }
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := c.MustGet(container.DocumentHandler).(*Handler)
-	tokenStore := c.MustGet(container.TokenStore).(*user.TokenStore)
+	handler := c.MustGet(HandlerKey).(*Handler)
+	tokenStore := c.MustGet(user.TokenStoreKey).(*user.TokenStore)
 	jwtConfig := &c.Config.JWT
 
 	documents := api.Group("/documents", middleware.JWTMiddleware(jwtConfig, tokenStore))

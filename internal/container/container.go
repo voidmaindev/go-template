@@ -95,33 +95,3 @@ func (c *Container) RegisterRoutes(api fiber.Router) {
 		d.Routes(api, c)
 	}
 }
-
-// Component keys for type-safe access
-const (
-	// User domain
-	UserRepository = "user.repository"
-	UserService    = "user.service"
-	UserHandler    = "user.handler"
-	TokenStore     = "user.tokenStore"
-
-	// Item domain
-	ItemRepository = "item.repository"
-	ItemService    = "item.service"
-	ItemHandler    = "item.handler"
-
-	// Country domain
-	CountryRepository = "country.repository"
-	CountryService    = "country.service"
-	CountryHandler    = "country.handler"
-
-	// City domain
-	CityRepository = "city.repository"
-	CityService    = "city.service"
-	CityHandler    = "city.handler"
-
-	// Document domain
-	DocumentRepository     = "document.repository"
-	DocumentItemRepository = "document.itemRepository"
-	DocumentService        = "document.service"
-	DocumentHandler        = "document.handler"
-)

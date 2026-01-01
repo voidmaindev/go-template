@@ -6,6 +6,14 @@ import (
 	"github.com/voidmaindev/GoTemplate/internal/middleware"
 )
 
+// Component keys for this domain
+const (
+	RepositoryKey = "user.repository"
+	ServiceKey    = "user.service"
+	HandlerKey    = "user.handler"
+	TokenStoreKey = "user.tokenStore"
+)
+
 // domain implements container.Domain interface
 type domain struct{}
 
@@ -30,25 +38,25 @@ func (d *domain) Models() []interface{} {
 func (d *domain) Register(c *container.Container) {
 	// Initialize token store (uses Redis)
 	tokenStore := NewTokenStore(c.Redis)
-	c.Set(container.TokenStore, tokenStore)
+	c.Set(TokenStoreKey, tokenStore)
 
 	// Initialize repository
 	repo := NewRepository(c.DB)
-	c.Set(container.UserRepository, repo)
+	c.Set(RepositoryKey, repo)
 
 	// Initialize service
 	service := NewService(repo, tokenStore, &c.Config.JWT)
-	c.Set(container.UserService, service)
+	c.Set(ServiceKey, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(container.UserHandler, handler)
+	c.Set(HandlerKey, handler)
 }
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := c.MustGet(container.UserHandler).(*Handler)
-	tokenStore := c.MustGet(container.TokenStore).(*TokenStore)
+	handler := c.MustGet(HandlerKey).(*Handler)
+	tokenStore := c.MustGet(TokenStoreKey).(*TokenStore)
 	jwtConfig := &c.Config.JWT
 
 	// Auth routes (public)

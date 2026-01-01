@@ -8,6 +8,13 @@ import (
 	"github.com/voidmaindev/GoTemplate/internal/middleware"
 )
 
+// Component keys for this domain
+const (
+	RepositoryKey = "city.repository"
+	ServiceKey    = "city.service"
+	HandlerKey    = "city.handler"
+)
+
 // domain implements container.Domain interface
 type domain struct{}
 
@@ -32,24 +39,24 @@ func (d *domain) Models() []interface{} {
 func (d *domain) Register(c *container.Container) {
 	// Initialize repository
 	repo := NewRepository(c.DB)
-	c.Set(container.CityRepository, repo)
+	c.Set(RepositoryKey, repo)
 
 	// Get country repository (cross-domain dependency)
-	countryRepo := c.MustGet(container.CountryRepository).(country.Repository)
+	countryRepo := c.MustGet(country.RepositoryKey).(country.Repository)
 
 	// Initialize service with cross-domain dependency
 	service := NewService(repo, countryRepo)
-	c.Set(container.CityService, service)
+	c.Set(ServiceKey, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(container.CityHandler, handler)
+	c.Set(HandlerKey, handler)
 }
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := c.MustGet(container.CityHandler).(*Handler)
-	tokenStore := c.MustGet(container.TokenStore).(*user.TokenStore)
+	handler := c.MustGet(HandlerKey).(*Handler)
+	tokenStore := c.MustGet(user.TokenStoreKey).(*user.TokenStore)
 	jwtConfig := &c.Config.JWT
 
 	cities := api.Group("/cities", middleware.JWTMiddleware(jwtConfig, tokenStore))

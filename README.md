@@ -4,11 +4,12 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
 
 ## Features
 
-- **Entity-Based Architecture**: Each entity has its own folder with model, repository, service, handler, and routes
+- **Multi-App Architecture**: Run multiple apps from the same codebase with different domain sets
+- **Self-Registering Domains**: Each domain is self-contained with its own registration logic
+- **Dependency Container**: Automatic dependency injection and cross-domain dependencies
 - **Generic Repository Pattern**: Maximum database abstraction using Go generics
 - **JWT Authentication**: Access and refresh tokens with Redis-based blacklisting
-- **User Management**: Register, login, logout, refresh token, change password
-- **Template Entities**: Item, Country, City, Document (with line items)
+- **CLI with Cobra**: Professional CLI with subcommands (serve, migrate)
 - **Docker Ready**: Multi-stage Dockerfile with docker-compose
 - **Validation**: Request validation using go-playground/validator
 - **Pagination**: Built-in pagination support for all list endpoints
@@ -17,18 +18,28 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
 
 ```
 .
-├── cmd/api/main.go                  # Application entry point
+├── cmd/api/
+│   ├── main.go                      # Application entry point
+│   └── cmd/                         # Cobra CLI commands
+│       ├── root.go
+│       ├── serve.go                 # serve [app] command
+│       └── migrate.go               # migrate [app] command
 ├── internal/
+│   ├── app/                         # App definitions
+│   │   ├── app.go                   # App struct & registry
+│   │   ├── main.go                  # main app (all domains)
+│   │   └── geography.go             # geography app (country, city)
+│   ├── container/                   # Dependency container
 │   ├── config/                      # Configuration management
 │   ├── database/                    # Database connection & migrations
 │   ├── redis/                       # Redis client
 │   ├── middleware/                  # JWT, CORS, logging, recovery
 │   ├── common/                      # Generic repository, base model, responses
-│   └── entity/
-│       ├── user/                    # User entity with auth
-│       ├── item/                    # Item entity (template)
-│       ├── country/                 # Country entity (template)
-│       ├── city/                    # City entity (belongs to Country)
+│   └── domain/
+│       ├── user/                    # User domain with auth
+│       ├── item/                    # Item domain (template)
+│       ├── country/                 # Country domain (template)
+│       ├── city/                    # City domain (depends on country)
 │       └── document/                # Document with line items
 ├── pkg/
 │   ├── utils/                       # Hash, JWT, money utilities
@@ -65,11 +76,30 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
    # Start PostgreSQL and Redis
    make docker-up
 
-   # Run the API
-   make run
+   # Run migrations for main app
+   go run . migrate main
+
+   # Run the main app
+   go run . serve main
    ```
 
-### Available Commands
+### CLI Commands
+
+```bash
+# Run an app
+go run . serve main           # Run main app (all domains)
+go run . serve geography      # Run geography app (country, city only)
+
+# Run migrations
+go run . migrate main         # Migrate main app tables
+go run . migrate geography    # Migrate geography app tables
+
+# With flags
+go run . serve main -p 8080   # Custom port
+go run . serve main -H 127.0.0.1  # Custom host
+```
+
+### Make Commands
 
 ```bash
 make build          # Build the application
@@ -153,24 +183,90 @@ curl -X POST http://localhost:3000/api/v1/items \
   -d '{"name": "Product", "description": "A product", "price": 1999}'
 ```
 
-## Creating New Entities
+## Creating New Domains
 
-To add a new entity:
+To add a new domain:
 
 1. Create folder `internal/domain/<name>/`
-2. Create files: `model.go`, `dto.go`, `repository.go`, `service.go`, `handler.go`, `routes.go`
-3. Add model to migrations in `cmd/api/main.go`
-4. Register routes in `cmd/api/main.go`
+2. Create files: `model.go`, `dto.go`, `repository.go`, `service.go`, `handler.go`, `register.go`
+3. In `register.go`, implement the `container.Domain` interface:
 
-Use the existing entities (item, country, city) as templates.
+```go
+package product
 
-## Removing Template Entities
+// Component keys for this domain
+const (
+    RepositoryKey = "product.repository"
+    ServiceKey    = "product.service"
+    HandlerKey    = "product.handler"
+)
+
+type domain struct{}
+
+func NewDomain() container.Domain { return &domain{} }
+
+func (d *domain) Name() string { return "product" }
+
+func (d *domain) Models() []interface{} {
+    return []interface{}{&Product{}}
+}
+
+func (d *domain) Register(c *container.Container) {
+    repo := NewRepository(c.DB)
+    c.Set(RepositoryKey, repo)
+    // ... service, handler
+}
+
+func (d *domain) Routes(api fiber.Router, c *container.Container) {
+    // ... register routes
+}
+```
+
+4. Add to relevant app(s) in `internal/app/`:
+
+```go
+// internal/app/main.go
+Domains: func() []container.Domain {
+    return []container.Domain{
+        // ...existing domains
+        product.NewDomain(),
+    }
+}
+```
+
+## Creating New Apps
+
+To add a new app:
+
+1. Create `internal/app/<appname>.go`:
+
+```go
+package app
+
+func init() {
+    Register(&App{
+        Name:        "myapp",
+        Description: "My custom application",
+        Domains: func() []container.Domain {
+            return []container.Domain{
+                user.NewDomain(),  // Required for auth
+                // Add your domains here
+            }
+        },
+    })
+}
+```
+
+2. Run with: `go run . serve myapp`
+
+## Removing Template Domains
 
 To use this template for your project:
 
 1. Delete `internal/domain/item/`, `country/`, `city/`, `document/`
-2. Remove imports and registrations from `cmd/api/main.go`
-3. Create your own entities
+2. Update `internal/app/main.go` to remove those domains
+3. Delete `internal/app/geography.go` if not needed
+4. Create your own domains
 
 ## Environment Variables
 

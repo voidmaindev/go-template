@@ -4,15 +4,16 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/spf13/cobra"
+	"github.com/voidmaindev/GoTemplate/internal/app"
 	"github.com/voidmaindev/GoTemplate/internal/config"
 	"github.com/voidmaindev/GoTemplate/internal/container"
 	"github.com/voidmaindev/GoTemplate/internal/database"
-	"github.com/voidmaindev/GoTemplate/internal/domain"
 	"github.com/voidmaindev/GoTemplate/internal/logger"
 	"github.com/voidmaindev/GoTemplate/internal/middleware"
 	"github.com/voidmaindev/GoTemplate/internal/redis"
@@ -20,9 +21,10 @@ import (
 
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start the API server",
-	Long:  `Start the HTTP API server with all configured routes and middleware.`,
+	Use:   "serve [app]",
+	Short: "Start an app server",
+	Long:  `Start an HTTP API server for the specified app with its configured domains.`,
+	Args:  cobra.ExactArgs(1),
 	Run:   runServe,
 }
 
@@ -35,6 +37,15 @@ func init() {
 }
 
 func runServe(cmd *cobra.Command, args []string) {
+	appName := args[0]
+
+	// Get app from registry
+	a := app.Get(appName)
+	if a == nil {
+		slog.Error("Unknown app", "name", appName, "available", strings.Join(app.List(), ", "))
+		os.Exit(1)
+	}
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -54,7 +65,8 @@ func runServe(cmd *cobra.Command, args []string) {
 	}
 
 	slog.Info("Starting server",
-		"app", cfg.App.Name,
+		"appName", appName,
+		"description", a.Description,
 		"env", cfg.App.Environment,
 		"debug", cfg.App.Debug,
 	)
@@ -78,8 +90,8 @@ func runServe(cmd *cobra.Command, args []string) {
 	// Create dependency container
 	c := container.New(db, redisClient, cfg)
 
-	// Register all domains
-	for _, d := range domain.All() {
+	// Register domains for this app
+	for _, d := range a.Domains() {
 		c.AddDomain(d)
 	}
 

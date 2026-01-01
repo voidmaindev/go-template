@@ -3,21 +3,23 @@ package cmd
 import (
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/voidmaindev/GoTemplate/internal/app"
 	"github.com/voidmaindev/GoTemplate/internal/config"
 	"github.com/voidmaindev/GoTemplate/internal/container"
 	"github.com/voidmaindev/GoTemplate/internal/database"
-	"github.com/voidmaindev/GoTemplate/internal/domain"
 	"github.com/voidmaindev/GoTemplate/internal/logger"
 )
 
 // migrateCmd represents the migrate command
 var migrateCmd = &cobra.Command{
-	Use:   "migrate",
-	Short: "Run database migrations",
-	Long:  `Run database migrations to create or update tables.`,
+	Use:   "migrate [app]",
+	Short: "Run database migrations for an app",
+	Long:  `Run database migrations to create or update tables for the specified app.`,
+	Args:  cobra.ExactArgs(1),
 	Run:   runMigrate,
 }
 
@@ -26,6 +28,15 @@ func init() {
 }
 
 func runMigrate(cmd *cobra.Command, args []string) {
+	appName := args[0]
+
+	// Get app from registry
+	a := app.Get(appName)
+	if a == nil {
+		slog.Error("Unknown app", "name", appName, "available", strings.Join(app.List(), ", "))
+		os.Exit(1)
+	}
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -36,7 +47,7 @@ func runMigrate(cmd *cobra.Command, args []string) {
 	// Setup logger
 	logger.SetupFromEnv(cfg.App.Environment, cfg.App.Debug)
 
-	slog.Info("Connecting to database...")
+	slog.Info("Running migrations", "app", appName, "description", a.Description)
 
 	// Connect to database
 	db, err := database.ConnectWithRetry(&cfg.Database, 5, 5*time.Second)
@@ -46,15 +57,13 @@ func runMigrate(cmd *cobra.Command, args []string) {
 	}
 	defer database.Close(db)
 
-	// Create container and register domains (for model discovery)
+	// Create container and register domains for this app
 	c := container.New(db, nil, cfg)
-	for _, d := range domain.All() {
+	for _, d := range a.Domains() {
 		c.AddDomain(d)
 	}
 
-	slog.Info("Running migrations...")
-
-	// Run migrations using models from all registered domains
+	// Run migrations using models from app's domains
 	if err := database.Migrate(db, c.GetAllModels()...); err != nil {
 		slog.Error("Failed to run migrations", "error", err)
 		os.Exit(1)
