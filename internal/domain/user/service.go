@@ -226,7 +226,7 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswo
 	}
 
 	// Update password
-	return s.repo.UpdateFields(ctx, id, map[string]interface{}{
+	return s.repo.UpdateFields(ctx, id, map[string]any{
 		"password": hashedPassword,
 	})
 }

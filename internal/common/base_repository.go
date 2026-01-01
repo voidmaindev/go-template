@@ -70,7 +70,7 @@ func (r *BaseRepository[T]) FindAll(ctx context.Context, pagination *Pagination)
 }
 
 // FindByCondition retrieves entities matching conditions
-func (r *BaseRepository[T]) FindByCondition(ctx context.Context, condition map[string]interface{}, pagination *Pagination) ([]T, int64, error) {
+func (r *BaseRepository[T]) FindByCondition(ctx context.Context, condition map[string]any, pagination *Pagination) ([]T, int64, error) {
 	var entities []T
 	var total int64
 
@@ -93,7 +93,7 @@ func (r *BaseRepository[T]) FindByCondition(ctx context.Context, condition map[s
 }
 
 // FindOne retrieves a single entity matching conditions
-func (r *BaseRepository[T]) FindOne(ctx context.Context, condition map[string]interface{}) (*T, error) {
+func (r *BaseRepository[T]) FindOne(ctx context.Context, condition map[string]any) (*T, error) {
 	var entity T
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.Where(condition).First(&entity).Error; err != nil {
@@ -111,7 +111,7 @@ func (r *BaseRepository[T]) Update(ctx context.Context, entity *T) error {
 }
 
 // UpdateFields updates specific fields of an entity
-func (r *BaseRepository[T]) UpdateFields(ctx context.Context, id uint, fields map[string]interface{}) error {
+func (r *BaseRepository[T]) UpdateFields(ctx context.Context, id uint, fields map[string]any) error {
 	return r.db.WithContext(ctx).Model(new(T)).Where("id = ?", id).Updates(fields).Error
 }
 
@@ -126,7 +126,7 @@ func (r *BaseRepository[T]) HardDelete(ctx context.Context, id uint) error {
 }
 
 // Exists checks if an entity exists with given conditions
-func (r *BaseRepository[T]) Exists(ctx context.Context, condition map[string]interface{}) (bool, error) {
+func (r *BaseRepository[T]) Exists(ctx context.Context, condition map[string]any) (bool, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(new(T)).Where(condition).Count(&count).Error; err != nil {
 		return false, err
@@ -135,7 +135,7 @@ func (r *BaseRepository[T]) Exists(ctx context.Context, condition map[string]int
 }
 
 // Count returns the count of entities matching conditions
-func (r *BaseRepository[T]) Count(ctx context.Context, condition map[string]interface{}) (int64, error) {
+func (r *BaseRepository[T]) Count(ctx context.Context, condition map[string]any) (int64, error) {
 	var count int64
 	query := r.db.WithContext(ctx).Model(new(T))
 	if len(condition) > 0 {

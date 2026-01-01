@@ -71,7 +71,7 @@ func NewItemRepository(db *gorm.DB) ItemRepository {
 
 // FindByCode finds a document by code
 func (r *repository) FindByCode(ctx context.Context, code string) (*Document, error) {
-	return r.FindOne(ctx, map[string]interface{}{"code": code})
+	return r.FindOne(ctx, map[string]any{"code": code})
 }
 
 // FindByIDWithDetails finds a document with all related data
@@ -94,17 +94,17 @@ func (r *repository) FindByIDWithDetails(ctx context.Context, id uint) (*Documen
 
 // FindByCityID finds all documents by city ID
 func (r *repository) FindByCityID(ctx context.Context, cityID uint, pagination *common.Pagination) ([]Document, int64, error) {
-	return r.FindByCondition(ctx, map[string]interface{}{"city_id": cityID}, pagination)
+	return r.FindByCondition(ctx, map[string]any{"city_id": cityID}, pagination)
 }
 
 // ExistsByCode checks if a document with the given code exists
 func (r *repository) ExistsByCode(ctx context.Context, code string) (bool, error) {
-	return r.Exists(ctx, map[string]interface{}{"code": code})
+	return r.Exists(ctx, map[string]any{"code": code})
 }
 
 // UpdateTotalAmount updates the total amount of a document
 func (r *repository) UpdateTotalAmount(ctx context.Context, id uint, totalAmount int64) error {
-	return r.UpdateFields(ctx, id, map[string]interface{}{"total_amount": totalAmount})
+	return r.UpdateFields(ctx, id, map[string]any{"total_amount": totalAmount})
 }
 
 // FindByDocumentID finds all items for a document

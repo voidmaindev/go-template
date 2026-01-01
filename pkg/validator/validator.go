@@ -35,7 +35,7 @@ func Get() *validator.Validate {
 }
 
 // Validate validates a struct and returns formatted errors
-func Validate(s interface{}) []ValidationError {
+func Validate(s any) []ValidationError {
 	err := Get().Struct(s)
 	if err == nil {
 		return nil
@@ -58,7 +58,7 @@ func Validate(s interface{}) []ValidationError {
 type ValidationError struct {
 	Field   string      `json:"field"`
 	Tag     string      `json:"tag"`
-	Value   interface{} `json:"value,omitempty"`
+	Value   any `json:"value,omitempty"`
 	Message string      `json:"message"`
 }
 
@@ -139,7 +139,7 @@ func registerCustomValidators(v *validator.Validate) {
 }
 
 // ValidateVar validates a single variable
-func ValidateVar(field interface{}, tag string) error {
+func ValidateVar(field any, tag string) error {
 	return Get().Var(field, tag)
 }
 

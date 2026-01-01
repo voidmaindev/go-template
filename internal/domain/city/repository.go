@@ -35,12 +35,12 @@ func NewRepository(db *gorm.DB) Repository {
 
 // FindByCountryID finds all cities by country ID
 func (r *repository) FindByCountryID(ctx context.Context, countryID uint, pagination *common.Pagination) ([]City, int64, error) {
-	return r.FindByCondition(ctx, map[string]interface{}{"country_id": countryID}, pagination)
+	return r.FindByCondition(ctx, map[string]any{"country_id": countryID}, pagination)
 }
 
 // FindByName finds a city by name
 func (r *repository) FindByName(ctx context.Context, name string) (*City, error) {
-	return r.FindOne(ctx, map[string]interface{}{"name": name})
+	return r.FindOne(ctx, map[string]any{"name": name})
 }
 
 // FindByIDWithCountry finds a city by ID with country preloaded

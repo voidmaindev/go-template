@@ -12,7 +12,7 @@ type Migrator interface {
 }
 
 // Migrate runs auto-migrations for all registered models
-func Migrate(db *gorm.DB, models ...interface{}) error {
+func Migrate(db *gorm.DB, models ...any) error {
 	log.Println("Running database migrations...")
 
 	if err := db.AutoMigrate(models...); err != nil {
@@ -24,7 +24,7 @@ func Migrate(db *gorm.DB, models ...interface{}) error {
 }
 
 // MigrateWithIndexes runs migrations and creates custom indexes
-func MigrateWithIndexes(db *gorm.DB, models ...interface{}) error {
+func MigrateWithIndexes(db *gorm.DB, models ...any) error {
 	if err := Migrate(db, models...); err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func MigrateWithIndexes(db *gorm.DB, models ...interface{}) error {
 }
 
 // DropTables drops all tables (USE WITH CAUTION - for testing only)
-func DropTables(db *gorm.DB, models ...interface{}) error {
+func DropTables(db *gorm.DB, models ...any) error {
 	log.Println("WARNING: Dropping all tables...")
 
 	for _, model := range models {
@@ -51,12 +51,12 @@ func DropTables(db *gorm.DB, models ...interface{}) error {
 }
 
 // HasTable checks if a table exists
-func HasTable(db *gorm.DB, model interface{}) bool {
+func HasTable(db *gorm.DB, model any) bool {
 	return db.Migrator().HasTable(model)
 }
 
 // CreateTableIfNotExists creates a table only if it doesn't exist
-func CreateTableIfNotExists(db *gorm.DB, model interface{}) error {
+func CreateTableIfNotExists(db *gorm.DB, model any) error {
 	if !HasTable(db, model) {
 		return db.Migrator().CreateTable(model)
 	}

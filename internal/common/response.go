@@ -8,12 +8,12 @@ import (
 type Response struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   interface{} `json:"error,omitempty"`
+	Data    any `json:"data,omitempty"`
+	Error   any `json:"error,omitempty"`
 }
 
 // SuccessResponse sends a success response with data
-func SuccessResponse(c *fiber.Ctx, data interface{}) error {
+func SuccessResponse(c *fiber.Ctx, data any) error {
 	return c.Status(fiber.StatusOK).JSON(Response{
 		Success: true,
 		Data:    data,
@@ -21,7 +21,7 @@ func SuccessResponse(c *fiber.Ctx, data interface{}) error {
 }
 
 // SuccessResponseWithMessage sends a success response with message and data
-func SuccessResponseWithMessage(c *fiber.Ctx, message string, data interface{}) error {
+func SuccessResponseWithMessage(c *fiber.Ctx, message string, data any) error {
 	return c.Status(fiber.StatusOK).JSON(Response{
 		Success: true,
 		Message: message,
@@ -30,7 +30,7 @@ func SuccessResponseWithMessage(c *fiber.Ctx, message string, data interface{}) 
 }
 
 // CreatedResponse sends a 201 Created response
-func CreatedResponse(c *fiber.Ctx, data interface{}) error {
+func CreatedResponse(c *fiber.Ctx, data any) error {
 	return c.Status(fiber.StatusCreated).JSON(Response{
 		Success: true,
 		Message: "created successfully",
@@ -60,7 +60,7 @@ func ErrorResponse(c *fiber.Ctx, statusCode int, message string) error {
 }
 
 // ErrorResponseWithDetails sends an error response with details
-func ErrorResponseWithDetails(c *fiber.Ctx, statusCode int, message string, details interface{}) error {
+func ErrorResponseWithDetails(c *fiber.Ctx, statusCode int, message string, details any) error {
 	return c.Status(statusCode).JSON(Response{
 		Success: false,
 		Error:   message,
@@ -69,7 +69,7 @@ func ErrorResponseWithDetails(c *fiber.Ctx, statusCode int, message string, deta
 }
 
 // ValidationErrorResponse sends a 400 response for validation errors
-func ValidationErrorResponse(c *fiber.Ctx, errors interface{}) error {
+func ValidationErrorResponse(c *fiber.Ctx, errors any) error {
 	return c.Status(fiber.StatusBadRequest).JSON(Response{
 		Success: false,
 		Error:   "validation failed",

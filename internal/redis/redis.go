@@ -78,7 +78,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 }
 
 // SetWithExpiry sets a key with an expiry time
-func (c *Client) SetWithExpiry(ctx context.Context, key string, value interface{}, expiry time.Duration) error {
+func (c *Client) SetWithExpiry(ctx context.Context, key string, value any, expiry time.Duration) error {
 	return c.Set(ctx, key, value, expiry).Err()
 }
 
@@ -106,7 +106,7 @@ func (c *Client) DeleteKey(ctx context.Context, key string) error {
 }
 
 // SetNX sets a key only if it doesn't exist (useful for distributed locks)
-func (c *Client) SetNX(ctx context.Context, key string, value interface{}, expiry time.Duration) (bool, error) {
+func (c *Client) SetNX(ctx context.Context, key string, value any, expiry time.Duration) (bool, error) {
 	return c.Client.SetNX(ctx, key, value, expiry).Result()
 }
 

@@ -39,7 +39,7 @@ func SetupCustomRecovery(app *fiber.App, isDevelopment bool) {
 }
 
 // SetupRecoveryWithCallback sets up recovery with a custom callback
-func SetupRecoveryWithCallback(app *fiber.App, callback func(c *fiber.Ctx, err interface{})) {
+func SetupRecoveryWithCallback(app *fiber.App, callback func(c *fiber.Ctx, err any)) {
 	app.Use(func(c *fiber.Ctx) error {
 		defer func() {
 			if r := recover(); r != nil {

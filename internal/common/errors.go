@@ -27,7 +27,7 @@ type AppError struct {
 	Err     error
 	Message string
 	Code    string
-	Details interface{}
+	Details any
 }
 
 // Error implements the error interface
@@ -64,7 +64,7 @@ func NewAppErrorWithCode(err error, message, code string) *AppError {
 }
 
 // NewAppErrorWithDetails creates a new AppError with details
-func NewAppErrorWithDetails(err error, message string, details interface{}) *AppError {
+func NewAppErrorWithDetails(err error, message string, details any) *AppError {
 	return &AppError{
 		Err:     err,
 		Message: message,

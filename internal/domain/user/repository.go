@@ -32,10 +32,10 @@ func NewRepository(db *gorm.DB) Repository {
 
 // FindByEmail finds a user by email
 func (r *repository) FindByEmail(ctx context.Context, email string) (*User, error) {
-	return r.FindOne(ctx, map[string]interface{}{"email": email})
+	return r.FindOne(ctx, map[string]any{"email": email})
 }
 
 // ExistsByEmail checks if a user with the given email exists
 func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
-	return r.Exists(ctx, map[string]interface{}{"email": email})
+	return r.Exists(ctx, map[string]any{"email": email})
 }

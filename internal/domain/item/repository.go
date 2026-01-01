@@ -29,5 +29,5 @@ func NewRepository(db *gorm.DB) Repository {
 
 // FindByName finds an item by name
 func (r *repository) FindByName(ctx context.Context, name string) (*Item, error) {
-	return r.FindOne(ctx, map[string]interface{}{"name": name})
+	return r.FindOne(ctx, map[string]any{"name": name})
 }

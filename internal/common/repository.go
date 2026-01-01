@@ -21,16 +21,16 @@ type Repository[T any] interface {
 	FindAll(ctx context.Context, pagination *Pagination) ([]T, int64, error)
 
 	// FindByCondition retrieves entities matching conditions
-	FindByCondition(ctx context.Context, condition map[string]interface{}, pagination *Pagination) ([]T, int64, error)
+	FindByCondition(ctx context.Context, condition map[string]any, pagination *Pagination) ([]T, int64, error)
 
 	// FindOne retrieves a single entity matching conditions
-	FindOne(ctx context.Context, condition map[string]interface{}) (*T, error)
+	FindOne(ctx context.Context, condition map[string]any) (*T, error)
 
 	// Update updates an existing entity
 	Update(ctx context.Context, entity *T) error
 
 	// UpdateFields updates specific fields of an entity
-	UpdateFields(ctx context.Context, id uint, fields map[string]interface{}) error
+	UpdateFields(ctx context.Context, id uint, fields map[string]any) error
 
 	// Delete soft-deletes an entity by ID
 	Delete(ctx context.Context, id uint) error
@@ -39,10 +39,10 @@ type Repository[T any] interface {
 	HardDelete(ctx context.Context, id uint) error
 
 	// Exists checks if an entity exists with given conditions
-	Exists(ctx context.Context, condition map[string]interface{}) (bool, error)
+	Exists(ctx context.Context, condition map[string]any) (bool, error)
 
 	// Count returns the count of entities matching conditions
-	Count(ctx context.Context, condition map[string]interface{}) (int64, error)
+	Count(ctx context.Context, condition map[string]any) (int64, error)
 
 	// WithTx returns a new repository instance using the provided transaction
 	WithTx(tx *gorm.DB) Repository[T]

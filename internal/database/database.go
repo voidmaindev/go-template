@@ -19,15 +19,15 @@ func (s *slogAdapter) LogMode(level logger.LogLevel) logger.Interface {
 	return s
 }
 
-func (s *slogAdapter) Info(ctx context.Context, msg string, data ...interface{}) {
+func (s *slogAdapter) Info(ctx context.Context, msg string, data ...any) {
 	slog.Info(fmt.Sprintf(msg, data...))
 }
 
-func (s *slogAdapter) Warn(ctx context.Context, msg string, data ...interface{}) {
+func (s *slogAdapter) Warn(ctx context.Context, msg string, data ...any) {
 	slog.Warn(fmt.Sprintf(msg, data...))
 }
 
-func (s *slogAdapter) Error(ctx context.Context, msg string, data ...interface{}) {
+func (s *slogAdapter) Error(ctx context.Context, msg string, data ...any) {
 	slog.Error(fmt.Sprintf(msg, data...))
 }
 

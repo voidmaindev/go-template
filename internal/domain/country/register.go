@@ -28,8 +28,8 @@ func (d *domain) Name() string {
 }
 
 // Models returns the GORM models for migration
-func (d *domain) Models() []interface{} {
-	return []interface{}{
+func (d *domain) Models() []any {
+	return []any{
 		&Country{},
 	}
 }

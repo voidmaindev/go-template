@@ -19,7 +19,7 @@ type Container struct {
 	domains []Domain
 
 	// Domain components (populated by Register calls)
-	components map[string]interface{}
+	components map[string]any
 }
 
 // Domain interface that each domain package implements
@@ -28,7 +28,7 @@ type Domain interface {
 	Name() string
 
 	// Models returns the GORM models for migration
-	Models() []interface{}
+	Models() []any
 
 	// Register initializes repositories, services, and handlers
 	// Domains can access other domain's components via container.Get()
@@ -45,7 +45,7 @@ func New(db *gorm.DB, redisClient *redis.Client, cfg *config.Config) *Container 
 		Redis:      redisClient,
 		Config:     cfg,
 		domains:    make([]Domain, 0),
-		components: make(map[string]interface{}),
+		components: make(map[string]any),
 	}
 }
 
@@ -55,17 +55,17 @@ func (c *Container) AddDomain(d Domain) {
 }
 
 // Set stores a component in the container
-func (c *Container) Set(key string, component interface{}) {
+func (c *Container) Set(key string, component any) {
 	c.components[key] = component
 }
 
 // Get retrieves a component from the container
-func (c *Container) Get(key string) interface{} {
+func (c *Container) Get(key string) any {
 	return c.components[key]
 }
 
 // MustGet retrieves a component and panics if not found
-func (c *Container) MustGet(key string) interface{} {
+func (c *Container) MustGet(key string) any {
 	comp, ok := c.components[key]
 	if !ok {
 		panic("component not found: " + key)
@@ -74,8 +74,8 @@ func (c *Container) MustGet(key string) interface{} {
 }
 
 // GetAllModels returns all models from all registered domains
-func (c *Container) GetAllModels() []interface{} {
-	var models []interface{}
+func (c *Container) GetAllModels() []any {
+	var models []any
 	for _, d := range c.domains {
 		models = append(models, d.Models()...)
 	}

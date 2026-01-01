@@ -207,8 +207,8 @@ func NewDomain() container.Domain { return &domain{} }
 
 func (d *domain) Name() string { return "product" }
 
-func (d *domain) Models() []interface{} {
-    return []interface{}{&Product{}}
+func (d *domain) Models() []any {
+    return []any{&Product{}}
 }
 
 func (d *domain) Register(c *container.Container) {
