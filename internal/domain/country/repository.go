@@ -1,0 +1,49 @@
+package country
+
+import (
+	"context"
+
+	"github.com/voidmaindev/GoTemplate/internal/common"
+	"gorm.io/gorm"
+)
+
+// Repository defines the country repository interface
+type Repository interface {
+	common.Repository[Country]
+
+	// FindByCode finds a country by code
+	FindByCode(ctx context.Context, code string) (*Country, error)
+
+	// FindByName finds a country by name
+	FindByName(ctx context.Context, name string) (*Country, error)
+
+	// ExistsByCode checks if a country with the given code exists
+	ExistsByCode(ctx context.Context, code string) (bool, error)
+}
+
+// repository implements the Repository interface
+type repository struct {
+	*common.BaseRepository[Country]
+}
+
+// NewRepository creates a new country repository
+func NewRepository(db *gorm.DB) Repository {
+	return &repository{
+		BaseRepository: common.NewBaseRepository[Country](db),
+	}
+}
+
+// FindByCode finds a country by code
+func (r *repository) FindByCode(ctx context.Context, code string) (*Country, error) {
+	return r.FindOne(ctx, map[string]interface{}{"code": code})
+}
+
+// FindByName finds a country by name
+func (r *repository) FindByName(ctx context.Context, name string) (*Country, error) {
+	return r.FindOne(ctx, map[string]interface{}{"name": name})
+}
+
+// ExistsByCode checks if a country with the given code exists
+func (r *repository) ExistsByCode(ctx context.Context, code string) (bool, error) {
+	return r.Exists(ctx, map[string]interface{}{"code": code})
+}

@@ -1,0 +1,64 @@
+package database
+
+import (
+	"log"
+
+	"gorm.io/gorm"
+)
+
+// Migrator interface for models that need migration
+type Migrator interface {
+	TableName() string
+}
+
+// Migrate runs auto-migrations for all registered models
+func Migrate(db *gorm.DB, models ...interface{}) error {
+	log.Println("Running database migrations...")
+
+	if err := db.AutoMigrate(models...); err != nil {
+		return err
+	}
+
+	log.Println("Database migrations completed successfully")
+	return nil
+}
+
+// MigrateWithIndexes runs migrations and creates custom indexes
+func MigrateWithIndexes(db *gorm.DB, models ...interface{}) error {
+	if err := Migrate(db, models...); err != nil {
+		return err
+	}
+
+	// Add any custom indexes here if needed
+	// Example:
+	// db.Exec("CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)")
+
+	return nil
+}
+
+// DropTables drops all tables (USE WITH CAUTION - for testing only)
+func DropTables(db *gorm.DB, models ...interface{}) error {
+	log.Println("WARNING: Dropping all tables...")
+
+	for _, model := range models {
+		if err := db.Migrator().DropTable(model); err != nil {
+			log.Printf("Failed to drop table for %T: %v", model, err)
+		}
+	}
+
+	log.Println("All tables dropped")
+	return nil
+}
+
+// HasTable checks if a table exists
+func HasTable(db *gorm.DB, model interface{}) bool {
+	return db.Migrator().HasTable(model)
+}
+
+// CreateTableIfNotExists creates a table only if it doesn't exist
+func CreateTableIfNotExists(db *gorm.DB, model interface{}) error {
+	if !HasTable(db, model) {
+		return db.Migrator().CreateTable(model)
+	}
+	return nil
+}
