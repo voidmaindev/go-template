@@ -19,6 +19,12 @@ import (
 	"github.com/voidmaindev/GoTemplate/internal/redis"
 )
 
+// Connection retry settings
+const (
+	RetryAttempts = 5
+	RetryDelay    = 5 * time.Second
+)
+
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve [app]",
@@ -73,7 +79,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Connect to database
 	slog.Info("Connecting to database...")
-	db, err := database.ConnectWithRetry(&cfg.Database, 5, 5*time.Second)
+	db, err := database.ConnectWithRetry(&cfg.Database, RetryAttempts, RetryDelay)
 	if err != nil {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
@@ -81,7 +87,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Connect to Redis
 	slog.Info("Connecting to Redis...")
-	redisClient, err := redis.ConnectWithRetry(&cfg.Redis, 5, 5*time.Second)
+	redisClient, err := redis.ConnectWithRetry(&cfg.Redis, RetryAttempts, RetryDelay)
 	if err != nil {
 		slog.Error("Failed to connect to Redis", "error", err)
 		os.Exit(1)

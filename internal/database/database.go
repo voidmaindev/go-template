@@ -12,6 +12,9 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// SlowQueryThreshold defines the duration above which queries are logged as slow
+const SlowQueryThreshold = 200 * time.Millisecond
+
 // slogAdapter adapts slog to GORM's logger interface
 type slogAdapter struct{}
 
@@ -45,7 +48,7 @@ func (s *slogAdapter) Trace(ctx context.Context, begin time.Time, fc func() (sql
 		return
 	}
 
-	if elapsed > 200*time.Millisecond {
+	if elapsed > SlowQueryThreshold {
 		slog.Warn("Slow SQL query",
 			"elapsed", elapsed,
 			"rows", rows,

@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/voidmaindev/GoTemplate/internal/app"
@@ -50,7 +49,7 @@ func runMigrate(cmd *cobra.Command, args []string) {
 	slog.Info("Running migrations", "app", appName, "description", a.Description)
 
 	// Connect to database
-	db, err := database.ConnectWithRetry(&cfg.Database, 5, 5*time.Second)
+	db, err := database.ConnectWithRetry(&cfg.Database, RetryAttempts, RetryDelay)
 	if err != nil {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)

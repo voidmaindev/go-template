@@ -8,15 +8,23 @@ import (
 	"github.com/voidmaindev/GoTemplate/internal/config"
 )
 
+// CORS configuration constants
+const (
+	corsMaxAge        = 86400 // 24 hours in seconds
+	corsAllowMethods  = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+	corsAllowHeaders  = "Origin,Content-Type,Accept,Authorization,X-Requested-With"
+	corsExposeHeaders = "Content-Length,Content-Type"
+)
+
 // SetupCORS configures CORS middleware
 func SetupCORS(app *fiber.App, cfg *config.Config) {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
-		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With",
+		AllowMethods:     corsAllowMethods,
+		AllowHeaders:     corsAllowHeaders,
 		AllowCredentials: true,
-		ExposeHeaders:    "Content-Length,Content-Type",
-		MaxAge:           86400, // 24 hours
+		ExposeHeaders:    corsExposeHeaders,
+		MaxAge:           corsMaxAge,
 	}))
 }
 
@@ -32,10 +40,10 @@ func NewCORSConfig(allowedOrigins []string) cors.Config {
 			}
 			return false
 		},
-		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With",
+		AllowMethods:     corsAllowMethods,
+		AllowHeaders:     corsAllowHeaders,
 		AllowCredentials: true,
-		ExposeHeaders:    "Content-Length,Content-Type",
-		MaxAge:           86400,
+		ExposeHeaders:    corsExposeHeaders,
+		MaxAge:           corsMaxAge,
 	}
 }
