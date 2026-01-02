@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/voidmaindev/GoTemplate/internal/common"
 	"github.com/voidmaindev/GoTemplate/internal/config"
@@ -89,10 +90,10 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 	// Find user by email
 	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, common.ErrInvalidCredentials
+		}
 		return nil, err
-	}
-	if user == nil {
-		return nil, common.ErrInvalidCredentials
 	}
 
 	// Verify password
@@ -137,16 +138,19 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 	// Get user
 	user, err := s.repo.FindByID(ctx, claims.UserID)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
 		return nil, err
-	}
-	if user == nil {
-		return nil, ErrUserNotFound
 	}
 
 	// Blacklist old refresh token
+	// We log errors but don't fail - the user should still get new tokens
 	expiry, _ := utils.GetTokenExpiry(refreshToken, s.jwtConfig.SecretKey)
 	if expiry > 0 {
-		_ = s.tokenStore.Blacklist(ctx, refreshToken, expiry)
+		if err := s.tokenStore.Blacklist(ctx, refreshToken, expiry); err != nil {
+			log.Printf("warning: failed to blacklist refresh token: %v", err)
+		}
 	}
 
 	// Generate new tokens
@@ -157,10 +161,10 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 func (s *service) GetByID(ctx context.Context, id uint) (*User, error) {
 	user, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
 		return nil, err
-	}
-	if user == nil {
-		return nil, ErrUserNotFound
 	}
 	return user, nil
 }
@@ -169,10 +173,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*User, error) {
 func (s *service) GetByEmail(ctx context.Context, email string) (*User, error) {
 	user, err := s.repo.FindByEmail(ctx, email)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
 		return nil, err
-	}
-	if user == nil {
-		return nil, ErrUserNotFound
 	}
 	return user, nil
 }
@@ -181,10 +185,10 @@ func (s *service) GetByEmail(ctx context.Context, email string) (*User, error) {
 func (s *service) Update(ctx context.Context, id uint, req *UpdateUserRequest) (*User, error) {
 	user, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
 		return nil, err
-	}
-	if user == nil {
-		return nil, ErrUserNotFound
 	}
 
 	// Map non-nil/non-empty fields from request to model
@@ -203,10 +207,10 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateUserRequest) (
 func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswordRequest) error {
 	user, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return ErrUserNotFound
+		}
 		return err
-	}
-	if user == nil {
-		return ErrUserNotFound
 	}
 
 	// Verify current password
@@ -233,12 +237,12 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswo
 
 // Delete soft-deletes a user
 func (s *service) Delete(ctx context.Context, id uint) error {
-	user, err := s.repo.FindByID(ctx, id)
+	_, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return ErrUserNotFound
+		}
 		return err
-	}
-	if user == nil {
-		return ErrUserNotFound
 	}
 
 	return s.repo.Delete(ctx, id)

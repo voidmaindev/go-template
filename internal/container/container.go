@@ -1,6 +1,8 @@
 package container
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/GoTemplate/internal/config"
 	"github.com/voidmaindev/GoTemplate/internal/redis"
@@ -71,6 +73,38 @@ func (c *Container) MustGet(key string) any {
 		panic("component not found: " + key)
 	}
 	return comp
+}
+
+// MustGetTyped retrieves a typed component from the container.
+// Panics if the component is not found or is not of the expected type.
+// Usage: handler := container.MustGetTyped[*Handler](c, "user.handler")
+func MustGetTyped[T any](c *Container, key string) T {
+	comp, ok := c.components[key]
+	if !ok {
+		panic("component not found: " + key)
+	}
+	typed, ok := comp.(T)
+	if !ok {
+		panic(fmt.Sprintf("component %s is not of expected type %T, got %T", key, *new(T), comp))
+	}
+	return typed
+}
+
+// GetTyped retrieves a typed component from the container.
+// Returns the zero value and false if not found or wrong type.
+// Usage: handler, ok := container.GetTyped[*Handler](c, "user.handler")
+func GetTyped[T any](c *Container, key string) (T, bool) {
+	comp, ok := c.components[key]
+	if !ok {
+		var zero T
+		return zero, false
+	}
+	typed, ok := comp.(T)
+	if !ok {
+		var zero T
+		return zero, false
+	}
+	return typed, true
 }
 
 // GetAllModels returns all models from all registered domains

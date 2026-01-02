@@ -59,8 +59,8 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	tokenStore := c.MustGet(TokenStoreKey).(*TokenStore)
 	jwtConfig := &c.Config.JWT
 
-	// Auth routes (public)
-	auth := api.Group("/auth")
+	// Auth routes (public) - with rate limiting to prevent brute force
+	auth := api.Group("/auth", middleware.AuthRateLimiter())
 	auth.Post("/register", handler.Register)
 	auth.Post("/login", handler.Login)
 	auth.Post("/refresh", handler.RefreshToken)

@@ -2,6 +2,8 @@ package common
 
 import (
 	"math"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -12,6 +14,24 @@ const (
 	// MaxPageSize is the maximum allowed page size
 	MaxPageSize = 100
 )
+
+// AllowedSortFields defines valid sort column names to prevent SQL injection.
+// Only lowercase snake_case field names are allowed.
+var AllowedSortFields = map[string]bool{
+	"id":           true,
+	"created_at":   true,
+	"updated_at":   true,
+	"name":         true,
+	"email":        true,
+	"code":         true,
+	"price":        true,
+	"total_amount": true,
+	"quantity":     true,
+	"population":   true,
+}
+
+// sortFieldRegex validates sort field format (alphanumeric and underscores only)
+var sortFieldRegex = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // Pagination holds pagination parameters
 type Pagination struct {
@@ -69,6 +89,38 @@ func (p *Pagination) Validate() {
 	if p.Order != "asc" && p.Order != "desc" {
 		p.Order = "desc"
 	}
+
+	// Validate and sanitize sort field
+	if p.Sort != "" && !p.isValidSortField() {
+		p.Sort = "" // Reset invalid sort to default
+	}
+}
+
+// isValidSortField checks if the sort field is safe to use in SQL
+func (p *Pagination) isValidSortField() bool {
+	if p.Sort == "" {
+		return true
+	}
+
+	// Normalize to lowercase
+	sort := strings.ToLower(p.Sort)
+
+	// Check against allowlist
+	if !AllowedSortFields[sort] {
+		return false
+	}
+
+	// Additional regex check to ensure format is safe
+	return sortFieldRegex.MatchString(sort)
+}
+
+// IsSortValid returns whether the current sort field is valid
+// Use this to check before processing if you want to return an error
+func (p *Pagination) IsSortValid() bool {
+	if p.Sort == "" {
+		return true
+	}
+	return p.isValidSortField()
 }
 
 // GetOffset returns the offset for database queries
@@ -83,13 +135,17 @@ func (p *Pagination) GetLimit() int {
 	return p.PageSize
 }
 
-// GetOrderClause returns the order clause for database queries
+// GetOrderClause returns the order clause for database queries.
+// Returns empty string if sort field is invalid or empty.
 func (p *Pagination) GetOrderClause() string {
+	p.Validate() // This sanitizes invalid sort fields
+
 	if p.Sort == "" {
 		return ""
 	}
-	p.Validate()
-	return p.Sort + " " + p.Order
+
+	// Use normalized lowercase for consistent SQL
+	return strings.ToLower(p.Sort) + " " + p.Order
 }
 
 // NewPaginatedResult creates a new paginated result

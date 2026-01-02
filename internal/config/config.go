@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -87,7 +88,37 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	// Validate configuration
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("config validation failed: %w", err)
+	}
+
 	return &cfg, nil
+}
+
+// Validate checks that the configuration is valid
+func (c *Config) Validate() error {
+	// JWT secret validation
+	if c.App.IsProduction() {
+		if c.JWT.SecretKey == "" {
+			return errors.New("JWT_SECRET is required in production")
+		}
+		if c.JWT.SecretKey == "your-super-secret-key-change-in-production-min-32-chars" {
+			return errors.New("JWT_SECRET must be changed from the default value in production")
+		}
+	}
+
+	// Ensure minimum JWT secret length
+	if c.JWT.SecretKey != "" && len(c.JWT.SecretKey) < 32 {
+		return errors.New("JWT_SECRET must be at least 32 characters")
+	}
+
+	// Validate database config
+	if c.Database.Host == "" {
+		return errors.New("database host is required")
+	}
+
+	return nil
 }
 
 // setDefaults sets default values for all configuration options

@@ -314,15 +314,28 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // @Param id path int true "User ID"
 // @Success 200 {object} common.Response
 // @Failure 401 {object} common.Response
+// @Failure 403 {object} common.Response
 // @Failure 404 {object} common.Response
 // @Router /users/{id} [delete]
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	// Get the current authenticated user
+	currentUserID, ok := middleware.GetUserIDFromContext(c)
+	if !ok {
+		return common.UnauthorizedResponse(c, "")
+	}
+
+	targetID, err := c.ParamsInt("id")
 	if err != nil {
 		return common.BadRequestResponse(c, "invalid user ID")
 	}
 
-	if err := h.service.Delete(c.Context(), uint(id)); err != nil {
+	// Authorization check: users can only delete themselves
+	// TODO: Add admin role check when RBAC is implemented
+	if uint(targetID) != currentUserID {
+		return common.ForbiddenResponse(c, "cannot delete other users")
+	}
+
+	if err := h.service.Delete(c.Context(), uint(targetID)); err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			return common.NotFoundResponse(c, "user")
 		}

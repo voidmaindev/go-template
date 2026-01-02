@@ -6,7 +6,29 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
+
+// RequestIDKey is the key used to store the request ID in fiber context
+const RequestIDKey = "request_id"
+
+// RequestIDMiddleware adds a unique request ID to each request for tracing
+func RequestIDMiddleware() fiber.Handler {
+	return requestid.New(requestid.Config{
+		Header: "X-Request-ID",
+		ContextKey: RequestIDKey,
+	})
+}
+
+// GetRequestID retrieves the request ID from the context
+func GetRequestID(c *fiber.Ctx) string {
+	if id := c.Locals(RequestIDKey); id != nil {
+		if strID, ok := id.(string); ok {
+			return strID
+		}
+	}
+	return ""
+}
 
 // SetupLogger configures request logging middleware using Fiber's built-in logger
 func SetupLogger(app *fiber.App) {
@@ -17,7 +39,7 @@ func SetupLogger(app *fiber.App) {
 	}))
 }
 
-// SetupSlogLogger sets up request logging using slog
+// SetupSlogLogger sets up request logging using slog with request ID support
 func SetupSlogLogger(app *fiber.App) {
 	app.Use(func(c *fiber.Ctx) error {
 		start := time.Now()
@@ -29,8 +51,9 @@ func SetupSlogLogger(app *fiber.App) {
 		latency := time.Since(start)
 		status := c.Response().StatusCode()
 
-		// Log based on status code
+		// Log based on status code, include request ID for tracing
 		attrs := []any{
+			"request_id", GetRequestID(c),
 			"method", c.Method(),
 			"path", c.Path(),
 			"status", status,

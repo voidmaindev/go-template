@@ -33,13 +33,14 @@ func (r *BaseRepository[T]) CreateBatch(ctx context.Context, entities []T, batch
 	return r.db.WithContext(ctx).CreateInBatches(entities, batchSize).Error
 }
 
-// FindByID retrieves an entity by its primary key
+// FindByID retrieves an entity by its primary key.
+// Returns ErrNotFound if the entity doesn't exist.
 func (r *BaseRepository[T]) FindByID(ctx context.Context, id uint) (*T, error) {
 	var entity T
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.First(&entity, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
@@ -92,13 +93,14 @@ func (r *BaseRepository[T]) FindByCondition(ctx context.Context, condition map[s
 	return entities, total, nil
 }
 
-// FindOne retrieves a single entity matching conditions
+// FindOne retrieves a single entity matching conditions.
+// Returns ErrNotFound if no entity matches.
 func (r *BaseRepository[T]) FindOne(ctx context.Context, condition map[string]any) (*T, error) {
 	var entity T
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.Where(condition).First(&entity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
