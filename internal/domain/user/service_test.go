@@ -615,7 +615,7 @@ func TestService_RefreshToken(t *testing.T) {
 			RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 			Issuer:             cfg.Issuer,
 		}
-		accessToken, _ := utils.GenerateAccessToken(1, "user@example.com", jwtCfg)
+		accessToken, _ := utils.GenerateAccessToken(1, "user@example.com", "user", jwtCfg)
 
 		_, err := svc.RefreshToken(context.Background(), accessToken)
 		if !errors.Is(err, common.ErrTokenInvalid) {

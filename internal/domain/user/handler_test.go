@@ -123,7 +123,19 @@ func generateHandlerTestToken(userID uint, email string) string {
 		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 		Issuer:             cfg.Issuer,
 	}
-	token, _ := utils.GenerateAccessToken(userID, email, jwtCfg)
+	token, _ := utils.GenerateAccessToken(userID, email, "user", jwtCfg)
+	return token
+}
+
+func generateHandlerTestAdminToken(userID uint, email string) string {
+	cfg := getHandlerTestConfig()
+	jwtCfg := &utils.JWTConfig{
+		SecretKey:          cfg.SecretKey,
+		AccessTokenExpiry:  cfg.AccessTokenExpiry,
+		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
+		Issuer:             cfg.Issuer,
+	}
+	token, _ := utils.GenerateAccessToken(userID, email, "admin", jwtCfg)
 	return token
 }
 
@@ -754,7 +766,8 @@ func TestHandler_GetByID(t *testing.T) {
 		app.Use(middleware.JWTMiddleware(cfg, nil))
 		app.Get("/users/:id", handler.GetByID)
 
-		token := generateHandlerTestToken(1, "test@example.com")
+		// Use admin token to bypass authorization and test the "not found" path
+		token := generateHandlerTestAdminToken(1, "admin@example.com")
 
 		req := httptest.NewRequest(http.MethodGet, "/users/999", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -815,7 +828,8 @@ func TestHandler_List(t *testing.T) {
 		app.Use(middleware.JWTMiddleware(cfg, nil))
 		app.Get("/users", handler.List)
 
-		token := generateHandlerTestToken(1, "test@example.com")
+		// List requires admin role
+		token := generateHandlerTestAdminToken(1, "admin@example.com")
 
 		req := httptest.NewRequest(http.MethodGet, "/users?page=1&page_size=10", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -848,7 +862,8 @@ func TestHandler_List(t *testing.T) {
 		app.Use(middleware.JWTMiddleware(cfg, nil))
 		app.Get("/users", handler.List)
 
-		token := generateHandlerTestToken(1, "test@example.com")
+		// List requires admin role
+		token := generateHandlerTestAdminToken(1, "admin@example.com")
 
 		req := httptest.NewRequest(http.MethodGet, "/users", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -887,9 +902,10 @@ func TestHandler_Delete(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
+		// Delete now returns 204 No Content
+		if resp.StatusCode != http.StatusNoContent {
 			bodyBytes, _ := io.ReadAll(resp.Body)
-			t.Errorf("Expected status 200, got %d: %s", resp.StatusCode, string(bodyBytes))
+			t.Errorf("Expected status 204, got %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 	})
 

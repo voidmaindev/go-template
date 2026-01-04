@@ -43,12 +43,9 @@ func NoContentResponse(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// DeletedResponse sends a success response for deletion
+// DeletedResponse sends a 204 No Content response for deletion
 func DeletedResponse(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusOK).JSON(Response{
-		Success: true,
-		Message: "deleted successfully",
-	})
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // ErrorResponse sends an error response with a status code
@@ -121,6 +118,14 @@ func ConflictResponse(c *fiber.Ctx, message string) error {
 // InternalServerErrorResponse sends a 500 Internal Server Error response
 func InternalServerErrorResponse(c *fiber.Ctx) error {
 	return ErrorResponse(c, fiber.StatusInternalServerError, "internal server error")
+}
+
+// ServiceUnavailableResponse sends a 503 Service Unavailable response
+func ServiceUnavailableResponse(c *fiber.Ctx, message string) error {
+	if message == "" {
+		message = "service temporarily unavailable"
+	}
+	return ErrorResponse(c, fiber.StatusServiceUnavailable, message)
 }
 
 // HandleError handles common errors and returns appropriate responses

@@ -43,13 +43,22 @@ func JWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist) fiber.Handle
 				}
 			}
 
-			// Validate token type is access token
+			// Validate token claims
 			user := c.Locals("user").(*jwt.Token)
 			claims := user.Claims.(jwt.MapClaims)
 
+			// Validate token type is access token
 			tokenType, ok := claims["token_type"].(string)
 			if !ok || tokenType != string(utils.AccessToken) {
 				return common.UnauthorizedResponse(c, "invalid token type")
+			}
+
+			// Validate issuer matches expected issuer
+			if cfg.Issuer != "" {
+				issuer, ok := claims["iss"].(string)
+				if !ok || issuer != cfg.Issuer {
+					return common.UnauthorizedResponse(c, "invalid token issuer")
+				}
 			}
 
 			return c.Next()
@@ -155,4 +164,49 @@ func RequireAuth() fiber.Handler {
 		}
 		return c.Next()
 	}
+}
+
+// GetRoleFromContext extracts the user role from the Fiber context
+func GetRoleFromContext(c *fiber.Ctx) (string, bool) {
+	user, ok := c.Locals("user").(*jwt.Token)
+	if !ok {
+		return "", false
+	}
+
+	claims, ok := user.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", false
+	}
+
+	role, ok := claims["role"].(string)
+	return role, ok
+}
+
+// IsAdmin checks if the current user has admin role
+func IsAdmin(c *fiber.Ctx) bool {
+	role, ok := GetRoleFromContext(c)
+	return ok && role == "admin"
+}
+
+// RequireRole creates middleware that requires specific role(s)
+func RequireRole(roles ...string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userRole, ok := GetRoleFromContext(c)
+		if !ok {
+			return common.UnauthorizedResponse(c, "authentication required")
+		}
+
+		for _, role := range roles {
+			if userRole == role {
+				return c.Next()
+			}
+		}
+
+		return common.ForbiddenResponse(c, "insufficient permissions")
+	}
+}
+
+// RequireAdmin creates middleware that requires admin role
+func RequireAdmin() fiber.Handler {
+	return RequireRole("admin")
 }

@@ -18,8 +18,8 @@ type CreateDocumentRequest struct {
 // CreateDocumentItemRequest represents a line item in create request
 type CreateDocumentItemRequest struct {
 	ItemID   uint  `json:"item_id" validate:"required,gt=0"`
-	Quantity int   `json:"quantity" validate:"required,gt=0"`
-	Price    int64 `json:"price" validate:"required,gte=0"`
+	Quantity int   `json:"quantity" validate:"required,gte=1,lte=1000000"`
+	Price    int64 `json:"price" validate:"required,gte=0,lte=100000000000"`
 }
 
 // UpdateDocumentRequest represents the update document request
@@ -32,14 +32,14 @@ type UpdateDocumentRequest struct {
 // AddDocumentItemRequest represents the add item request
 type AddDocumentItemRequest struct {
 	ItemID   uint  `json:"item_id" validate:"required,gt=0"`
-	Quantity int   `json:"quantity" validate:"required,gt=0"`
-	Price    int64 `json:"price" validate:"required,gte=0"`
+	Quantity int   `json:"quantity" validate:"required,gte=1,lte=1000000"`
+	Price    int64 `json:"price" validate:"required,gte=0,lte=100000000000"`
 }
 
 // UpdateDocumentItemRequest represents the update item request
 type UpdateDocumentItemRequest struct {
-	Quantity *int   `json:"quantity" validate:"omitempty,gt=0"`
-	Price    *int64 `json:"price" validate:"omitempty,gte=0"`
+	Quantity *int   `json:"quantity" validate:"omitempty,gte=1,lte=1000000"`
+	Price    *int64 `json:"price" validate:"omitempty,gte=0,lte=100000000000"`
 }
 
 // DocumentResponse represents the document response

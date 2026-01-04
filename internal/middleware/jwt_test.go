@@ -48,7 +48,7 @@ func generateTestToken(userID uint, email string, cfg *config.JWTConfig) string 
 		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 		Issuer:             cfg.Issuer,
 	}
-	token, _ := utils.GenerateAccessToken(userID, email, jwtCfg)
+	token, _ := utils.GenerateAccessToken(userID, email, "user", jwtCfg)
 	return token
 }
 
@@ -59,7 +59,7 @@ func generateTestRefreshToken(userID uint, email string, cfg *config.JWTConfig) 
 		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 		Issuer:             cfg.Issuer,
 	}
-	token, _ := utils.GenerateRefreshToken(userID, email, jwtCfg)
+	token, _ := utils.GenerateRefreshToken(userID, email, "user", jwtCfg)
 	return token
 }
 

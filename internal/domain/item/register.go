@@ -56,9 +56,10 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	jwtConfig := &c.Config.JWT
 
 	items := api.Group("/items", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	items.Post("/", handler.Create)
 	items.Get("/", handler.List)
 	items.Get("/:id", handler.GetByID)
-	items.Put("/:id", handler.Update)
-	items.Delete("/:id", handler.Delete)
+	// Write operations require admin role
+	items.Post("/", middleware.RequireAdmin(), handler.Create)
+	items.Put("/:id", middleware.RequireAdmin(), handler.Update)
+	items.Delete("/:id", middleware.RequireAdmin(), handler.Delete)
 }

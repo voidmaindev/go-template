@@ -124,6 +124,11 @@ func (c *Config) Validate() error {
 		return errors.New("database host is required")
 	}
 
+	// Database SSL validation in production
+	if c.App.IsProduction() && c.Database.SSLMode == "disable" {
+		return errors.New("database SSL cannot be disabled in production")
+	}
+
 	return nil
 }
 
@@ -148,7 +153,7 @@ func setDefaults() {
 	viper.SetDefault("database.user", "postgres")
 	viper.SetDefault("database.password", "postgres")
 	viper.SetDefault("database.dbname", "go-template")
-	viper.SetDefault("database.sslmode", "disable")
+	viper.SetDefault("database.sslmode", "require")
 	viper.SetDefault("database.max_idle_conns", 10)
 	viper.SetDefault("database.max_open_conns", 100)
 	viper.SetDefault("database.max_lifetime", time.Hour)

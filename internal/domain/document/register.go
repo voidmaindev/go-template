@@ -68,15 +68,17 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 
 	documents := api.Group("/documents", middleware.JWTMiddleware(jwtConfig, tokenStore))
 
-	// Document CRUD
-	documents.Post("/", handler.Create)
+	// Document read operations
 	documents.Get("/", handler.List)
 	documents.Get("/:id", handler.GetByID)
-	documents.Put("/:id", handler.Update)
-	documents.Delete("/:id", handler.Delete)
 
-	// Document items
-	documents.Post("/:id/items", handler.AddItem)
-	documents.Put("/:id/items/:itemId", handler.UpdateItem)
-	documents.Delete("/:id/items/:itemId", handler.RemoveItem)
+	// Document write operations require admin role
+	documents.Post("/", middleware.RequireAdmin(), handler.Create)
+	documents.Put("/:id", middleware.RequireAdmin(), handler.Update)
+	documents.Delete("/:id", middleware.RequireAdmin(), handler.Delete)
+
+	// Document items - write operations require admin role
+	documents.Post("/:id/items", middleware.RequireAdmin(), handler.AddItem)
+	documents.Put("/:id/items/:itemId", middleware.RequireAdmin(), handler.UpdateItem)
+	documents.Delete("/:id/items/:itemId", middleware.RequireAdmin(), handler.RemoveItem)
 }

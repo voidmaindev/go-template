@@ -2,12 +2,16 @@ package user
 
 import (
 	"errors"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/pkg/validator"
 )
+
+// Minimum response time for sensitive operations to prevent timing attacks
+const minPasswordChangeResponseTime = 200 * time.Millisecond
 
 // Handler handles HTTP requests for users
 type Handler struct {
@@ -135,6 +139,9 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 		if errors.Is(err, common.ErrTokenInvalid) || errors.Is(err, common.ErrTokenBlacklisted) {
 			return common.UnauthorizedResponse(c, "invalid or expired refresh token")
 		}
+		if errors.Is(err, ErrTokenRefreshUnavailable) {
+			return common.ServiceUnavailableResponse(c, "token refresh temporarily unavailable")
+		}
 		return common.InternalServerErrorResponse(c)
 	}
 
@@ -216,6 +223,15 @@ func (h *Handler) UpdateMe(c *fiber.Ctx) error {
 // @Failure 401 {object} common.Response
 // @Router /users/me/password [put]
 func (h *Handler) ChangePassword(c *fiber.Ctx) error {
+	// Add constant-time delay to prevent timing attacks
+	start := time.Now()
+	defer func() {
+		elapsed := time.Since(start)
+		if elapsed < minPasswordChangeResponseTime {
+			time.Sleep(minPasswordChangeResponseTime - elapsed)
+		}
+	}()
+
 	userID, ok := middleware.GetUserIDFromContext(c)
 	if !ok {
 		return common.UnauthorizedResponse(c, "")
@@ -254,15 +270,26 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 // @Param id path int true "User ID"
 // @Success 200 {object} common.Response{data=UserResponse}
 // @Failure 401 {object} common.Response
+// @Failure 403 {object} common.Response
 // @Failure 404 {object} common.Response
 // @Router /users/{id} [get]
 func (h *Handler) GetByID(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	currentUserID, ok := middleware.GetUserIDFromContext(c)
+	if !ok {
+		return common.UnauthorizedResponse(c, "")
+	}
+
+	targetID, err := c.ParamsInt("id")
 	if err != nil {
 		return common.BadRequestResponse(c, "invalid user ID")
 	}
 
-	user, err := h.service.GetByID(c.Context(), uint(id))
+	// Authorization: only allow self-view or admin
+	if uint(targetID) != currentUserID && !middleware.IsAdmin(c) {
+		return common.ForbiddenResponse(c, "cannot view other users")
+	}
+
+	user, err := h.service.GetByID(c.Context(), uint(targetID))
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			return common.NotFoundResponse(c, "user")
@@ -274,7 +301,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 }
 
 // List handles listing all users
-// @Summary List users
+// @Summary List users (admin only)
 // @Tags Users
 // @Security BearerAuth
 // @Produce json
@@ -282,8 +309,14 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 // @Param page_size query int false "Page size"
 // @Success 200 {object} common.Response{data=common.PaginatedResult[UserResponse]}
 // @Failure 401 {object} common.Response
+// @Failure 403 {object} common.Response
 // @Router /users [get]
 func (h *Handler) List(c *fiber.Ctx) error {
+	// Authorization: only admin can list all users
+	if !middleware.IsAdmin(c) {
+		return common.ForbiddenResponse(c, "admin access required")
+	}
+
 	pagination := &common.Pagination{
 		Page:     c.QueryInt("page", 1),
 		PageSize: c.QueryInt("page_size", 10),
@@ -328,9 +361,8 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return common.BadRequestResponse(c, "invalid user ID")
 	}
 
-	// Authorization check: users can only delete themselves
-	// TODO: Add admin role check when RBAC is implemented
-	if uint(targetID) != currentUserID {
+	// Authorization: only allow self-delete or admin
+	if uint(targetID) != currentUserID && !middleware.IsAdmin(c) {
 		return common.ForbiddenResponse(c, "cannot delete other users")
 	}
 

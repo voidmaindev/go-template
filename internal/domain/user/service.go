@@ -17,10 +17,11 @@ const (
 
 // Service errors
 var (
-	ErrEmailAlreadyExists = errors.New("email already exists")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrInvalidPassword    = errors.New("invalid password")
-	ErrSamePassword       = errors.New("new password must be different from current password")
+	ErrEmailAlreadyExists     = errors.New("email already exists")
+	ErrUserNotFound           = errors.New("user not found")
+	ErrInvalidPassword        = errors.New("invalid password")
+	ErrSamePassword           = errors.New("new password must be different from current password")
+	ErrTokenRefreshUnavailable = errors.New("token refresh temporarily unavailable")
 )
 
 // Service defines the user service interface
@@ -44,17 +45,19 @@ type Service interface {
 
 // service implements the Service interface
 type service struct {
-	repo       Repository
-	tokenStore *TokenStore
-	jwtConfig  *config.JWTConfig
+	repo         Repository
+	tokenStore   *TokenStore
+	jwtConfig    *config.JWTConfig
+	isProduction bool
 }
 
 // NewService creates a new user service
-func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig) Service {
+func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, isProduction bool) Service {
 	return &service{
-		repo:       repo,
-		tokenStore: tokenStore,
-		jwtConfig:  jwtConfig,
+		repo:         repo,
+		tokenStore:   tokenStore,
+		jwtConfig:    jwtConfig,
+		isProduction: isProduction,
 	}
 }
 
@@ -75,11 +78,12 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 		return nil, err
 	}
 
-	// Create user
+	// Create user with default role
 	user := &User{
 		Email:    req.Email,
 		Password: hashedPassword,
 		Name:     req.Name,
+		Role:     RoleUser,
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
@@ -150,17 +154,19 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 	}
 
 	// Blacklist old refresh token with retry logic
-	// We retry to ensure the old token is invalidated, but don't fail the refresh
-	// if all retries fail - the user should still get new tokens
+	// In production, fail the operation if blacklisting fails to prevent token reuse
 	expiry, _ := utils.GetTokenExpiry(refreshToken, s.jwtConfig.SecretKey)
 	if expiry > 0 {
 		if err := s.tokenStore.BlacklistWithRetry(ctx, refreshToken, expiry, blacklistMaxRetries); err != nil {
-			// Log at error level since this is a security concern
 			slog.Error("failed to blacklist refresh token after retries",
 				"error", err,
 				"retries", blacklistMaxRetries,
 				"userID", claims.UserID,
 			)
+			// In production, fail the request to prevent stolen token reuse
+			if s.isProduction {
+				return nil, ErrTokenRefreshUnavailable
+			}
 		}
 	}
 
@@ -278,7 +284,7 @@ func (s *service) generateTokenResponse(user *User) (*TokenResponse, error) {
 		Issuer:             s.jwtConfig.Issuer,
 	}
 
-	tokenPair, err := utils.GenerateTokenPair(user.ID, user.Email, jwtConfig)
+	tokenPair, err := utils.GenerateTokenPair(user.ID, user.Email, string(user.Role), jwtConfig)
 	if err != nil {
 		return nil, err
 	}

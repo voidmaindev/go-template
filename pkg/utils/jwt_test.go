@@ -17,7 +17,7 @@ func getTestJWTConfig() *JWTConfig {
 func TestGenerateAccessToken(t *testing.T) {
 	config := getTestJWTConfig()
 
-	token, err := GenerateAccessToken(1, "test@example.com", config)
+	token, err := GenerateAccessToken(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
@@ -46,7 +46,7 @@ func TestGenerateAccessToken(t *testing.T) {
 func TestGenerateRefreshToken(t *testing.T) {
 	config := getTestJWTConfig()
 
-	token, err := GenerateRefreshToken(1, "test@example.com", config)
+	token, err := GenerateRefreshToken(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateRefreshToken() error = %v", err)
 	}
@@ -72,7 +72,7 @@ func TestGenerateRefreshToken(t *testing.T) {
 func TestGenerateTokenPair(t *testing.T) {
 	config := getTestJWTConfig()
 
-	pair, err := GenerateTokenPair(1, "test@example.com", config)
+	pair, err := GenerateTokenPair(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateTokenPair() error = %v", err)
 	}
@@ -118,7 +118,7 @@ func TestValidateToken_InvalidToken(t *testing.T) {
 func TestValidateToken_WrongSecret(t *testing.T) {
 	config := getTestJWTConfig()
 
-	token, err := GenerateAccessToken(1, "test@example.com", config)
+	token, err := GenerateAccessToken(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
@@ -134,7 +134,7 @@ func TestValidateAccessToken_WithRefreshToken(t *testing.T) {
 	config := getTestJWTConfig()
 
 	// Generate a refresh token
-	token, err := GenerateRefreshToken(1, "test@example.com", config)
+	token, err := GenerateRefreshToken(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateRefreshToken() error = %v", err)
 	}
@@ -150,7 +150,7 @@ func TestValidateRefreshToken_WithAccessToken(t *testing.T) {
 	config := getTestJWTConfig()
 
 	// Generate an access token
-	token, err := GenerateAccessToken(1, "test@example.com", config)
+	token, err := GenerateAccessToken(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
@@ -170,7 +170,7 @@ func TestValidateToken_ExpiredToken(t *testing.T) {
 		Issuer:             "test-issuer",
 	}
 
-	token, err := GenerateAccessToken(1, "test@example.com", config)
+	token, err := GenerateAccessToken(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
@@ -184,7 +184,7 @@ func TestValidateToken_ExpiredToken(t *testing.T) {
 func TestGetTokenExpiry(t *testing.T) {
 	config := getTestJWTConfig()
 
-	token, err := GenerateAccessToken(1, "test@example.com", config)
+	token, err := GenerateAccessToken(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
@@ -211,7 +211,7 @@ func TestGetTokenExpiry_ExpiredToken(t *testing.T) {
 		Issuer:             "test-issuer",
 	}
 
-	token, err := GenerateAccessToken(1, "test@example.com", config)
+	token, err := GenerateAccessToken(1, "test@example.com", "user", config)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}

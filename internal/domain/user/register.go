@@ -45,7 +45,7 @@ func (d *domain) Register(c *container.Container) {
 	c.Set(RepositoryKey, repo)
 
 	// Initialize service
-	service := NewService(repo, tokenStore, &c.Config.JWT)
+	service := NewService(repo, tokenStore, &c.Config.JWT, c.Config.App.IsProduction())
 	c.Set(ServiceKey, service)
 
 	// Initialize handler

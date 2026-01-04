@@ -21,6 +21,7 @@ const (
 type Claims struct {
 	UserID    uint      `json:"user_id"`
 	Email     string    `json:"email"`
+	Role      string    `json:"role"`
 	TokenType TokenType `json:"token_type"`
 	jwt.RegisteredClaims
 }
@@ -47,23 +48,23 @@ var (
 )
 
 // GenerateAccessToken generates a new access token
-func GenerateAccessToken(userID uint, email string, config *JWTConfig) (string, error) {
-	return generateToken(userID, email, AccessToken, config.AccessTokenExpiry, config)
+func GenerateAccessToken(userID uint, email, role string, config *JWTConfig) (string, error) {
+	return generateToken(userID, email, role, AccessToken, config.AccessTokenExpiry, config)
 }
 
 // GenerateRefreshToken generates a new refresh token
-func GenerateRefreshToken(userID uint, email string, config *JWTConfig) (string, error) {
-	return generateToken(userID, email, RefreshToken, config.RefreshTokenExpiry, config)
+func GenerateRefreshToken(userID uint, email, role string, config *JWTConfig) (string, error) {
+	return generateToken(userID, email, role, RefreshToken, config.RefreshTokenExpiry, config)
 }
 
 // GenerateTokenPair generates both access and refresh tokens
-func GenerateTokenPair(userID uint, email string, config *JWTConfig) (*TokenPair, error) {
-	accessToken, err := GenerateAccessToken(userID, email, config)
+func GenerateTokenPair(userID uint, email, role string, config *JWTConfig) (*TokenPair, error) {
+	accessToken, err := GenerateAccessToken(userID, email, role, config)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, err := GenerateRefreshToken(userID, email, config)
+	refreshToken, err := GenerateRefreshToken(userID, email, role, config)
 	if err != nil {
 		return nil, err
 	}
@@ -76,11 +77,12 @@ func GenerateTokenPair(userID uint, email string, config *JWTConfig) (*TokenPair
 }
 
 // generateToken creates a new JWT token
-func generateToken(userID uint, email string, tokenType TokenType, expiry time.Duration, config *JWTConfig) (string, error) {
+func generateToken(userID uint, email, role string, tokenType TokenType, expiry time.Duration, config *JWTConfig) (string, error) {
 	now := time.Now()
 	claims := &Claims{
 		UserID:    userID,
 		Email:     email,
+		Role:      role,
 		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    config.Issuer,

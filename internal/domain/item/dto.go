@@ -8,14 +8,14 @@ import (
 type CreateItemRequest struct {
 	Name        string `json:"name" validate:"required,min=1,max=200"`
 	Description string `json:"description" validate:"omitempty,max=5000"`
-	Price       int64  `json:"price" validate:"gte=0"`
+	Price       int64  `json:"price" validate:"gte=0,lte=100000000000"`
 }
 
 // UpdateItemRequest represents the update item request
 type UpdateItemRequest struct {
 	Name        *string `json:"name" validate:"omitempty,min=1,max=200"`
 	Description *string `json:"description" validate:"omitempty,max=5000"`
-	Price       *int64  `json:"price" validate:"omitempty,gte=0"`
+	Price       *int64  `json:"price" validate:"omitempty,gte=0,lte=100000000000"`
 }
 
 // ItemResponse represents the item response

@@ -60,11 +60,12 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	jwtConfig := &c.Config.JWT
 
 	cities := api.Group("/cities", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	cities.Post("/", handler.Create)
 	cities.Get("/", handler.List)
 	cities.Get("/:id", handler.GetByID)
-	cities.Put("/:id", handler.Update)
-	cities.Delete("/:id", handler.Delete)
+	// Write operations require admin role
+	cities.Post("/", middleware.RequireAdmin(), handler.Create)
+	cities.Put("/:id", middleware.RequireAdmin(), handler.Update)
+	cities.Delete("/:id", middleware.RequireAdmin(), handler.Delete)
 
 	// Nested route for cities by country
 	countries := api.Group("/countries", middleware.JWTMiddleware(jwtConfig, tokenStore))
