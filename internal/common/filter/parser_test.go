@@ -382,3 +382,122 @@ func TestReservedParams(t *testing.T) {
 		}
 	}
 }
+
+func TestMultipleSameFieldFilters(t *testing.T) {
+	t.Run("multiple filters on same field with different operators", func(t *testing.T) {
+		// Simulate parsing multiple filters on the same field
+		// This tests the core logic that allows date range filtering like:
+		// ?created_at__gte=2024-01-01&created_at__lte=2024-12-31
+		params := &Params{
+			Page:  1,
+			Limit: 10,
+		}
+
+		// Manually add filters as ParseFromQuery would via VisitAll
+		params.Filters = append(params.Filters, FilterParam{
+			Field:    "created_at",
+			Operator: OpGte,
+			Value:    "2024-01-01",
+		})
+		params.Filters = append(params.Filters, FilterParam{
+			Field:    "created_at",
+			Operator: OpLte,
+			Value:    "2024-12-31",
+		})
+
+		// Verify both filters are present
+		if len(params.Filters) != 2 {
+			t.Fatalf("Expected 2 filters, got %d", len(params.Filters))
+		}
+
+		// Verify first filter
+		if params.Filters[0].Field != "created_at" {
+			t.Errorf("Filter 0 field = %s, want created_at", params.Filters[0].Field)
+		}
+		if params.Filters[0].Operator != OpGte {
+			t.Errorf("Filter 0 operator = %s, want gte", params.Filters[0].Operator)
+		}
+		if params.Filters[0].Value != "2024-01-01" {
+			t.Errorf("Filter 0 value = %s, want 2024-01-01", params.Filters[0].Value)
+		}
+
+		// Verify second filter
+		if params.Filters[1].Field != "created_at" {
+			t.Errorf("Filter 1 field = %s, want created_at", params.Filters[1].Field)
+		}
+		if params.Filters[1].Operator != OpLte {
+			t.Errorf("Filter 1 operator = %s, want lte", params.Filters[1].Operator)
+		}
+		if params.Filters[1].Value != "2024-12-31" {
+			t.Errorf("Filter 1 value = %s, want 2024-12-31", params.Filters[1].Value)
+		}
+	})
+
+	t.Run("price range with multiple filters", func(t *testing.T) {
+		params := &Params{
+			Page:  1,
+			Limit: 10,
+		}
+
+		// Simulate: ?price__gte=1000&price__lte=5000
+		params.Filters = append(params.Filters, FilterParam{
+			Field:    "price",
+			Operator: OpGte,
+			Value:    "1000",
+		})
+		params.Filters = append(params.Filters, FilterParam{
+			Field:    "price",
+			Operator: OpLte,
+			Value:    "5000",
+		})
+
+		if len(params.Filters) != 2 {
+			t.Fatalf("Expected 2 filters, got %d", len(params.Filters))
+		}
+
+		// Both filters should have the same field
+		if params.Filters[0].Field != params.Filters[1].Field {
+			t.Error("Both filters should have the same field 'price'")
+		}
+
+		// But different operators
+		if params.Filters[0].Operator == params.Filters[1].Operator {
+			t.Error("Filters should have different operators (gte vs lte)")
+		}
+	})
+
+	t.Run("three filters on same field", func(t *testing.T) {
+		params := &Params{
+			Page:  1,
+			Limit: 10,
+		}
+
+		// Simulate: ?id__gt=10&id__lt=100&id__in=20,30,40
+		params.Filters = append(params.Filters, FilterParam{
+			Field:    "id",
+			Operator: OpGt,
+			Value:    "10",
+		})
+		params.Filters = append(params.Filters, FilterParam{
+			Field:    "id",
+			Operator: OpLt,
+			Value:    "100",
+		})
+		params.Filters = append(params.Filters, FilterParam{
+			Field:    "id",
+			Operator: OpIn,
+			Value:    "20,30,40",
+		})
+
+		if len(params.Filters) != 3 {
+			t.Fatalf("Expected 3 filters, got %d", len(params.Filters))
+		}
+
+		// All three should be on the same field
+		for i, f := range params.Filters {
+			if f.Field != "id" {
+				t.Errorf("Filter %d field = %s, want id", i, f.Field)
+			}
+		}
+	})
+}

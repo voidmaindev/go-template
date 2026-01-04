@@ -208,6 +208,23 @@ Filter on related entity fields using dot notation (one level deep):
 ?city.country.code=DEU             # Filter documents by city's country code
 ```
 
+### Range Filtering (Multiple Filters on Same Field)
+
+You can apply multiple filters on the same field to create range queries:
+
+```bash
+# Date range: items created in 2024
+GET /api/v1/items?created_at__gte=2024-01-01&created_at__lte=2024-12-31
+
+# Price range: items between $10 and $100
+GET /api/v1/items?price__gte=1000&price__lte=10000
+
+# ID range with exclusion
+GET /api/v1/items?id__gt=10&id__lt=100
+```
+
+Each filter is applied with AND logic, so all conditions must be satisfied.
+
 ### Sorting
 
 ```
