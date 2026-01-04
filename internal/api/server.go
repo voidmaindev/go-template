@@ -263,17 +263,8 @@ func (s *Server) ListUsers(ctx context.Context, request ListUsersRequestObject) 
 		}, nil
 	}
 
-	params := buildFilterParams(request.Params.Page, request.Params.PageSize,
-		(*string)(request.Params.Sort), (*string)(request.Params.Order))
-
-	// Add role filter if provided
-	if request.Params.Role != nil {
-		params.Filters = append(params.Filters, filter.FilterParam{
-			Field:    "role",
-			Operator: filter.OpEq,
-			Value:    string(*request.Params.Role),
-		})
-	}
+	// Parse all query parameters for dynamic filtering
+	params := filter.ParseFromQuery(fiberCtx)
 
 	result, err := s.userService.ListFiltered(ctx, params)
 	if err != nil {
@@ -356,31 +347,13 @@ func (s *Server) DeleteUser(ctx context.Context, request DeleteUserRequestObject
 
 // ListItems implements StrictServerInterface.
 func (s *Server) ListItems(ctx context.Context, request ListItemsRequestObject) (ListItemsResponseObject, error) {
-	params := buildFilterParams(request.Params.Page, request.Params.PageSize,
-		request.Params.Sort, (*string)(request.Params.Order))
+	fiberCtx := getFiberContext(ctx)
+	if fiberCtx == nil {
+		return ListItems401JSONResponse{}, nil
+	}
 
-	// Add filters
-	if request.Params.NameContains != nil {
-		params.Filters = append(params.Filters, filter.FilterParam{
-			Field:    "name",
-			Operator: filter.OpContains,
-			Value:    *request.Params.NameContains,
-		})
-	}
-	if request.Params.PriceGte != nil {
-		params.Filters = append(params.Filters, filter.FilterParam{
-			Field:    "price",
-			Operator: filter.OpGte,
-			Value:    intToString(*request.Params.PriceGte),
-		})
-	}
-	if request.Params.PriceLte != nil {
-		params.Filters = append(params.Filters, filter.FilterParam{
-			Field:    "price",
-			Operator: filter.OpLte,
-			Value:    intToString(*request.Params.PriceLte),
-		})
-	}
+	// Parse all query parameters for dynamic filtering
+	params := filter.ParseFromQuery(fiberCtx)
 
 	result, err := s.itemService.ListFiltered(ctx, params)
 	if err != nil {
@@ -501,8 +474,13 @@ func (s *Server) DeleteItem(ctx context.Context, request DeleteItemRequestObject
 
 // ListCountries implements StrictServerInterface.
 func (s *Server) ListCountries(ctx context.Context, request ListCountriesRequestObject) (ListCountriesResponseObject, error) {
-	params := buildFilterParams(request.Params.Page, request.Params.PageSize,
-		request.Params.Sort, (*string)(request.Params.Order))
+	fiberCtx := getFiberContext(ctx)
+	if fiberCtx == nil {
+		return ListCountries401JSONResponse{}, nil
+	}
+
+	// Parse all query parameters for dynamic filtering
+	params := filter.ParseFromQuery(fiberCtx)
 
 	result, err := s.countryService.ListFiltered(ctx, params)
 	if err != nil {
@@ -627,24 +605,13 @@ func (s *Server) DeleteCountry(ctx context.Context, request DeleteCountryRequest
 
 // ListCities implements StrictServerInterface.
 func (s *Server) ListCities(ctx context.Context, request ListCitiesRequestObject) (ListCitiesResponseObject, error) {
-	params := buildFilterParams(request.Params.Page, request.Params.PageSize,
-		request.Params.Sort, (*string)(request.Params.Order))
+	fiberCtx := getFiberContext(ctx)
+	if fiberCtx == nil {
+		return ListCities401JSONResponse{}, nil
+	}
 
-	// Add filters
-	if request.Params.NameContains != nil {
-		params.Filters = append(params.Filters, filter.FilterParam{
-			Field:    "name",
-			Operator: filter.OpContains,
-			Value:    *request.Params.NameContains,
-		})
-	}
-	if request.Params.CountryNameContains != nil {
-		params.Filters = append(params.Filters, filter.FilterParam{
-			Field:    "country.name",
-			Operator: filter.OpContains,
-			Value:    *request.Params.CountryNameContains,
-		})
-	}
+	// Parse all query parameters for dynamic filtering
+	params := filter.ParseFromQuery(fiberCtx)
 
 	result, err := s.cityService.ListFiltered(ctx, params)
 	if err != nil {
@@ -793,8 +760,13 @@ func (s *Server) ListCitiesByCountry(ctx context.Context, request ListCitiesByCo
 
 // ListDocuments implements StrictServerInterface.
 func (s *Server) ListDocuments(ctx context.Context, request ListDocumentsRequestObject) (ListDocumentsResponseObject, error) {
-	params := buildFilterParams(request.Params.Page, request.Params.PageSize,
-		request.Params.Sort, (*string)(request.Params.Order))
+	fiberCtx := getFiberContext(ctx)
+	if fiberCtx == nil {
+		return ListDocuments401JSONResponse{}, nil
+	}
+
+	// Parse all query parameters for dynamic filtering
+	params := filter.ParseFromQuery(fiberCtx)
 
 	result, err := s.documentService.ListFiltered(ctx, params)
 	if err != nil {

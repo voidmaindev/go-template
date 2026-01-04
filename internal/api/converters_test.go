@@ -28,7 +28,7 @@ func TestToUserResponse(t *testing.T) {
 				Name:      "Test User",
 				Role:      "user",
 			},
-			wantRole: UserResponseRoleUser,
+			wantRole: User,
 		},
 		{
 			name: "admin role",
@@ -38,7 +38,7 @@ func TestToUserResponse(t *testing.T) {
 				Name:      "Admin User",
 				Role:      "admin",
 			},
-			wantRole: UserResponseRoleAdmin,
+			wantRole: Admin,
 		},
 	}
 

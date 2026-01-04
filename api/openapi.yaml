@@ -1,7 +1,71 @@
 openapi: 3.0.3
 info:
   title: Go Template API
-  description: Production-ready Go backend template with JWT authentication, filtering, and pagination
+  description: |
+    Production-ready Go backend template with JWT authentication, filtering, and pagination.
+
+    ## Filtering
+
+    All list endpoints support Django-style filtering via query parameters. Any field can be filtered using the following syntax:
+
+    ```
+    ?field=value              # Equality (default operator)
+    ?field__operator=value    # Specific operator
+    ```
+
+    ### Supported Operators
+
+    | Operator | Description | Example |
+    |----------|-------------|---------|
+    | `eq` | Equals (default) | `?name=Berlin` or `?name__eq=Berlin` |
+    | `gt` | Greater than | `?price__gt=1000` |
+    | `lt` | Less than | `?price__lt=5000` |
+    | `gte` | Greater than or equal | `?created_at__gte=2024-01-01` |
+    | `lte` | Less than or equal | `?price__lte=9999` |
+    | `contains` | Contains substring (case-insensitive) | `?name__contains=new` |
+    | `starts_with` | Starts with (case-insensitive) | `?name__starts_with=New` |
+    | `ends_with` | Ends with (case-insensitive) | `?email__ends_with=@gmail.com` |
+    | `in` | In list (comma-separated) | `?status__in=active,pending` |
+    | `is_null` | Is null | `?deleted_at__is_null=true` |
+    | `is_not_null` | Is not null | `?email__is_not_null=true` |
+
+    ### Relation Filtering
+
+    Filter on related entity fields using dot notation (one level deep):
+
+    ```
+    ?country.name__contains=Germany    # Filter cities by country name
+    ?city.country.code=DEU             # Filter documents by city's country code
+    ```
+
+    ### Range Filtering
+
+    Apply multiple filters on the same field for range queries:
+
+    ```
+    # Date range: items created in 2024
+    ?created_at__gte=2024-01-01&created_at__lte=2024-12-31
+
+    # Price range: items between $10 and $100
+    ?price__gte=1000&price__lte=10000
+    ```
+
+    ## Sorting
+
+    ```
+    ?sort=field&order=asc     # Sort ascending (default)
+    ?sort=field&order=desc    # Sort descending
+    ```
+
+    ## Pagination
+
+    ```
+    ?page=1&page_size=20      # Page 1, 20 items per page
+    ```
+
+    - Default page: 1
+    - Default page_size: 10
+    - Maximum page_size: 100
   version: 1.0.0
   contact:
     name: API Support
@@ -777,7 +841,16 @@ paths:
       tags:
         - Users
       summary: List all users
-      description: Get paginated list of users (admin only)
+      description: |
+        Get paginated list of users (admin only).
+
+        Supports all dynamic filter operators on any field. See API description for filter syntax.
+
+        **Example filters:**
+        - `?email__contains=@company.com` - Users with company email
+        - `?name__starts_with=John` - Users whose name starts with John
+        - `?role=admin` - Admin users only
+        - `?created_at__gte=2024-01-01` - Users created after Jan 1, 2024
       operationId: listUsers
       security:
         - BearerAuth: []
@@ -786,21 +859,6 @@ paths:
         - $ref: '#/components/parameters/PageSizeParam'
         - $ref: '#/components/parameters/SortParam'
         - $ref: '#/components/parameters/OrderParam'
-        - name: email__contains
-          in: query
-          schema:
-            type: string
-        - name: name__contains
-          in: query
-          schema:
-            type: string
-        - name: role
-          in: query
-          schema:
-            type: string
-            enum:
-              - user
-              - admin
       responses:
         '200':
           description: List of users
@@ -889,7 +947,15 @@ paths:
       tags:
         - Items
       summary: List items
-      description: Get paginated list of items with filtering
+      description: |
+        Get paginated list of items with filtering and sorting.
+
+        Supports all dynamic filter operators on any field. See API description for filter syntax.
+
+        **Example filters:**
+        - `?name__contains=widget` - Items with "widget" in name
+        - `?price__gte=1000&price__lte=5000` - Price range $10-$50
+        - `?created_at__gte=2024-01-01` - Created after Jan 1, 2024
       operationId: listItems
       security:
         - BearerAuth: []
@@ -898,18 +964,6 @@ paths:
         - $ref: '#/components/parameters/PageSizeParam'
         - $ref: '#/components/parameters/SortParam'
         - $ref: '#/components/parameters/OrderParam'
-        - name: name__contains
-          in: query
-          schema:
-            type: string
-        - name: price__gte
-          in: query
-          schema:
-            type: integer
-        - name: price__lte
-          in: query
-          schema:
-            type: integer
       responses:
         '200':
           description: List of items
@@ -1078,7 +1132,14 @@ paths:
       tags:
         - Countries
       summary: List countries
-      description: Get paginated list of countries
+      description: |
+        Get paginated list of countries with filtering and sorting.
+
+        Supports all dynamic filter operators on any field. See API description for filter syntax.
+
+        **Example filters:**
+        - `?name__contains=united` - Countries with "united" in name
+        - `?code=USA` - Country with code USA
       operationId: listCountries
       security:
         - BearerAuth: []
@@ -1087,14 +1148,6 @@ paths:
         - $ref: '#/components/parameters/PageSizeParam'
         - $ref: '#/components/parameters/SortParam'
         - $ref: '#/components/parameters/OrderParam'
-        - name: name__contains
-          in: query
-          schema:
-            type: string
-        - name: code
-          in: query
-          schema:
-            type: string
       responses:
         '200':
           description: List of countries
@@ -1301,7 +1354,15 @@ paths:
       tags:
         - Cities
       summary: List cities
-      description: Get paginated list of cities with filtering
+      description: |
+        Get paginated list of cities with filtering and sorting.
+
+        Supports all dynamic filter operators on any field. See API description for filter syntax.
+
+        **Example filters:**
+        - `?name__contains=new` - Cities with "new" in name
+        - `?country.name__contains=germany` - Cities in countries containing "germany"
+        - `?country_id=5` - Cities in country with ID 5
       operationId: listCities
       security:
         - BearerAuth: []
@@ -1310,14 +1371,6 @@ paths:
         - $ref: '#/components/parameters/PageSizeParam'
         - $ref: '#/components/parameters/SortParam'
         - $ref: '#/components/parameters/OrderParam'
-        - name: name__contains
-          in: query
-          schema:
-            type: string
-        - name: country.name__contains
-          in: query
-          schema:
-            type: string
       responses:
         '200':
           description: List of cities
@@ -1486,7 +1539,16 @@ paths:
       tags:
         - Documents
       summary: List documents
-      description: Get paginated list of documents
+      description: |
+        Get paginated list of documents with filtering and sorting.
+
+        Supports all dynamic filter operators on any field. See API description for filter syntax.
+
+        **Example filters:**
+        - `?code__contains=INV` - Documents with "INV" in code
+        - `?created_at__gte=2024-01-01&created_at__lte=2024-12-31` - Created in 2024
+        - `?city.country.name=Germany` - Documents for cities in Germany
+        - `?total_amount__gte=10000` - Total amount >= $100
       operationId: listDocuments
       security:
         - BearerAuth: []
@@ -1495,20 +1557,6 @@ paths:
         - $ref: '#/components/parameters/PageSizeParam'
         - $ref: '#/components/parameters/SortParam'
         - $ref: '#/components/parameters/OrderParam'
-        - name: code__contains
-          in: query
-          schema:
-            type: string
-        - name: created_at__gte
-          in: query
-          schema:
-            type: string
-            format: date
-        - name: created_at__lte
-          in: query
-          schema:
-            type: string
-            format: date
       responses:
         '200':
           description: List of documents

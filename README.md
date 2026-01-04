@@ -212,6 +212,8 @@ Full CRUD for each: `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`
 
 All list endpoints support Django-style filtering and sorting via query parameters.
 
+> **Interactive Documentation**: For a complete interactive reference with examples, visit the [Scalar API docs](http://localhost:3000/docs) when the server is running.
+
 ### Query Syntax
 
 ```
