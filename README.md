@@ -1,6 +1,6 @@
 # go-template
 
-A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, and Redis.
+A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Redis.
 
 ## Features
 
@@ -9,16 +9,16 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
 - **Dependency Container**: Type-safe dependency injection with generics
 - **Generic Repository Pattern**: Maximum database abstraction using Go generics
 - **JWT Authentication**: Access and refresh tokens with Redis-based blacklisting
-- **CLI with Cobra**: Professional CLI with subcommands (serve, migrate)
+- **CLI with Cobra**: Professional CLI with subcommands (serve, migrate, version)
 - **Docker Ready**: Multi-stage Dockerfile with docker-compose
 - **Validation**: Request validation using go-playground/validator
-- **Pagination**: Built-in pagination support for all list endpoints
 - **Filtering & Sorting**: Django-style query syntax with full operator support
+- **Pagination**: Built-in pagination for all list endpoints
 - **Structured Logging**: Uses Go 1.21+ slog for consistent, structured logging
 - **Graceful Shutdown**: Configurable shutdown timeout with connection draining
 - **Health Checks**: Comprehensive health endpoint with DB/Redis verification
 - **Security Hardened**: Error sanitization, info leakage prevention, secure defaults
-- **Comprehensive Tests**: Unit tests for services, middleware, and handlers
+- **Comprehensive Tests**: Unit tests for services, middleware, handlers, and utilities
 
 ## Project Structure
 
@@ -29,7 +29,8 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
 │   └── cmd/                         # Cobra CLI commands
 │       ├── root.go
 │       ├── serve.go                 # serve [app] command
-│       └── migrate.go               # migrate [app] command
+│       ├── migrate.go               # migrate [app] command
+│       └── version.go               # version command
 ├── internal/
 │   ├── app/                         # App definitions
 │   │   ├── app.go                   # App struct & registry
@@ -39,20 +40,29 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
 │   ├── config/                      # Configuration management
 │   ├── database/                    # Database connection & migrations
 │   ├── redis/                       # Redis client
+│   ├── logger/                      # Structured logging
 │   ├── middleware/                  # JWT, CORS, logging, recovery
-│   ├── common/                      # Generic repository, base model, responses
+│   ├── common/                      # Shared components
+│   │   ├── filter/                  # Filtering & sorting system
+│   │   ├── base_model.go            # Base model with timestamps
+│   │   ├── base_repository.go       # Generic repository implementation
+│   │   ├── repository.go            # Repository interface
+│   │   ├── pagination.go            # Pagination utilities
+│   │   ├── response.go              # HTTP response helpers
+│   │   └── errors.go                # Common errors
 │   └── domain/
 │       ├── user/                    # User domain with auth
-│       ├── item/                    # Item domain (template)
-│       ├── country/                 # Country domain (template)
+│       ├── item/                    # Item domain (example)
+│       ├── country/                 # Country domain (example)
 │       ├── city/                    # City domain (depends on country)
-│       └── document/                # Document with line items
+│       └── document/                # Document with line items (example)
 ├── pkg/
 │   ├── utils/                       # Hash, JWT, money utilities
 │   └── validator/                   # Validation helpers
-├── docker-compose.yml
-├── Dockerfile
-└── Makefile
+├── .env.example                     # Environment variables template
+├── config.yaml.example              # Configuration file template
+├── docker-compose.yml               # Docker services
+└── Dockerfile                       # Multi-stage build
 ```
 
 ## Quick Start
@@ -69,53 +79,53 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
 1. **Clone and setup environment**
    ```bash
    cp .env.example .env
-   # Edit .env with your settings
+   cp config.yaml.example config.yaml
+   # Edit .env and config.yaml with your settings
    ```
 
-2. **Start with Docker Compose**
+2. **Start infrastructure with Docker Compose**
    ```bash
-   make docker-up
+   docker compose up -d
    ```
 
-3. **Or run locally**
+3. **Run migrations and start the server**
    ```bash
-   # Start PostgreSQL and Redis
-   make docker-up
-
    # Run migrations for main app
-   go run . migrate main
+   go run ./cmd/api migrate main
 
-   # Run the main app
-   go run . serve main
+   # Start the main app
+   go run ./cmd/api serve main
    ```
 
 ### CLI Commands
 
 ```bash
 # Run an app
-go run . serve main           # Run main app (all domains)
-go run . serve geography      # Run geography app (country, city only)
+go run ./cmd/api serve main           # Run main app (all domains)
+go run ./cmd/api serve geography      # Run geography app (country, city only)
 
 # Run migrations
-go run . migrate main         # Migrate main app tables
-go run . migrate geography    # Migrate geography app tables
+go run ./cmd/api migrate main         # Migrate main app tables
+go run ./cmd/api migrate geography    # Migrate geography app tables
 
 # With flags
-go run . serve main -p 8080   # Custom port
-go run . serve main -H 127.0.0.1  # Custom host
+go run ./cmd/api serve main -p 8080   # Custom port
+go run ./cmd/api serve main -H 127.0.0.1  # Custom host
+
+# Version info
+go run ./cmd/api version
 ```
 
-### Make Commands
+### Build and Run
 
 ```bash
-make build          # Build the application
-make run            # Run the application
-make test           # Run tests
-make docker-up      # Start Docker containers
-make docker-down    # Stop Docker containers
-make docker-rebuild # Rebuild and start
-make docker-logs    # Start with logs
-make help           # Show all commands
+# Build the application
+go build -o api ./cmd/api
+
+# Run the built binary
+./api serve main
+./api migrate main
+./api version
 ```
 
 ## API Endpoints
@@ -136,7 +146,7 @@ make help           # Show all commands
 | GET | `/api/v1/users/me` | Get current user |
 | PUT | `/api/v1/users/me` | Update current user |
 | PUT | `/api/v1/users/me/password` | Change password |
-| GET | `/api/v1/users` | List all users |
+| GET | `/api/v1/users` | List all users (admin) |
 | GET | `/api/v1/users/:id` | Get user by ID |
 | DELETE | `/api/v1/users/:id` | Delete user |
 
@@ -353,7 +363,7 @@ func init() {
 }
 ```
 
-2. Run with: `go run . serve myapp`
+2. Run with: `go run ./cmd/api serve myapp`
 
 ## Removing Template Domains
 
@@ -432,11 +442,9 @@ Configuration can be set via environment variables or `config.yaml` file. Enviro
 
 ## Testing
 
-Run tests with:
-
 ```bash
 # Run all tests
-make test
+go test ./...
 
 # Run tests with verbose output
 go test ./... -v
@@ -446,6 +454,7 @@ go test ./... -cover
 
 # Run specific package tests
 go test ./internal/domain/user/... -v
+go test ./internal/common/filter/... -v
 ```
 
 ## Security Features
@@ -453,7 +462,9 @@ go test ./internal/domain/user/... -v
 - **Error Sanitization**: Internal errors are logged but not exposed to clients
 - **Password Security**: Bcrypt hashing with validation for complexity requirements
 - **Token Blacklisting**: Logout invalidates tokens with retry logic
-- **Info Leakage Prevention**: Password change returns generic errors
+- **Timing Attack Prevention**: Constant-time responses for sensitive operations
+- **Info Leakage Prevention**: Generic error messages for authentication failures
+- **SQL Injection Prevention**: Parameterized queries with field whitelisting
 - **Health Checks**: Verify both DB and Redis connectivity
 - **Graceful Shutdown**: Configurable timeout for connection draining
 
