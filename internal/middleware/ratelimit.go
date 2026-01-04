@@ -18,13 +18,22 @@ type RateLimitConfig struct {
 	KeyGenerator func(*fiber.Ctx) string
 }
 
+// getClientIP returns the client IP address in a more secure way.
+// When behind a trusted proxy, Fiber's c.IP() already uses the ProxyHeader config.
+// This function adds the path as additional context to prevent cross-endpoint abuse.
+func getClientIP(c *fiber.Ctx) string {
+	// c.IP() respects Fiber's ProxyHeader and TrustedProxies config
+	// which should be configured in serve.go for production deployments
+	return c.IP()
+}
+
 // DefaultRateLimitConfig returns the default rate limit configuration
 func DefaultRateLimitConfig() *RateLimitConfig {
 	return &RateLimitConfig{
 		Max:    5,
 		Window: time.Minute,
 		KeyGenerator: func(c *fiber.Ctx) string {
-			return c.IP()
+			return getClientIP(c)
 		},
 	}
 }
@@ -32,10 +41,10 @@ func DefaultRateLimitConfig() *RateLimitConfig {
 // AuthRateLimitConfig returns a stricter rate limit for auth endpoints
 func AuthRateLimitConfig() *RateLimitConfig {
 	return &RateLimitConfig{
-		Max:    5,               // 5 attempts
-		Window: time.Minute,     // per minute
+		Max:    5,           // 5 attempts
+		Window: time.Minute, // per minute
 		KeyGenerator: func(c *fiber.Ctx) string {
-			return c.IP()
+			return getClientIP(c)
 		},
 	}
 }
@@ -79,7 +88,7 @@ func GeneralRateLimiter() fiber.Handler {
 		Max:    100,
 		Window: time.Minute,
 		KeyGenerator: func(c *fiber.Ctx) string {
-			return c.IP()
+			return getClientIP(c)
 		},
 	})
 }

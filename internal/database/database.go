@@ -15,11 +15,15 @@ import (
 // slogAdapter adapts slog to GORM's logger interface
 type slogAdapter struct {
 	slowQueryThreshold time.Duration
+	isProduction       bool
 }
 
 // newSlogAdapter creates a new slog adapter with the given slow query threshold
-func newSlogAdapter(slowQueryThreshold time.Duration) *slogAdapter {
-	return &slogAdapter{slowQueryThreshold: slowQueryThreshold}
+func newSlogAdapter(slowQueryThreshold time.Duration, isProduction bool) *slogAdapter {
+	return &slogAdapter{
+		slowQueryThreshold: slowQueryThreshold,
+		isProduction:       isProduction,
+	}
 }
 
 func (s *slogAdapter) LogMode(level logger.LogLevel) logger.Interface {
@@ -42,6 +46,29 @@ func (s *slogAdapter) Trace(ctx context.Context, begin time.Time, fc func() (sql
 	elapsed := time.Since(begin)
 	sql, rows := fc()
 
+	// In production, don't log full SQL to avoid exposing sensitive data
+	// Only log that an operation occurred with timing info
+	if s.isProduction {
+		if err != nil {
+			slog.Error("SQL error",
+				"error", err,
+				"elapsed", elapsed,
+				"rows", rows,
+			)
+			return
+		}
+
+		if elapsed > s.slowQueryThreshold {
+			slog.Warn("Slow SQL query",
+				"elapsed", elapsed,
+				"rows", rows,
+			)
+		}
+		// Skip debug logging in production
+		return
+	}
+
+	// Development mode: log full SQL for debugging
 	if err != nil {
 		slog.Error("SQL error",
 			"error", err,
@@ -69,10 +96,10 @@ func (s *slogAdapter) Trace(ctx context.Context, begin time.Time, fc func() (sql
 }
 
 // Connect establishes a connection to the PostgreSQL database
-func Connect(cfg *config.DatabaseConfig) (*gorm.DB, error) {
+func Connect(cfg *config.DatabaseConfig, isProduction bool) (*gorm.DB, error) {
 	// Open database connection
 	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
-		Logger:                 newSlogAdapter(cfg.SlowQueryThreshold),
+		Logger:                 newSlogAdapter(cfg.SlowQueryThreshold, isProduction),
 		PrepareStmt:            true,
 		SkipDefaultTransaction: true,
 	})
@@ -101,12 +128,12 @@ func Connect(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 }
 
 // ConnectWithRetry attempts to connect to the database with retries
-func ConnectWithRetry(cfg *config.DatabaseConfig, maxRetries int, delay time.Duration) (*gorm.DB, error) {
+func ConnectWithRetry(cfg *config.DatabaseConfig, isProduction bool, maxRetries int, delay time.Duration) (*gorm.DB, error) {
 	var db *gorm.DB
 	var err error
 
 	for i := 0; i < maxRetries; i++ {
-		db, err = Connect(cfg)
+		db, err = Connect(cfg, isProduction)
 		if err == nil {
 			return db, nil
 		}

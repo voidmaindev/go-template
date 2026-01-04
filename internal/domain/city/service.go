@@ -80,10 +80,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*City, error) {
 func (s *service) GetByIDWithCountry(ctx context.Context, id uint) (*City, error) {
 	city, err := s.repo.FindByIDWithCountry(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrCityNotFound
+		}
 		return nil, err
-	}
-	if city == nil {
-		return nil, ErrCityNotFound
 	}
 	return city, nil
 }

@@ -88,7 +88,7 @@ func (r *repository) FindByIDWithDetails(ctx context.Context, id uint) (*Documen
 		First(&doc, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, nil
+			return nil, common.ErrNotFound
 		}
 		return nil, err
 	}

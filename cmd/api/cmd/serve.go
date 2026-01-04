@@ -74,7 +74,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Connect to database
 	slog.Info("Connecting to database...")
-	db, err := database.ConnectWithRetry(&cfg.Database, cfg.Database.RetryAttempts, cfg.Database.RetryDelay)
+	db, err := database.ConnectWithRetry(&cfg.Database, cfg.App.IsProduction(), cfg.Database.RetryAttempts, cfg.Database.RetryDelay)
 	if err != nil {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
@@ -114,9 +114,18 @@ func runServe(cmd *cobra.Command, args []string) {
 		IdleTimeout:           cfg.Server.IdleTimeout,
 		DisableStartupMessage: !cfg.App.Debug,
 		ErrorHandler:          customErrorHandler,
+		// Security: Configure trusted proxy settings for accurate IP detection
+		// In production behind a reverse proxy, enable proxy checking
+		EnableTrustedProxyCheck: cfg.App.IsProduction(),
+		// Use X-Forwarded-For header for client IP when behind proxy
+		ProxyHeader: fiber.HeaderXForwardedFor,
+		// Trust private network proxies (adjust for your infrastructure)
+		TrustedProxies: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1"},
 	})
 
 	// Setup global middleware
+	app.Use(middleware.RequestIDMiddleware()) // Add request ID first for tracing
+	app.Use(middleware.SecurityHeaders())     // Add security headers
 	middleware.SetupCORS(app, cfg)
 	middleware.SetupSlogLogger(app)
 	middleware.SetupCustomRecovery(app, cfg.App.IsDevelopment())
@@ -164,20 +173,35 @@ func runServe(cmd *cobra.Command, args []string) {
 		})
 	})
 
-	// Start server in goroutine
+	// Start server in goroutine with error channel for startup failures
+	serverErr := make(chan error, 1)
 	go func() {
 		addr := cfg.Server.Addr()
 		slog.Info("Server starting", "addr", addr)
 		if err := app.Listen(addr); err != nil {
-			slog.Error("Failed to start server", "error", err)
-			os.Exit(1)
+			serverErr <- err
 		}
 	}()
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+
+	// Wait for either shutdown signal or server error
+	select {
+	case err := <-serverErr:
+		slog.Error("Server failed to start", "error", err)
+		// Cleanup connections before exiting
+		if err := redisClient.Close(); err != nil {
+			slog.Error("Error closing Redis connection", "error", err)
+		}
+		if err := database.Close(db); err != nil {
+			slog.Error("Error closing database connection", "error", err)
+		}
+		os.Exit(1)
+	case <-quit:
+		// Continue to graceful shutdown
+	}
 
 	slog.Info("Shutting down server...", "timeout", cfg.Server.ShutdownTimeout)
 

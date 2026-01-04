@@ -141,10 +141,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*Document, error) {
 func (s *service) GetByIDWithDetails(ctx context.Context, id uint) (*Document, error) {
 	doc, err := s.repo.FindByIDWithDetails(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrDocumentNotFound
+		}
 		return nil, err
-	}
-	if doc == nil {
-		return nil, ErrDocumentNotFound
 	}
 	return doc, nil
 }

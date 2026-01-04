@@ -29,10 +29,22 @@ func MigrateWithIndexes(db *gorm.DB, models ...any) error {
 		return err
 	}
 
-	// Add any custom indexes here if needed
-	// Example:
-	// db.Exec("CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)")
+	// Create indexes for foreign key columns to optimize JOIN queries
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_cities_country_id ON cities(country_id)",
+		"CREATE INDEX IF NOT EXISTS idx_documents_city_id ON documents(city_id)",
+		"CREATE INDEX IF NOT EXISTS idx_document_items_document_id ON document_items(document_id)",
+		"CREATE INDEX IF NOT EXISTS idx_document_items_item_id ON document_items(item_id)",
+	}
 
+	for _, idx := range indexes {
+		if err := db.Exec(idx).Error; err != nil {
+			slog.Warn("Failed to create index", "sql", idx, "error", err)
+			// Continue with other indexes even if one fails
+		}
+	}
+
+	slog.Info("Database indexes created/verified")
 	return nil
 }
 

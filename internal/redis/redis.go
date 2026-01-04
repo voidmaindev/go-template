@@ -119,3 +119,19 @@ func (c *Client) IncrementBy(ctx context.Context, key string, value int64) (int6
 func (c *Client) GetTTL(ctx context.Context, key string) (time.Duration, error) {
 	return c.TTL(ctx, key).Result()
 }
+
+// SetMultipleWithExpiry sets multiple keys with the same value and expiry using pipeline
+// This is more efficient than setting keys individually
+func (c *Client) SetMultipleWithExpiry(ctx context.Context, keys []string, value any, expiry time.Duration) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	pipe := c.Pipeline()
+	for _, key := range keys {
+		pipe.Set(ctx, key, value, expiry)
+	}
+
+	_, err := pipe.Exec(ctx)
+	return err
+}

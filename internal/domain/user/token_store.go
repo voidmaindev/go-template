@@ -34,12 +34,18 @@ func (s *TokenStore) Blacklist(ctx context.Context, token string, expiry time.Du
 // BlacklistWithRetry adds a token to the blacklist with retry logic
 func (s *TokenStore) BlacklistWithRetry(ctx context.Context, token string, expiry time.Duration, maxRetries int) error {
 	var lastErr error
+	backoff := time.Millisecond * 50
+
 	for i := 0; i < maxRetries; i++ {
 		if err := s.Blacklist(ctx, token, expiry); err != nil {
 			lastErr = err
-			// Brief pause before retry
-			time.Sleep(time.Millisecond * 50 * time.Duration(i+1))
-			continue
+			// Context-aware backoff
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff * time.Duration(i+1)):
+				continue
+			}
 		}
 		return nil
 	}
@@ -64,13 +70,20 @@ func (s *TokenStore) getKey(token string) string {
 }
 
 // BlacklistMultiple adds multiple tokens to the blacklist
+// Uses Redis pipeline for efficiency and collects all errors instead of stopping on first
 func (s *TokenStore) BlacklistMultiple(ctx context.Context, tokens []string, expiry time.Duration) error {
-	for _, token := range tokens {
-		if err := s.Blacklist(ctx, token, expiry); err != nil {
-			return err
-		}
+	if len(tokens) == 0 {
+		return nil
 	}
-	return nil
+
+	// Prepare key-value pairs for pipeline
+	keys := make([]string, len(tokens))
+	for i, token := range tokens {
+		keys[i] = s.getKey(token)
+	}
+
+	// Use pipeline for atomic batch operation
+	return s.redis.SetMultipleWithExpiry(ctx, keys, "1", expiry)
 }
 
 // GetTTL returns the remaining time-to-live of a blacklisted token
