@@ -1,9 +1,9 @@
-# GoTemplate Configuration File
+# go-template Configuration File
 # Copy this file to config.yaml and modify as needed
 # Environment variables will override these values
 
 app:
-  name: GoTemplate
+  name: go-template
   environment: development  # development, staging, production
   debug: true
 
@@ -19,7 +19,7 @@ database:
   port: 5432
   user: postgres
   password: postgres
-  dbname: gotemplate
+  dbname: go-template
   sslmode: disable  # disable, require, verify-ca, verify-full
   max_idle_conns: 10
   max_open_conns: 100
@@ -35,7 +35,7 @@ jwt:
   secret_key: your-super-secret-key-change-in-production-min-32-chars
   access_token_expiry: 15m
   refresh_token_expiry: 168h  # 7 days
-  issuer: gotemplate
+  issuer: go-template
 
 cors:
   allowed_origins: "http://localhost:3000,http://localhost:5173"

@@ -1,4 +1,4 @@
-# GoTemplate
+# go-template
 
 A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, and Redis.
 

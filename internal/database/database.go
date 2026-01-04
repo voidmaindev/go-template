@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/voidmaindev/GoTemplate/internal/config"
+	"github.com/voidmaindev/go-template/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

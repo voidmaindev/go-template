@@ -10,13 +10,13 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/spf13/cobra"
-	"github.com/voidmaindev/GoTemplate/internal/app"
-	"github.com/voidmaindev/GoTemplate/internal/config"
-	"github.com/voidmaindev/GoTemplate/internal/container"
-	"github.com/voidmaindev/GoTemplate/internal/database"
-	"github.com/voidmaindev/GoTemplate/internal/logger"
-	"github.com/voidmaindev/GoTemplate/internal/middleware"
-	"github.com/voidmaindev/GoTemplate/internal/redis"
+	"github.com/voidmaindev/go-template/internal/app"
+	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/database"
+	"github.com/voidmaindev/go-template/internal/logger"
+	"github.com/voidmaindev/go-template/internal/middleware"
+	"github.com/voidmaindev/go-template/internal/redis"
 )
 
 // Connection retry settings

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/voidmaindev/GoTemplate/internal/common"
+	"github.com/voidmaindev/go-template/internal/common"
 )
 
 // RateLimitConfig holds rate limiting configuration

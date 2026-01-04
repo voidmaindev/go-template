@@ -2,8 +2,8 @@ package user
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/voidmaindev/GoTemplate/internal/config"
-	"github.com/voidmaindev/GoTemplate/internal/middleware"
+	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
 // RegisterRoutes registers all user routes

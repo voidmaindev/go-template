@@ -1,8 +1,8 @@
 package city
 
 import (
-	"github.com/voidmaindev/GoTemplate/internal/common"
-	"github.com/voidmaindev/GoTemplate/internal/domain/country"
+	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/domain/country"
 )
 
 // City represents a city entity

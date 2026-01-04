@@ -4,8 +4,8 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/voidmaindev/GoTemplate/internal/common"
-	"github.com/voidmaindev/GoTemplate/pkg/validator"
+	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // Handler handles HTTP requests for items

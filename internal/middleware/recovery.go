@@ -6,7 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/voidmaindev/GoTemplate/internal/common"
+	"github.com/voidmaindev/go-template/internal/common"
 )
 
 // SetupRecovery configures panic recovery middleware

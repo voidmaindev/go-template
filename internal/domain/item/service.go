@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/voidmaindev/GoTemplate/internal/common"
-	"github.com/voidmaindev/GoTemplate/pkg/utils"
+	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
 var (

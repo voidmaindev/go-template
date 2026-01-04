@@ -1,12 +1,12 @@
 package app
 
 import (
-	"github.com/voidmaindev/GoTemplate/internal/container"
-	"github.com/voidmaindev/GoTemplate/internal/domain/city"
-	"github.com/voidmaindev/GoTemplate/internal/domain/country"
-	"github.com/voidmaindev/GoTemplate/internal/domain/document"
-	"github.com/voidmaindev/GoTemplate/internal/domain/item"
-	"github.com/voidmaindev/GoTemplate/internal/domain/user"
+	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/city"
+	"github.com/voidmaindev/go-template/internal/domain/country"
+	"github.com/voidmaindev/go-template/internal/domain/document"
+	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/user"
 )
 
 func init() {

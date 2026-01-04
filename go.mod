@@ -1,4 +1,4 @@
-module github.com/voidmaindev/GoTemplate
+module github.com/voidmaindev/go-template
 
 go 1.22
 

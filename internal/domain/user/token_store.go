@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/voidmaindev/GoTemplate/internal/redis"
+	"github.com/voidmaindev/go-template/internal/redis"
 )
 
 const (

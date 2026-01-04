@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/voidmaindev/GoTemplate/internal/config"
-	"github.com/voidmaindev/GoTemplate/internal/redis"
+	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/redis"
 	"gorm.io/gorm"
 )
 

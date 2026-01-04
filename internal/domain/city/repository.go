@@ -3,7 +3,7 @@ package city
 import (
 	"context"
 
-	"github.com/voidmaindev/GoTemplate/internal/common"
+	"github.com/voidmaindev/go-template/internal/common"
 	"gorm.io/gorm"
 )
 

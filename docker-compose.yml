@@ -5,11 +5,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: gotemplate-api
+    container_name: go-template-api
     ports:
       - "${SERVER_PORT:-3000}:3000"
     environment:
-      - APP_NAME=${APP_NAME:-GoTemplate}
+      - APP_NAME=${APP_NAME:-go-template}
       - APP_ENV=${APP_ENV:-production}
       - APP_DEBUG=${APP_DEBUG:-false}
       - SERVER_HOST=0.0.0.0
@@ -18,7 +18,7 @@ services:
       - DB_PORT=5432
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_NAME=${DB_NAME:-gotemplate}
+      - DB_NAME=${DB_NAME:-go-template}
       - DB_SSL_MODE=disable
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -27,7 +27,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-168h}
-      - JWT_ISSUER=${JWT_ISSUER:-gotemplate}
+      - JWT_ISSUER=${JWT_ISSUER:-go-template}
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,7 +35,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - gotemplate-network
+      - go-template-network
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
@@ -45,27 +45,27 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: gotemplate-postgres
+    container_name: go-template-postgres
     ports:
       - "${DB_PORT:-5432}:5432"
     environment:
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-      - POSTGRES_DB=${DB_NAME:-gotemplate}
+      - POSTGRES_DB=${DB_NAME:-go-template}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-gotemplate}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-go-template}"]
       interval: 5s
       timeout: 5s
       retries: 5
     restart: unless-stopped
     networks:
-      - gotemplate-network
+      - go-template-network
 
   redis:
     image: redis:7-alpine
-    container_name: gotemplate-redis
+    container_name: go-template-redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
     command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
@@ -78,15 +78,15 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - gotemplate-network
+      - go-template-network
 
 volumes:
   postgres_data:
-    name: gotemplate-postgres-data
+    name: go-template-postgres-data
   redis_data:
-    name: gotemplate-redis-data
+    name: go-template-redis-data
 
 networks:
-  gotemplate-network:
-    name: gotemplate-network
+  go-template-network:
+    name: go-template-network
     driver: bridge

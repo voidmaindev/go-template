@@ -1,7 +1,7 @@
 package item
 
 import (
-	"github.com/voidmaindev/GoTemplate/internal/common"
+	"github.com/voidmaindev/go-template/internal/common"
 )
 
 // Item represents an item entity

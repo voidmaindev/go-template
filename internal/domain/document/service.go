@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/voidmaindev/GoTemplate/internal/common"
-	"github.com/voidmaindev/GoTemplate/internal/domain/city"
-	"github.com/voidmaindev/GoTemplate/internal/domain/item"
-	"github.com/voidmaindev/GoTemplate/pkg/utils"
+	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/domain/city"
+	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
 var (

@@ -3,8 +3,8 @@ package document
 import (
 	"time"
 
-	"github.com/voidmaindev/GoTemplate/internal/domain/city"
-	"github.com/voidmaindev/GoTemplate/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/city"
+	"github.com/voidmaindev/go-template/internal/domain/item"
 )
 
 // CreateDocumentRequest represents the create document request

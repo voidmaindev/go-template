@@ -2,11 +2,11 @@ package document
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/voidmaindev/GoTemplate/internal/container"
-	"github.com/voidmaindev/GoTemplate/internal/domain/city"
-	"github.com/voidmaindev/GoTemplate/internal/domain/item"
-	"github.com/voidmaindev/GoTemplate/internal/domain/user"
-	"github.com/voidmaindev/GoTemplate/internal/middleware"
+	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/city"
+	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/user"
+	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
 // Component keys for this domain

@@ -1,7 +1,7 @@
 package country
 
 import (
-	"github.com/voidmaindev/GoTemplate/internal/common"
+	"github.com/voidmaindev/go-template/internal/common"
 )
 
 // Country represents a country entity

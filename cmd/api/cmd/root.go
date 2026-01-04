@@ -13,8 +13,8 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "api",
-	Short: "GoTemplate API Server",
-	Long: `GoTemplate is a professional Go backend template with:
+	Short: "go-template API Server",
+	Long: `go-template is a professional Go backend template with:
 - Fiber v2 web framework
 - GORM with PostgreSQL
 - Redis for caching and token blacklisting

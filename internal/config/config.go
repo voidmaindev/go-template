@@ -124,7 +124,7 @@ func (c *Config) Validate() error {
 // setDefaults sets default values for all configuration options
 func setDefaults() {
 	// App defaults
-	viper.SetDefault("app.name", "GoTemplate")
+	viper.SetDefault("app.name", "go-template")
 	viper.SetDefault("app.environment", "development")
 	viper.SetDefault("app.debug", true)
 
@@ -140,7 +140,7 @@ func setDefaults() {
 	viper.SetDefault("database.port", 5432)
 	viper.SetDefault("database.user", "postgres")
 	viper.SetDefault("database.password", "postgres")
-	viper.SetDefault("database.dbname", "gotemplate")
+	viper.SetDefault("database.dbname", "go-template")
 	viper.SetDefault("database.sslmode", "disable")
 	viper.SetDefault("database.max_idle_conns", 10)
 	viper.SetDefault("database.max_open_conns", 100)
@@ -156,7 +156,7 @@ func setDefaults() {
 	viper.SetDefault("jwt.secret_key", "your-super-secret-key-change-in-production-min-32-chars")
 	viper.SetDefault("jwt.access_token_expiry", 15*time.Minute)
 	viper.SetDefault("jwt.refresh_token_expiry", 7*24*time.Hour)
-	viper.SetDefault("jwt.issuer", "gotemplate")
+	viper.SetDefault("jwt.issuer", "go-template")
 
 	// CORS defaults
 	viper.SetDefault("cors.allowed_origins", "http://localhost:3000,http://localhost:5173")

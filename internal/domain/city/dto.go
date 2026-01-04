@@ -3,7 +3,7 @@ package city
 import (
 	"time"
 
-	"github.com/voidmaindev/GoTemplate/internal/domain/country"
+	"github.com/voidmaindev/go-template/internal/domain/country"
 )
 
 // CreateCityRequest represents the create city request

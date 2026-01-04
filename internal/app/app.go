@@ -3,7 +3,7 @@ package app
 import (
 	"sort"
 
-	"github.com/voidmaindev/GoTemplate/internal/container"
+	"github.com/voidmaindev/go-template/internal/container"
 )
 
 // App represents a runnable application with specific domains

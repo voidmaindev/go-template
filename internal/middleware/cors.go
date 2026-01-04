@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/voidmaindev/GoTemplate/internal/config"
+	"github.com/voidmaindev/go-template/internal/config"
 )
 
 // CORS configuration constants

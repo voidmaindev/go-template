@@ -5,9 +5,9 @@ import (
 	"errors"
 	"log"
 
-	"github.com/voidmaindev/GoTemplate/internal/common"
-	"github.com/voidmaindev/GoTemplate/internal/config"
-	"github.com/voidmaindev/GoTemplate/pkg/utils"
+	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
 // Service errors

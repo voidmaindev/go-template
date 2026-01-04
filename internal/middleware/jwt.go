@@ -7,9 +7,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/voidmaindev/GoTemplate/internal/common"
-	"github.com/voidmaindev/GoTemplate/internal/config"
-	"github.com/voidmaindev/GoTemplate/pkg/utils"
+	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
 // TokenBlacklist interface for checking blacklisted tokens

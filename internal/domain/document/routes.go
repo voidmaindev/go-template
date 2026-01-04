@@ -2,9 +2,9 @@ package document
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/voidmaindev/GoTemplate/internal/config"
-	"github.com/voidmaindev/GoTemplate/internal/domain/user"
-	"github.com/voidmaindev/GoTemplate/internal/middleware"
+	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/domain/user"
+	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
 // RegisterRoutes registers all document routes
