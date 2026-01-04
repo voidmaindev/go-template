@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/domain/country"
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
@@ -22,6 +23,7 @@ type Service interface {
 	Update(ctx context.Context, id uint, req *UpdateCityRequest) (*City, error)
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[City], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[City], error)
 	ListByCountry(ctx context.Context, countryID uint, pagination *common.Pagination) (*common.PaginatedResult[City], error)
 }
 
@@ -145,6 +147,16 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 	}
 
 	return common.NewPaginatedResult(cities, total, pagination), nil
+}
+
+// ListFiltered retrieves cities with dynamic filtering, sorting, and pagination
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[City], error) {
+	cities, total, err := s.repo.FindAllFilteredWithCountry(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return common.NewFilteredResult(cities, total, params), nil
 }
 
 // ListByCountry retrieves all cities for a specific country

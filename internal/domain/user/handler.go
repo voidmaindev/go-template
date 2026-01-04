@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/pkg/validator"
 )
@@ -300,14 +301,19 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 	return common.SuccessResponse(c, user.ToResponse())
 }
 
-// List handles listing all users
+// List handles listing all users with filtering and sorting
 // @Summary List users (admin only)
 // @Tags Users
 // @Security BearerAuth
 // @Produce json
 // @Param page query int false "Page number"
 // @Param page_size query int false "Page size"
-// @Success 200 {object} common.Response{data=common.PaginatedResult[UserResponse]}
+// @Param name__contains query string false "Filter by name (contains)"
+// @Param email__contains query string false "Filter by email (contains)"
+// @Param role query string false "Filter by role (eq)"
+// @Param sort query string false "Sort field"
+// @Param order query string false "Sort order (asc/desc)"
+// @Success 200 {object} common.Response{data=common.FilteredResult[UserResponse]}
 // @Failure 401 {object} common.Response
 // @Failure 403 {object} common.Response
 // @Router /users [get]
@@ -317,14 +323,9 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return common.ForbiddenResponse(c, "admin access required")
 	}
 
-	pagination := &common.Pagination{
-		Page:     c.QueryInt("page", 1),
-		PageSize: c.QueryInt("page_size", 10),
-		Sort:     c.Query("sort", "id"),
-		Order:    c.Query("order", "desc"),
-	}
+	params := filter.ParseFromQuery(c)
 
-	result, err := h.service.List(c.Context(), pagination)
+	result, err := h.service.ListFiltered(c.Context(), params)
 	if err != nil {
 		return common.InternalServerErrorResponse(c)
 	}
@@ -335,7 +336,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		responses[i] = *user.ToResponse()
 	}
 
-	return common.SuccessResponse(c, common.NewPaginatedResult(responses, result.Total, pagination))
+	return common.SuccessResponse(c, common.NewFilteredResult(responses, result.Total, params))
 }
 
 // Delete handles deleting a user

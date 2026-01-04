@@ -4,6 +4,8 @@ import (
 	"math"
 	"regexp"
 	"strings"
+
+	"github.com/voidmaindev/go-template/internal/common/filter"
 )
 
 const (
@@ -163,6 +165,45 @@ func NewPaginatedResult[T any](data []T, total int64, pagination *Pagination) *P
 		Total:      total,
 		Page:       pagination.Page,
 		PageSize:   pagination.PageSize,
+		TotalPages: totalPages,
+		HasMore:    hasMore,
+	}
+}
+
+// FilteredResult wraps filtered data with metadata
+type FilteredResult[T any] struct {
+	Data       []T   `json:"data"`
+	Total      int64 `json:"total"`
+	Page       int   `json:"page"`
+	PageSize   int   `json:"page_size"`
+	TotalPages int   `json:"total_pages"`
+	HasMore    bool  `json:"has_more"`
+}
+
+// NewFilteredResult creates a new filtered result from filter.Params
+func NewFilteredResult[T any](data []T, total int64, params *filter.Params) *FilteredResult[T] {
+	if params == nil {
+		params = filter.DefaultParams()
+	}
+
+	pageSize := params.Limit
+	if pageSize < 1 {
+		pageSize = DefaultPageSize
+	}
+
+	page := params.Page
+	if page < 1 {
+		page = DefaultPage
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
+	hasMore := page < totalPages
+
+	return &FilteredResult[T]{
+		Data:       data,
+		Total:      total,
+		Page:       page,
+		PageSize:   pageSize,
 		TotalPages: totalPages,
 		HasMore:    hasMore,
 	}

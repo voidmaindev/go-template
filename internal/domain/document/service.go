@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/domain/city"
 	"github.com/voidmaindev/go-template/internal/domain/item"
 	"github.com/voidmaindev/go-template/pkg/utils"
@@ -27,6 +28,7 @@ type Service interface {
 	Update(ctx context.Context, id uint, req *UpdateDocumentRequest) (*Document, error)
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Document], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Document], error)
 
 	// Document item operations
 	AddItem(ctx context.Context, documentID uint, req *AddDocumentItemRequest) (*DocumentItem, error)
@@ -223,6 +225,16 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 	}
 
 	return common.NewPaginatedResult(docs, total, pagination), nil
+}
+
+// ListFiltered retrieves documents with dynamic filtering, sorting, and pagination
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Document], error) {
+	docs, total, err := s.repo.FindAllFilteredWithCity(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return common.NewFilteredResult(docs, total, params), nil
 }
 
 // AddItem adds an item to a document

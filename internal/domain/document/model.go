@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/domain/city"
 	"github.com/voidmaindev/go-template/internal/domain/item"
 )
@@ -22,6 +23,23 @@ type Document struct {
 // TableName returns the table name for the Document model
 func (Document) TableName() string {
 	return "documents"
+}
+
+// FilterConfig returns the filter configuration for Document
+func (Document) FilterConfig() filter.Config {
+	return filter.Config{
+		TableName: "documents",
+		Fields: map[string]filter.FieldConfig{
+			"id":            {DBColumn: "id", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
+			"code":          {DBColumn: "code", Type: filter.TypeString, Operators: filter.StringOps, Sortable: true},
+			"city_id":       {DBColumn: "city_id", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
+			"document_date": {DBColumn: "document_date", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
+			"total_amount":  {DBColumn: "total_amount", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
+			"created_at":    {DBColumn: "created_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
+			"updated_at":    {DBColumn: "updated_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
+			"city":          {Relation: "City", RelationFK: "city_id"},
+		},
+	}
 }
 
 // CalculateTotal calculates the total amount from items
@@ -46,6 +64,23 @@ type DocumentItem struct {
 // TableName returns the table name for the DocumentItem model
 func (DocumentItem) TableName() string {
 	return "document_items"
+}
+
+// FilterConfig returns the filter configuration for DocumentItem
+func (DocumentItem) FilterConfig() filter.Config {
+	return filter.Config{
+		TableName: "document_items",
+		Fields: map[string]filter.FieldConfig{
+			"id":          {DBColumn: "id", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
+			"document_id": {DBColumn: "document_id", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
+			"item_id":     {DBColumn: "item_id", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
+			"quantity":    {DBColumn: "quantity", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
+			"price":       {DBColumn: "price", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
+			"created_at":  {DBColumn: "created_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
+			"updated_at":  {DBColumn: "updated_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
+			"item":        {Relation: "Item", RelationFK: "item_id"},
+		},
+	}
 }
 
 // GetLineTotal returns the total for this line item

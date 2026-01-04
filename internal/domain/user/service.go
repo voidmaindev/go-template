@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
@@ -41,6 +42,7 @@ type Service interface {
 
 	// Listing
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[User], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[User], error)
 }
 
 // service implements the Service interface
@@ -273,6 +275,16 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 	}
 
 	return common.NewPaginatedResult(users, total, pagination), nil
+}
+
+// ListFiltered retrieves users with dynamic filtering, sorting, and pagination
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[User], error) {
+	users, total, err := s.repo.FindAllFiltered(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return common.NewFilteredResult(users, total, params), nil
 }
 
 // generateTokenResponse generates a token response for a user

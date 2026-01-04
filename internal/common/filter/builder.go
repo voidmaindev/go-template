@@ -1,0 +1,192 @@
+package filter
+
+import (
+	"fmt"
+	"strings"
+
+	"gorm.io/gorm"
+)
+
+// Apply applies filters, sorting, and pagination to a GORM query
+func Apply(db *gorm.DB, config Config, params *Params) *gorm.DB {
+	query := db
+
+	// Track joined relations to avoid duplicate joins
+	joinedRelations := make(map[string]bool)
+
+	// Apply filters
+	for _, f := range params.Filters {
+		query = applyFilter(query, config, f, joinedRelations)
+	}
+
+	// Apply sorting
+	for _, s := range params.Sort {
+		query = applySort(query, config, s)
+	}
+
+	// Apply pagination
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit).Offset(params.Offset())
+	}
+
+	return query
+}
+
+// ApplyFiltersOnly applies only filters without pagination (useful for count queries)
+func ApplyFiltersOnly(db *gorm.DB, config Config, params *Params) *gorm.DB {
+	query := db
+	joinedRelations := make(map[string]bool)
+
+	for _, f := range params.Filters {
+		query = applyFilter(query, config, f, joinedRelations)
+	}
+
+	return query
+}
+
+func applyFilter(db *gorm.DB, config Config, f FilterParam, joinedRelations map[string]bool) *gorm.DB {
+	// Handle relation fields (e.g., "country.name" -> join Country, filter on name)
+	if strings.Contains(f.Field, ".") {
+		return applyRelationFilter(db, config, f, joinedRelations)
+	}
+
+	fieldConfig, ok := config.Fields[f.Field]
+	if !ok {
+		return db // Skip unknown fields
+	}
+
+	// Skip if it's a relation-only field (no DBColumn)
+	if fieldConfig.DBColumn == "" && fieldConfig.Relation != "" {
+		return db
+	}
+
+	if !isOperatorAllowed(fieldConfig, f.Operator) {
+		return db // Skip disallowed operators
+	}
+
+	column := fmt.Sprintf("%s.%s", config.TableName, fieldConfig.DBColumn)
+	return applyOperator(db, column, f.Operator, f.Value)
+}
+
+func applyRelationFilter(db *gorm.DB, config Config, f FilterParam, joinedRelations map[string]bool) *gorm.DB {
+	// Parse "country.name" -> relation="country", field="name"
+	parts := strings.SplitN(f.Field, ".", 2)
+	if len(parts) != 2 {
+		return db
+	}
+
+	relationName, fieldName := parts[0], parts[1]
+	relationConfig, ok := config.Fields[relationName]
+	if !ok || relationConfig.Relation == "" {
+		return db // Not a valid relation
+	}
+
+	// Build join table name (pluralize relation name)
+	joinTable := pluralize(strings.ToLower(relationConfig.Relation))
+
+	// Only join if not already joined
+	if !joinedRelations[joinTable] {
+		db = db.Joins(fmt.Sprintf("LEFT JOIN %s ON %s.%s = %s.id",
+			joinTable, config.TableName, relationConfig.RelationFK, joinTable))
+		joinedRelations[joinTable] = true
+	}
+
+	// Apply the filter on the joined table's column
+	column := fmt.Sprintf("%s.%s", joinTable, fieldName)
+	return applyOperator(db, column, f.Operator, f.Value)
+}
+
+func applyOperator(db *gorm.DB, column string, op Operator, value string) *gorm.DB {
+	switch op {
+	case OpEq:
+		return db.Where(column+" = ?", value)
+	case OpGt:
+		return db.Where(column+" > ?", value)
+	case OpLt:
+		return db.Where(column+" < ?", value)
+	case OpGte:
+		return db.Where(column+" >= ?", value)
+	case OpLte:
+		return db.Where(column+" <= ?", value)
+	case OpContains:
+		return db.Where(column+" ILIKE ?", "%"+value+"%")
+	case OpStartsWith:
+		return db.Where(column+" ILIKE ?", value+"%")
+	case OpEndsWith:
+		return db.Where(column+" ILIKE ?", "%"+value)
+	case OpIn:
+		values := strings.Split(value, ",")
+		// Trim whitespace from each value
+		for i := range values {
+			values[i] = strings.TrimSpace(values[i])
+		}
+		return db.Where(column+" IN ?", values)
+	case OpIsNull:
+		return db.Where(column + " IS NULL")
+	case OpIsNotNull:
+		return db.Where(column + " IS NOT NULL")
+	}
+	return db
+}
+
+func applySort(db *gorm.DB, config Config, s SortParam) *gorm.DB {
+	// Handle relation sorting (e.g., "country.name")
+	if strings.Contains(s.Field, ".") {
+		parts := strings.SplitN(s.Field, ".", 2)
+		if len(parts) != 2 {
+			return db
+		}
+		relationName, fieldName := parts[0], parts[1]
+		relationConfig, ok := config.Fields[relationName]
+		if !ok || relationConfig.Relation == "" {
+			return db
+		}
+
+		joinTable := pluralize(strings.ToLower(relationConfig.Relation))
+		column := fmt.Sprintf("%s.%s", joinTable, fieldName)
+		order := "ASC"
+		if s.Desc {
+			order = "DESC"
+		}
+		// Note: JOIN should already be applied by filter, or we need to add it
+		return db.Order(fmt.Sprintf("%s %s", column, order))
+	}
+
+	fieldConfig, ok := config.Fields[s.Field]
+	if !ok || !fieldConfig.Sortable {
+		return db // Skip invalid or non-sortable fields
+	}
+
+	order := "ASC"
+	if s.Desc {
+		order = "DESC"
+	}
+	return db.Order(fmt.Sprintf("%s.%s %s", config.TableName, fieldConfig.DBColumn, order))
+}
+
+func isOperatorAllowed(config FieldConfig, op Operator) bool {
+	for _, allowed := range config.Operators {
+		if allowed == op {
+			return true
+		}
+	}
+	return false
+}
+
+// pluralize adds 's' to the end of a word (simple pluralization)
+// For more complex cases, consider using a proper inflection library
+func pluralize(word string) string {
+	if word == "" {
+		return word
+	}
+	// Handle common cases
+	switch {
+	case strings.HasSuffix(word, "y"):
+		return word[:len(word)-1] + "ies"
+	case strings.HasSuffix(word, "s"), strings.HasSuffix(word, "x"),
+		strings.HasSuffix(word, "ch"), strings.HasSuffix(word, "sh"):
+		return word + "es"
+	default:
+		return word + "s"
+	}
+}

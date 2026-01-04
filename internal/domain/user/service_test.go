@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/pkg/utils"
 	"gorm.io/gorm"
@@ -73,6 +74,10 @@ func (m *mockRepository) FindAll(ctx context.Context, pagination *common.Paginat
 
 func (m *mockRepository) FindByCondition(ctx context.Context, condition map[string]any, pagination *common.Pagination) ([]User, int64, error) {
 	return m.FindAll(ctx, pagination)
+}
+
+func (m *mockRepository) FindAllFiltered(ctx context.Context, params *filter.Params) ([]User, int64, error) {
+	return m.FindAll(ctx, nil)
 }
 
 func (m *mockRepository) FindOne(ctx context.Context, condition map[string]any) (*User, error) {

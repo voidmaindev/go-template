@@ -13,6 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/pkg/utils"
@@ -20,23 +21,25 @@ import (
 
 // mockService implements Service interface for testing
 type mockService struct {
-	registerResponse    *TokenResponse
-	registerErr         error
-	loginResponse       *TokenResponse
-	loginErr            error
-	logoutErr           error
-	refreshResponse     *TokenResponse
-	refreshErr          error
-	getByIDResponse     *User
-	getByIDErr          error
-	getByEmailResponse  *User
-	getByEmailErr       error
-	updateResponse      *User
-	updateErr           error
-	changePasswordErr   error
-	deleteErr           error
-	listResponse        *common.PaginatedResult[User]
-	listErr             error
+	registerResponse       *TokenResponse
+	registerErr            error
+	loginResponse          *TokenResponse
+	loginErr               error
+	logoutErr              error
+	refreshResponse        *TokenResponse
+	refreshErr             error
+	getByIDResponse        *User
+	getByIDErr             error
+	getByEmailResponse     *User
+	getByEmailErr          error
+	updateResponse         *User
+	updateErr              error
+	changePasswordErr      error
+	deleteErr              error
+	listResponse           *common.PaginatedResult[User]
+	listErr                error
+	listFilteredResponse   *common.FilteredResult[User]
+	listFilteredErr        error
 }
 
 func (m *mockService) Register(ctx context.Context, req *RegisterRequest) (*TokenResponse, error) {
@@ -98,6 +101,13 @@ func (m *mockService) List(ctx context.Context, pagination *common.Pagination) (
 		return nil, m.listErr
 	}
 	return m.listResponse, nil
+}
+
+func (m *mockService) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[User], error) {
+	if m.listFilteredErr != nil {
+		return nil, m.listFilteredErr
+	}
+	return m.listFilteredResponse, nil
 }
 
 // Helper functions for tests
@@ -814,7 +824,7 @@ func TestHandler_List(t *testing.T) {
 	t.Run("successful list", func(t *testing.T) {
 		users := []User{*createTestUser()}
 		svc := &mockService{
-			listResponse: &common.PaginatedResult[User]{
+			listFilteredResponse: &common.FilteredResult[User]{
 				Data:       users,
 				Total:      1,
 				Page:       1,
@@ -848,7 +858,7 @@ func TestHandler_List(t *testing.T) {
 
 	t.Run("list with default pagination", func(t *testing.T) {
 		svc := &mockService{
-			listResponse: &common.PaginatedResult[User]{
+			listFilteredResponse: &common.FilteredResult[User]{
 				Data:       []User{},
 				Total:      0,
 				Page:       1,

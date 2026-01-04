@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
@@ -107,16 +108,11 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	return common.DeletedResponse(c)
 }
 
-// List handles listing all countries
+// List handles listing all countries with filtering and sorting
 func (h *Handler) List(c *fiber.Ctx) error {
-	pagination := &common.Pagination{
-		Page:     c.QueryInt("page", 1),
-		PageSize: c.QueryInt("page_size", 10),
-		Sort:     c.Query("sort", "name"),
-		Order:    c.Query("order", "asc"),
-	}
+	params := filter.ParseFromQuery(c)
 
-	result, err := h.service.List(c.Context(), pagination)
+	result, err := h.service.ListFiltered(c.Context(), params)
 	if err != nil {
 		return common.InternalServerErrorResponse(c)
 	}
@@ -126,5 +122,5 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		responses[i] = *country.ToResponse()
 	}
 
-	return common.SuccessResponse(c, common.NewPaginatedResult(responses, result.Total, pagination))
+	return common.SuccessResponse(c, common.NewFilteredResult(responses, result.Total, params))
 }

@@ -2,7 +2,9 @@ package common
 
 import (
 	"context"
+	"errors"
 
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"gorm.io/gorm"
 )
 
@@ -85,6 +87,39 @@ func (r *BaseRepository[T]) FindByCondition(ctx context.Context, condition map[s
 	// Apply preloads and pagination
 	query = r.applyPreloads(query)
 	query = r.applyPagination(query, pagination)
+
+	if err := query.Find(&entities).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return entities, total, nil
+}
+
+// FindAllFiltered retrieves entities with dynamic filtering, sorting, and pagination
+// The entity type T must implement filter.Filterable interface
+func (r *BaseRepository[T]) FindAllFiltered(ctx context.Context, params *filter.Params) ([]T, int64, error) {
+	var entities []T
+	var total int64
+	var entity T
+
+	// Get filter config if entity implements Filterable
+	filterable, ok := any(entity).(filter.Filterable)
+	if !ok {
+		return nil, 0, errors.New("entity does not implement filter.Filterable interface")
+	}
+	config := filterable.FilterConfig()
+
+	// Count query (without pagination)
+	countQuery := r.db.WithContext(ctx).Model(&entity)
+	countQuery = filter.ApplyFiltersOnly(countQuery, config, params)
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Data query (with pagination and sorting)
+	query := r.db.WithContext(ctx).Model(&entity)
+	query = r.applyPreloads(query)
+	query = filter.Apply(query, config, params)
 
 	if err := query.Find(&entities).Error; err != nil {
 		return nil, 0, err

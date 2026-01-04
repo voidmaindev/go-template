@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"gorm.io/gorm"
 )
 
@@ -13,6 +14,9 @@ type Repository interface {
 
 	// FindAllWithCountry finds all cities with country preloaded
 	FindAllWithCountry(ctx context.Context, pagination *common.Pagination) ([]City, int64, error)
+
+	// FindAllFilteredWithCountry finds all cities with filtering, sorting, and country preloaded
+	FindAllFilteredWithCountry(ctx context.Context, params *filter.Params) ([]City, int64, error)
 
 	// FindByCountryID finds all cities by country ID
 	FindByCountryID(ctx context.Context, countryID uint, pagination *common.Pagination) ([]City, int64, error)
@@ -118,4 +122,30 @@ func (r *repository) FindByIDWithCountry(ctx context.Context, id uint) (*City, e
 		return nil, err
 	}
 	return &city, nil
+}
+
+// FindAllFilteredWithCountry finds all cities with filtering, sorting, and country preloaded
+func (r *repository) FindAllFilteredWithCountry(ctx context.Context, params *filter.Params) ([]City, int64, error) {
+	var cities []City
+	var total int64
+	var city City
+
+	config := city.FilterConfig()
+
+	// Count query (without pagination)
+	countQuery := r.GetDB().WithContext(ctx).Model(&City{})
+	countQuery = filter.ApplyFiltersOnly(countQuery, config, params)
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Data query (with pagination, sorting, and preload)
+	query := r.GetDB().WithContext(ctx).Model(&City{}).Preload("Country")
+	query = filter.Apply(query, config, params)
+
+	if err := query.Find(&cities).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return cities, total, nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
@@ -116,16 +117,11 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	return common.DeletedResponse(c)
 }
 
-// List handles listing all documents
+// List handles listing all documents with filtering and sorting
 func (h *Handler) List(c *fiber.Ctx) error {
-	pagination := &common.Pagination{
-		Page:     c.QueryInt("page", 1),
-		PageSize: c.QueryInt("page_size", 10),
-		Sort:     c.Query("sort", "id"),
-		Order:    c.Query("order", "desc"),
-	}
+	params := filter.ParseFromQuery(c)
 
-	result, err := h.service.List(c.Context(), pagination)
+	result, err := h.service.ListFiltered(c.Context(), params)
 	if err != nil {
 		return common.InternalServerErrorResponse(c)
 	}
@@ -135,7 +131,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		responses[i] = *doc.ToResponse()
 	}
 
-	return common.SuccessResponse(c, common.NewPaginatedResult(responses, result.Total, pagination))
+	return common.SuccessResponse(c, common.NewFilteredResult(responses, result.Total, params))
 }
 
 // AddItem handles adding item to document

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
@@ -22,6 +23,7 @@ type Service interface {
 	Update(ctx context.Context, id uint, req *UpdateCountryRequest) (*Country, error)
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Country], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Country], error)
 }
 
 // service implements the Service interface
@@ -143,4 +145,14 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 	}
 
 	return common.NewPaginatedResult(countries, total, pagination), nil
+}
+
+// ListFiltered retrieves countries with dynamic filtering, sorting, and pagination
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Country], error) {
+	countries, total, err := s.repo.FindAllFiltered(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return common.NewFilteredResult(countries, total, params), nil
 }

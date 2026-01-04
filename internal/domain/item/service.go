@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
@@ -19,6 +20,7 @@ type Service interface {
 	Update(ctx context.Context, id uint, req *UpdateItemRequest) (*Item, error)
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Item], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Item], error)
 }
 
 // service implements the Service interface
@@ -103,4 +105,14 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 	}
 
 	return common.NewPaginatedResult(items, total, pagination), nil
+}
+
+// ListFiltered retrieves items with dynamic filtering, sorting, and pagination
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Item], error) {
+	items, total, err := s.repo.FindAllFiltered(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return common.NewFilteredResult(items, total, params), nil
 }

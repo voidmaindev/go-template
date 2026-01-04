@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 
+	"github.com/voidmaindev/go-template/internal/common/filter"
 	"gorm.io/gorm"
 )
 
@@ -22,6 +23,9 @@ type Repository[T any] interface {
 
 	// FindByCondition retrieves entities matching conditions
 	FindByCondition(ctx context.Context, condition map[string]any, pagination *Pagination) ([]T, int64, error)
+
+	// FindAllFiltered retrieves entities with dynamic filtering, sorting, and pagination
+	FindAllFiltered(ctx context.Context, params *filter.Params) ([]T, int64, error)
 
 	// FindOne retrieves a single entity matching conditions
 	FindOne(ctx context.Context, condition map[string]any) (*T, error)
