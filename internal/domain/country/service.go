@@ -68,10 +68,10 @@ func (s *service) Create(ctx context.Context, req *CreateCountryRequest) (*Count
 func (s *service) GetByID(ctx context.Context, id uint) (*Country, error) {
 	country, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrCountryNotFound
+		}
 		return nil, err
-	}
-	if country == nil {
-		return nil, ErrCountryNotFound
 	}
 	return country, nil
 }
@@ -80,10 +80,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*Country, error) {
 func (s *service) GetByCode(ctx context.Context, code string) (*Country, error) {
 	country, err := s.repo.FindByCode(ctx, strings.ToUpper(code))
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrCountryNotFound
+		}
 		return nil, err
-	}
-	if country == nil {
-		return nil, ErrCountryNotFound
 	}
 	return country, nil
 }
@@ -92,10 +92,10 @@ func (s *service) GetByCode(ctx context.Context, code string) (*Country, error) 
 func (s *service) Update(ctx context.Context, id uint, req *UpdateCountryRequest) (*Country, error) {
 	country, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrCountryNotFound
+		}
 		return nil, err
-	}
-	if country == nil {
-		return nil, ErrCountryNotFound
 	}
 
 	// Handle Code validation separately (unique constraint + uppercase normalization)
@@ -128,13 +128,13 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateCountryRequest
 func (s *service) Delete(ctx context.Context, id uint) error {
 	country, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return ErrCountryNotFound
+		}
 		return err
 	}
-	if country == nil {
-		return ErrCountryNotFound
-	}
 
-	return s.repo.Delete(ctx, id)
+	return s.repo.Delete(ctx, country.ID)
 }
 
 // List retrieves all countries with pagination

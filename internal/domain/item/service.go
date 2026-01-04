@@ -54,10 +54,10 @@ func (s *service) Create(ctx context.Context, req *CreateItemRequest) (*Item, er
 func (s *service) GetByID(ctx context.Context, id uint) (*Item, error) {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrItemNotFound
+		}
 		return nil, err
-	}
-	if item == nil {
-		return nil, ErrItemNotFound
 	}
 	return item, nil
 }
@@ -66,10 +66,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*Item, error) {
 func (s *service) Update(ctx context.Context, id uint, req *UpdateItemRequest) (*Item, error) {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return nil, ErrItemNotFound
+		}
 		return nil, err
-	}
-	if item == nil {
-		return nil, ErrItemNotFound
 	}
 
 	// Map non-nil fields from request to model
@@ -88,13 +88,13 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateItemRequest) (
 func (s *service) Delete(ctx context.Context, id uint) error {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			return ErrItemNotFound
+		}
 		return err
 	}
-	if item == nil {
-		return ErrItemNotFound
-	}
 
-	return s.repo.Delete(ctx, id)
+	return s.repo.Delete(ctx, item.ID)
 }
 
 // List retrieves all items with pagination
