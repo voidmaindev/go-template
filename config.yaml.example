@@ -13,6 +13,7 @@ server:
   read_timeout: 10s
   write_timeout: 10s
   idle_timeout: 120s
+  shutdown_timeout: 30s
 
 database:
   host: localhost
@@ -24,12 +25,17 @@ database:
   max_idle_conns: 10
   max_open_conns: 100
   max_lifetime: 1h
+  slow_query_threshold: 200ms
+  retry_attempts: 5
+  retry_delay: 5s
 
 redis:
   host: localhost
   port: 6379
   password: ""
   db: 0
+  retry_attempts: 5
+  retry_delay: 5s
 
 jwt:
   secret_key: your-super-secret-key-change-in-production-min-32-chars

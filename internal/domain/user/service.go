@@ -3,11 +3,16 @@ package user
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/pkg/utils"
+)
+
+// Token blacklist retry settings
+const (
+	blacklistMaxRetries = 3
 )
 
 // Service errors
@@ -144,12 +149,18 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 		return nil, err
 	}
 
-	// Blacklist old refresh token
-	// We log errors but don't fail - the user should still get new tokens
+	// Blacklist old refresh token with retry logic
+	// We retry to ensure the old token is invalidated, but don't fail the refresh
+	// if all retries fail - the user should still get new tokens
 	expiry, _ := utils.GetTokenExpiry(refreshToken, s.jwtConfig.SecretKey)
 	if expiry > 0 {
-		if err := s.tokenStore.Blacklist(ctx, refreshToken, expiry); err != nil {
-			log.Printf("warning: failed to blacklist refresh token: %v", err)
+		if err := s.tokenStore.BlacklistWithRetry(ctx, refreshToken, expiry, blacklistMaxRetries); err != nil {
+			// Log at error level since this is a security concern
+			slog.Error("failed to blacklist refresh token after retries",
+				"error", err,
+				"retries", blacklistMaxRetries,
+				"userID", claims.UserID,
+			)
 		}
 	}
 

@@ -6,13 +6,18 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
 
 - **Multi-App Architecture**: Run multiple apps from the same codebase with different domain sets
 - **Self-Registering Domains**: Each domain is self-contained with its own registration logic
-- **Dependency Container**: Automatic dependency injection and cross-domain dependencies
+- **Dependency Container**: Type-safe dependency injection with generics
 - **Generic Repository Pattern**: Maximum database abstraction using Go generics
 - **JWT Authentication**: Access and refresh tokens with Redis-based blacklisting
 - **CLI with Cobra**: Professional CLI with subcommands (serve, migrate)
 - **Docker Ready**: Multi-stage Dockerfile with docker-compose
 - **Validation**: Request validation using go-playground/validator
 - **Pagination**: Built-in pagination support for all list endpoints
+- **Structured Logging**: Uses Go 1.21+ slog for consistent, structured logging
+- **Graceful Shutdown**: Configurable shutdown timeout with connection draining
+- **Health Checks**: Comprehensive health endpoint with DB/Redis verification
+- **Security Hardened**: Error sanitization, info leakage prevention, secure defaults
+- **Comprehensive Tests**: Unit tests for services, middleware, and handlers
 
 ## Project Structure
 
@@ -268,9 +273,98 @@ To use this template for your project:
 3. Delete `internal/app/geography.go` if not needed
 4. Create your own domains
 
-## Environment Variables
+## Configuration
 
-See `.env.example` for all available configuration options.
+Configuration can be set via environment variables or `config.yaml` file. Environment variables take precedence.
+
+### Application
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APP_NAME` | go-template | Application name |
+| `APP_ENV` | development | Environment (development, staging, production) |
+| `APP_DEBUG` | true | Enable debug mode |
+
+### Server
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVER_HOST` | 0.0.0.0 | Server host |
+| `SERVER_PORT` | 3000 | Server port |
+| `SERVER_READ_TIMEOUT` | 10s | HTTP read timeout |
+| `SERVER_WRITE_TIMEOUT` | 10s | HTTP write timeout |
+| `SERVER_IDLE_TIMEOUT` | 120s | HTTP idle timeout |
+| `SERVER_SHUTDOWN_TIMEOUT` | 30s | Graceful shutdown timeout |
+
+### Database
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_HOST` | localhost | PostgreSQL host |
+| `DB_PORT` | 5432 | PostgreSQL port |
+| `DB_USER` | postgres | Database user |
+| `DB_PASSWORD` | postgres | Database password |
+| `DB_NAME` | go-template | Database name |
+| `DB_SSL_MODE` | disable | SSL mode |
+| `DB_MAX_IDLE_CONNS` | 10 | Max idle connections |
+| `DB_MAX_OPEN_CONNS` | 100 | Max open connections |
+| `DB_MAX_LIFETIME` | 1h | Connection max lifetime |
+| `DB_SLOW_QUERY_THRESHOLD` | 200ms | Slow query log threshold |
+| `DB_RETRY_ATTEMPTS` | 5 | Connection retry attempts |
+| `DB_RETRY_DELAY` | 5s | Delay between retries |
+
+### Redis
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REDIS_HOST` | localhost | Redis host |
+| `REDIS_PORT` | 6379 | Redis port |
+| `REDIS_PASSWORD` | | Redis password |
+| `REDIS_DB` | 0 | Redis database number |
+| `REDIS_RETRY_ATTEMPTS` | 5 | Connection retry attempts |
+| `REDIS_RETRY_DELAY` | 5s | Delay between retries |
+
+### JWT
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET` | (required in prod) | JWT secret key (min 32 chars) |
+| `JWT_ACCESS_EXPIRY` | 15m | Access token expiry |
+| `JWT_REFRESH_EXPIRY` | 168h | Refresh token expiry (7 days) |
+| `JWT_ISSUER` | go-template | JWT issuer |
+
+### CORS
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CORS_ALLOWED_ORIGINS` | localhost:3000,localhost:5173 | Allowed CORS origins |
+
+## Testing
+
+Run tests with:
+
+```bash
+# Run all tests
+make test
+
+# Run tests with verbose output
+go test ./... -v
+
+# Run tests with coverage
+go test ./... -cover
+
+# Run specific package tests
+go test ./internal/domain/user/... -v
+```
+
+## Security Features
+
+- **Error Sanitization**: Internal errors are logged but not exposed to clients
+- **Password Security**: Bcrypt hashing with validation for complexity requirements
+- **Token Blacklisting**: Logout invalidates tokens with retry logic
+- **Info Leakage Prevention**: Password change returns generic errors
+- **Health Checks**: Verify both DB and Redis connectivity
+- **Graceful Shutdown**: Configurable timeout for connection draining
 
 ## License
 

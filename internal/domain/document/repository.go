@@ -17,6 +17,9 @@ type Repository interface {
 	// FindByIDWithDetails finds a document with all related data
 	FindByIDWithDetails(ctx context.Context, id uint) (*Document, error)
 
+	// FindAllWithCity finds all documents with city preloaded
+	FindAllWithCity(ctx context.Context, pagination *common.Pagination) ([]Document, int64, error)
+
 	// FindByCityID finds all documents by city ID
 	FindByCityID(ctx context.Context, cityID uint, pagination *common.Pagination) ([]Document, int64, error)
 
@@ -90,6 +93,35 @@ func (r *repository) FindByIDWithDetails(ctx context.Context, id uint) (*Documen
 		return nil, err
 	}
 	return &doc, nil
+}
+
+// FindAllWithCity finds all documents with city preloaded
+func (r *repository) FindAllWithCity(ctx context.Context, pagination *common.Pagination) ([]Document, int64, error) {
+	var docs []Document
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&Document{})
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query = query.Preload("City")
+	if pagination != nil {
+		pagination.Validate()
+		if orderClause := pagination.GetOrderClause(); orderClause != "" {
+			query = query.Order(orderClause)
+		} else {
+			query = query.Order("id DESC")
+		}
+		query = query.Offset(pagination.GetOffset()).Limit(pagination.GetLimit())
+	}
+
+	if err := query.Find(&docs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return docs, total, nil
 }
 
 // FindByCityID finds all documents by city ID

@@ -42,7 +42,7 @@ func (d *domain) Register(c *container.Container) {
 	c.Set(RepositoryKey, repo)
 
 	// Get country repository (cross-domain dependency)
-	countryRepo := c.MustGet(country.RepositoryKey).(country.Repository)
+	countryRepo := container.MustGetTyped[country.Repository](c, country.RepositoryKey)
 
 	// Initialize service with cross-domain dependency
 	service := NewService(repo, countryRepo)
@@ -55,8 +55,8 @@ func (d *domain) Register(c *container.Container) {
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := c.MustGet(HandlerKey).(*Handler)
-	tokenStore := c.MustGet(user.TokenStoreKey).(*user.TokenStore)
+	handler := container.MustGetTyped[*Handler](c, HandlerKey)
+	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
 	jwtConfig := &c.Config.JWT
 
 	cities := api.Group("/cities", middleware.JWTMiddleware(jwtConfig, tokenStore))

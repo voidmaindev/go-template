@@ -51,8 +51,8 @@ func (d *domain) Register(c *container.Container) {
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := c.MustGet(HandlerKey).(*Handler)
-	tokenStore := c.MustGet(user.TokenStoreKey).(*user.TokenStore)
+	handler := container.MustGetTyped[*Handler](c, HandlerKey)
+	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
 	jwtConfig := &c.Config.JWT
 
 	items := api.Group("/items", middleware.JWTMiddleware(jwtConfig, tokenStore))

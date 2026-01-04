@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/spf13/cobra"
@@ -19,11 +19,6 @@ import (
 	"github.com/voidmaindev/go-template/internal/redis"
 )
 
-// Connection retry settings
-const (
-	RetryAttempts = 5
-	RetryDelay    = 5 * time.Second
-)
 
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
@@ -79,7 +74,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Connect to database
 	slog.Info("Connecting to database...")
-	db, err := database.ConnectWithRetry(&cfg.Database, RetryAttempts, RetryDelay)
+	db, err := database.ConnectWithRetry(&cfg.Database, cfg.Database.RetryAttempts, cfg.Database.RetryDelay)
 	if err != nil {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
@@ -87,7 +82,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Connect to Redis
 	slog.Info("Connecting to Redis...")
-	redisClient, err := redis.ConnectWithRetry(&cfg.Redis, RetryAttempts, RetryDelay)
+	redisClient, err := redis.ConnectWithRetry(&cfg.Redis, cfg.Redis.RetryAttempts, cfg.Redis.RetryDelay)
 	if err != nil {
 		slog.Error("Failed to connect to Redis", "error", err)
 		os.Exit(1)
@@ -126,8 +121,28 @@ func runServe(cmd *cobra.Command, args []string) {
 	middleware.SetupSlogLogger(app)
 	middleware.SetupCustomRecovery(app, cfg.App.IsDevelopment())
 
-	// Health check endpoint
+	// Health check endpoint with DB and Redis verification
 	app.Get("/health", func(c *fiber.Ctx) error {
+		// Check database connectivity
+		if err := database.HealthCheck(db); err != nil {
+			slog.Error("Health check failed: database", "error", err)
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"status":  "unhealthy",
+				"service": cfg.App.Name,
+				"error":   "database connection failed",
+			})
+		}
+
+		// Check Redis connectivity
+		if err := redisClient.HealthCheck(c.Context()); err != nil {
+			slog.Error("Health check failed: redis", "error", err)
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"status":  "unhealthy",
+				"service": cfg.App.Name,
+				"error":   "redis connection failed",
+			})
+		}
+
 		return c.JSON(fiber.Map{
 			"status":  "healthy",
 			"service": cfg.App.Name,
@@ -164,10 +179,26 @@ func runServe(cmd *cobra.Command, args []string) {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	slog.Info("Shutting down server...")
+	slog.Info("Shutting down server...", "timeout", cfg.Server.ShutdownTimeout)
 
-	if err := app.Shutdown(); err != nil {
-		slog.Error("Error shutting down server", "error", err)
+	// Create shutdown context with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
+	defer shutdownCancel()
+
+	// Shutdown server with timeout
+	shutdownComplete := make(chan struct{})
+	go func() {
+		if err := app.Shutdown(); err != nil {
+			slog.Error("Error shutting down server", "error", err)
+		}
+		close(shutdownComplete)
+	}()
+
+	select {
+	case <-shutdownComplete:
+		slog.Info("Server shutdown completed gracefully")
+	case <-shutdownCtx.Done():
+		slog.Warn("Server shutdown timed out, forcing exit")
 	}
 
 	if err := redisClient.Close(); err != nil {
@@ -183,11 +214,23 @@ func runServe(cmd *cobra.Command, args []string) {
 
 func customErrorHandler(c *fiber.Ctx, err error) error {
 	code := fiber.StatusInternalServerError
+	message := "an internal error occurred"
+
+	// Only expose error details for Fiber errors (safe, intentional errors)
 	if e, ok := err.(*fiber.Error); ok {
 		code = e.Code
+		message = e.Message
+	} else {
+		// Log the actual error for debugging but don't expose to client
+		slog.Error("Internal server error",
+			"error", err,
+			"path", c.Path(),
+			"method", c.Method(),
+		)
 	}
+
 	return c.Status(code).JSON(fiber.Map{
 		"success": false,
-		"error":   err.Error(),
+		"error":   message,
 	})
 }

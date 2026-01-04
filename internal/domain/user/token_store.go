@@ -31,6 +31,21 @@ func (s *TokenStore) Blacklist(ctx context.Context, token string, expiry time.Du
 	return s.redis.SetWithExpiry(ctx, key, "1", expiry)
 }
 
+// BlacklistWithRetry adds a token to the blacklist with retry logic
+func (s *TokenStore) BlacklistWithRetry(ctx context.Context, token string, expiry time.Duration, maxRetries int) error {
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := s.Blacklist(ctx, token, expiry); err != nil {
+			lastErr = err
+			// Brief pause before retry
+			time.Sleep(time.Millisecond * 50 * time.Duration(i+1))
+			continue
+		}
+		return nil
+	}
+	return lastErr
+}
+
 // IsBlacklisted checks if a token is blacklisted
 func (s *TokenStore) IsBlacklisted(ctx context.Context, token string) (bool, error) {
 	key := s.getKey(token)

@@ -217,7 +217,7 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 
 // List retrieves all documents with pagination
 func (s *service) List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Document], error) {
-	docs, total, err := s.repo.WithPreload("City").(Repository).FindAll(ctx, pagination)
+	docs, total, err := s.repo.FindAllWithCity(ctx, pagination)
 	if err != nil {
 		return nil, err
 	}

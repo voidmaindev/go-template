@@ -55,8 +55,8 @@ func (d *domain) Register(c *container.Container) {
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := c.MustGet(HandlerKey).(*Handler)
-	tokenStore := c.MustGet(TokenStoreKey).(*TokenStore)
+	handler := container.MustGetTyped[*Handler](c, HandlerKey)
+	tokenStore := container.MustGetTyped[*TokenStore](c, TokenStoreKey)
 	jwtConfig := &c.Config.JWT
 
 	// Auth routes (public) - with rate limiting to prevent brute force

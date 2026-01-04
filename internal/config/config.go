@@ -28,32 +28,38 @@ type AppConfig struct {
 
 // ServerConfig holds HTTP server configuration
 type ServerConfig struct {
-	Host         string        `mapstructure:"host"`
-	Port         int           `mapstructure:"port"`
-	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
-	WriteTimeout time.Duration `mapstructure:"write_timeout"`
-	IdleTimeout  time.Duration `mapstructure:"idle_timeout"`
+	Host            string        `mapstructure:"host"`
+	Port            int           `mapstructure:"port"`
+	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
+	IdleTimeout     time.Duration `mapstructure:"idle_timeout"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
 // DatabaseConfig holds PostgreSQL configuration
 type DatabaseConfig struct {
-	Host         string        `mapstructure:"host"`
-	Port         int           `mapstructure:"port"`
-	User         string        `mapstructure:"user"`
-	Password     string        `mapstructure:"password"`
-	DBName       string        `mapstructure:"dbname"`
-	SSLMode      string        `mapstructure:"sslmode"`
-	MaxIdleConns int           `mapstructure:"max_idle_conns"`
-	MaxOpenConns int           `mapstructure:"max_open_conns"`
-	MaxLifetime  time.Duration `mapstructure:"max_lifetime"`
+	Host               string        `mapstructure:"host"`
+	Port               int           `mapstructure:"port"`
+	User               string        `mapstructure:"user"`
+	Password           string        `mapstructure:"password"`
+	DBName             string        `mapstructure:"dbname"`
+	SSLMode            string        `mapstructure:"sslmode"`
+	MaxIdleConns       int           `mapstructure:"max_idle_conns"`
+	MaxOpenConns       int           `mapstructure:"max_open_conns"`
+	MaxLifetime        time.Duration `mapstructure:"max_lifetime"`
+	SlowQueryThreshold time.Duration `mapstructure:"slow_query_threshold"`
+	RetryAttempts      int           `mapstructure:"retry_attempts"`
+	RetryDelay         time.Duration `mapstructure:"retry_delay"`
 }
 
 // RedisConfig holds Redis configuration
 type RedisConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
+	Host          string        `mapstructure:"host"`
+	Port          int           `mapstructure:"port"`
+	Password      string        `mapstructure:"password"`
+	DB            int           `mapstructure:"db"`
+	RetryAttempts int           `mapstructure:"retry_attempts"`
+	RetryDelay    time.Duration `mapstructure:"retry_delay"`
 }
 
 // JWTConfig holds JWT authentication configuration
@@ -134,6 +140,7 @@ func setDefaults() {
 	viper.SetDefault("server.read_timeout", 10*time.Second)
 	viper.SetDefault("server.write_timeout", 10*time.Second)
 	viper.SetDefault("server.idle_timeout", 120*time.Second)
+	viper.SetDefault("server.shutdown_timeout", 30*time.Second)
 
 	// Database defaults
 	viper.SetDefault("database.host", "localhost")
@@ -145,12 +152,17 @@ func setDefaults() {
 	viper.SetDefault("database.max_idle_conns", 10)
 	viper.SetDefault("database.max_open_conns", 100)
 	viper.SetDefault("database.max_lifetime", time.Hour)
+	viper.SetDefault("database.slow_query_threshold", 200*time.Millisecond)
+	viper.SetDefault("database.retry_attempts", 5)
+	viper.SetDefault("database.retry_delay", 5*time.Second)
 
 	// Redis defaults
 	viper.SetDefault("redis.host", "localhost")
 	viper.SetDefault("redis.port", 6379)
 	viper.SetDefault("redis.password", "")
 	viper.SetDefault("redis.db", 0)
+	viper.SetDefault("redis.retry_attempts", 5)
+	viper.SetDefault("redis.retry_delay", 5*time.Second)
 
 	// JWT defaults
 	viper.SetDefault("jwt.secret_key", "your-super-secret-key-change-in-production-min-32-chars")
@@ -176,6 +188,7 @@ func bindEnvVars() {
 	viper.BindEnv("server.read_timeout", "SERVER_READ_TIMEOUT")
 	viper.BindEnv("server.write_timeout", "SERVER_WRITE_TIMEOUT")
 	viper.BindEnv("server.idle_timeout", "SERVER_IDLE_TIMEOUT")
+	viper.BindEnv("server.shutdown_timeout", "SERVER_SHUTDOWN_TIMEOUT")
 
 	// Database
 	viper.BindEnv("database.host", "DB_HOST")
@@ -187,12 +200,17 @@ func bindEnvVars() {
 	viper.BindEnv("database.max_idle_conns", "DB_MAX_IDLE_CONNS")
 	viper.BindEnv("database.max_open_conns", "DB_MAX_OPEN_CONNS")
 	viper.BindEnv("database.max_lifetime", "DB_MAX_LIFETIME")
+	viper.BindEnv("database.slow_query_threshold", "DB_SLOW_QUERY_THRESHOLD")
+	viper.BindEnv("database.retry_attempts", "DB_RETRY_ATTEMPTS")
+	viper.BindEnv("database.retry_delay", "DB_RETRY_DELAY")
 
 	// Redis
 	viper.BindEnv("redis.host", "REDIS_HOST")
 	viper.BindEnv("redis.port", "REDIS_PORT")
 	viper.BindEnv("redis.password", "REDIS_PASSWORD")
 	viper.BindEnv("redis.db", "REDIS_DB")
+	viper.BindEnv("redis.retry_attempts", "REDIS_RETRY_ATTEMPTS")
+	viper.BindEnv("redis.retry_delay", "REDIS_RETRY_DELAY")
 
 	// JWT
 	viper.BindEnv("jwt.secret_key", "JWT_SECRET")

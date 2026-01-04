@@ -30,7 +30,7 @@ type ChangePasswordRequest struct {
 
 // UpdateUserRequest represents the update user request
 type UpdateUserRequest struct {
-	Name string `json:"name" validate:"omitempty,min=2,max=100"`
+	Name *string `json:"name" validate:"omitempty,min=2,max=100"`
 }
 
 // UserResponse represents the user response (without sensitive data)

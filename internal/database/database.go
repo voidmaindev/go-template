@@ -12,11 +12,15 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// SlowQueryThreshold defines the duration above which queries are logged as slow
-const SlowQueryThreshold = 200 * time.Millisecond
-
 // slogAdapter adapts slog to GORM's logger interface
-type slogAdapter struct{}
+type slogAdapter struct {
+	slowQueryThreshold time.Duration
+}
+
+// newSlogAdapter creates a new slog adapter with the given slow query threshold
+func newSlogAdapter(slowQueryThreshold time.Duration) *slogAdapter {
+	return &slogAdapter{slowQueryThreshold: slowQueryThreshold}
+}
 
 func (s *slogAdapter) LogMode(level logger.LogLevel) logger.Interface {
 	return s
@@ -48,7 +52,7 @@ func (s *slogAdapter) Trace(ctx context.Context, begin time.Time, fc func() (sql
 		return
 	}
 
-	if elapsed > SlowQueryThreshold {
+	if elapsed > s.slowQueryThreshold {
 		slog.Warn("Slow SQL query",
 			"elapsed", elapsed,
 			"rows", rows,
@@ -68,7 +72,7 @@ func (s *slogAdapter) Trace(ctx context.Context, begin time.Time, fc func() (sql
 func Connect(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	// Open database connection
 	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
-		Logger:                 &slogAdapter{},
+		Logger:                 newSlogAdapter(cfg.SlowQueryThreshold),
 		PrepareStmt:            true,
 		SkipDefaultTransaction: true,
 	})

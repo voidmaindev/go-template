@@ -139,7 +139,7 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 
 // List retrieves all cities with pagination
 func (s *service) List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[City], error) {
-	cities, total, err := s.repo.WithPreload("Country").(Repository).FindAll(ctx, pagination)
+	cities, total, err := s.repo.FindAllWithCountry(ctx, pagination)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (s *service) ListByCountry(ctx context.Context, countryID uint, pagination 
 		return nil, ErrCountryNotFound
 	}
 
-	cities, total, err := s.repo.FindByCountryID(ctx, countryID, pagination)
+	cities, total, err := s.repo.FindByCountryIDWithCountry(ctx, countryID, pagination)
 	if err != nil {
 		return nil, err
 	}

@@ -233,9 +233,8 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 
 	if err := h.service.ChangePassword(c.Context(), userID, &req); err != nil {
 		switch {
-		case errors.Is(err, ErrUserNotFound):
-			return common.NotFoundResponse(c, "user")
-		case errors.Is(err, ErrInvalidPassword):
+		case errors.Is(err, ErrUserNotFound), errors.Is(err, ErrInvalidPassword):
+			// Return generic error to prevent user enumeration
 			return common.BadRequestResponse(c, "current password is incorrect")
 		case errors.Is(err, ErrSamePassword):
 			return common.BadRequestResponse(c, "new password must be different")

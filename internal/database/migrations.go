@@ -1,7 +1,7 @@
 package database
 
 import (
-	"log"
+	"log/slog"
 
 	"gorm.io/gorm"
 )
@@ -13,13 +13,13 @@ type Migrator interface {
 
 // Migrate runs auto-migrations for all registered models
 func Migrate(db *gorm.DB, models ...any) error {
-	log.Println("Running database migrations...")
+	slog.Info("Running database migrations...")
 
 	if err := db.AutoMigrate(models...); err != nil {
 		return err
 	}
 
-	log.Println("Database migrations completed successfully")
+	slog.Info("Database migrations completed successfully")
 	return nil
 }
 
@@ -38,15 +38,15 @@ func MigrateWithIndexes(db *gorm.DB, models ...any) error {
 
 // DropTables drops all tables (USE WITH CAUTION - for testing only)
 func DropTables(db *gorm.DB, models ...any) error {
-	log.Println("WARNING: Dropping all tables...")
+	slog.Warn("Dropping all tables...")
 
 	for _, model := range models {
 		if err := db.Migrator().DropTable(model); err != nil {
-			log.Printf("Failed to drop table for %T: %v", model, err)
+			slog.Error("Failed to drop table", "model", model, "error", err)
 		}
 	}
 
-	log.Println("All tables dropped")
+	slog.Info("All tables dropped")
 	return nil
 }
 

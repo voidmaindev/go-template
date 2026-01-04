@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"log"
+	"log/slog"
 	"runtime/debug"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,11 +22,11 @@ func SetupCustomRecovery(app *fiber.App, isDevelopment bool) {
 		defer func() {
 			if r := recover(); r != nil {
 				// Log the panic
-				log.Printf("Panic recovered: %v\n", r)
+				slog.Error("Panic recovered", "panic", r)
 
 				if isDevelopment {
 					// In development, log the stack trace
-					log.Printf("Stack trace:\n%s", debug.Stack())
+					slog.Debug("Stack trace", "trace", string(debug.Stack()))
 				}
 
 				// Return a 500 error response

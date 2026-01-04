@@ -49,7 +49,7 @@ func runMigrate(cmd *cobra.Command, args []string) {
 	slog.Info("Running migrations", "app", appName, "description", a.Description)
 
 	// Connect to database
-	db, err := database.ConnectWithRetry(&cfg.Database, RetryAttempts, RetryDelay)
+	db, err := database.ConnectWithRetry(&cfg.Database, cfg.Database.RetryAttempts, cfg.Database.RetryDelay)
 	if err != nil {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)

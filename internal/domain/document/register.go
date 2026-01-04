@@ -48,8 +48,8 @@ func (d *domain) Register(c *container.Container) {
 	c.Set(ItemRepositoryKey, itemRepo)
 
 	// Get cross-domain dependencies
-	cityRepo := c.MustGet(city.RepositoryKey).(city.Repository)
-	productRepo := c.MustGet(item.RepositoryKey).(item.Repository)
+	cityRepo := container.MustGetTyped[city.Repository](c, city.RepositoryKey)
+	productRepo := container.MustGetTyped[item.Repository](c, item.RepositoryKey)
 
 	// Initialize service with cross-domain dependencies
 	service := NewService(repo, itemRepo, cityRepo, productRepo)
@@ -62,8 +62,8 @@ func (d *domain) Register(c *container.Container) {
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := c.MustGet(HandlerKey).(*Handler)
-	tokenStore := c.MustGet(user.TokenStoreKey).(*user.TokenStore)
+	handler := container.MustGetTyped[*Handler](c, HandlerKey)
+	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
 	jwtConfig := &c.Config.JWT
 
 	documents := api.Group("/documents", middleware.JWTMiddleware(jwtConfig, tokenStore))
