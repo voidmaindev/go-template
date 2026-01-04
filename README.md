@@ -19,11 +19,40 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 - **Health Checks**: Comprehensive health endpoint with DB/Redis verification
 - **Security Hardened**: Error sanitization, info leakage prevention, secure defaults
 - **Comprehensive Tests**: Unit tests for services, middleware, handlers, and utilities
+- **OpenAPI 3.0 Documentation**: Spec-first API with Scalar UI
+
+## API Documentation
+
+This project uses **OpenAPI 3.0** with code generation via [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) and **Scalar** for interactive documentation.
+
+### Access Documentation
+
+| URL | Description |
+|-----|-------------|
+| `http://localhost:3000/docs` | Scalar interactive API documentation |
+| `http://localhost:3000/openapi.json` | OpenAPI 3.0 specification (JSON) |
+
+### Regenerating API Code
+
+After modifying `api/openapi.yaml`:
+
+```bash
+# Install oapi-codegen (if not installed)
+go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+
+# Regenerate code
+oapi-codegen --config oapi-codegen.yaml api/openapi.yaml
+```
+
+Generated files:
+- `internal/api/api.gen.go` - Types, interfaces, and router
 
 ## Project Structure
 
 ```
 .
+├── api/
+│   └── openapi.yaml                 # OpenAPI 3.0 specification
 ├── cmd/api/
 │   ├── main.go                      # Application entry point
 │   └── cmd/                         # Cobra CLI commands
@@ -32,6 +61,12 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 │       ├── migrate.go               # migrate [app] command
 │       └── version.go               # version command
 ├── internal/
+│   ├── api/                         # Generated API code
+│   │   ├── api.gen.go               # Generated types & interfaces
+│   │   ├── server.go                # StrictServerInterface impl
+│   │   └── converters.go            # Type conversion helpers
+│   ├── docs/                        # API documentation
+│   │   └── scalar.go                # Scalar UI handler
 │   ├── app/                         # App definitions
 │   │   ├── app.go                   # App struct & registry
 │   │   ├── main.go                  # main app (all domains)
@@ -61,6 +96,7 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 │   └── validator/                   # Validation helpers
 ├── .env.example                     # Environment variables template
 ├── config.yaml.example              # Configuration file template
+├── oapi-codegen.yaml                # OpenAPI code generator config
 ├── docker-compose.yml               # Docker services
 └── Dockerfile                       # Multi-stage build
 ```

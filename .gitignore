@@ -5,7 +5,7 @@
 *.so
 *.dylib
 /main
-/api
+/api.exe
 
 # Test binary
 *.test

@@ -10,10 +10,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/spf13/cobra"
+	"github.com/voidmaindev/go-template/internal/api"
 	"github.com/voidmaindev/go-template/internal/app"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/database"
+	"github.com/voidmaindev/go-template/internal/docs"
 	"github.com/voidmaindev/go-template/internal/logger"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/internal/redis"
@@ -107,7 +109,7 @@ func runServe(cmd *cobra.Command, args []string) {
 	c.RegisterAll()
 
 	// Initialize Fiber app
-	app := fiber.New(fiber.Config{
+	fiberApp := fiber.New(fiber.Config{
 		AppName:               cfg.App.Name,
 		ReadTimeout:           cfg.Server.ReadTimeout,
 		WriteTimeout:          cfg.Server.WriteTimeout,
@@ -124,14 +126,14 @@ func runServe(cmd *cobra.Command, args []string) {
 	})
 
 	// Setup global middleware
-	app.Use(middleware.RequestIDMiddleware()) // Add request ID first for tracing
-	app.Use(middleware.SecurityHeaders())     // Add security headers
-	middleware.SetupCORS(app, cfg)
-	middleware.SetupSlogLogger(app)
-	middleware.SetupCustomRecovery(app, cfg.App.IsDevelopment())
+	fiberApp.Use(middleware.RequestIDMiddleware()) // Add request ID first for tracing
+	fiberApp.Use(middleware.SecurityHeaders())     // Add security headers
+	middleware.SetupCORS(fiberApp, cfg)
+	middleware.SetupSlogLogger(fiberApp)
+	middleware.SetupCustomRecovery(fiberApp, cfg.App.IsDevelopment())
 
 	// Health check endpoint with DB and Redis verification
-	app.Get("/health", func(c *fiber.Ctx) error {
+	fiberApp.Get("/health", func(c *fiber.Ctx) error {
 		// Check database connectivity
 		if err := database.HealthCheck(db); err != nil {
 			slog.Error("Health check failed: database", "error", err)
@@ -159,14 +161,26 @@ func runServe(cmd *cobra.Command, args []string) {
 		})
 	})
 
-	// API v1 routes
-	api := app.Group("/api/v1")
+	// OpenAPI documentation endpoints
+	fiberApp.Get("/docs", docs.ScalarHandler("/openapi.json"))
+	fiberApp.Get("/openapi.json", func(ctx *fiber.Ctx) error {
+		spec, err := api.GetSwagger()
+		if err != nil {
+			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "failed to load OpenAPI spec",
+			})
+		}
+		return ctx.JSON(spec)
+	})
 
-	// Register all domain routes
-	c.RegisterRoutes(api)
+	// API v1 routes
+	apiGroup := fiberApp.Group("/api/v1")
+
+	// Register all domain routes (existing handlers)
+	c.RegisterRoutes(apiGroup)
 
 	// 404 handler
-	app.Use(func(c *fiber.Ctx) error {
+	fiberApp.Use(func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
 			"error":   "endpoint not found",
@@ -178,7 +192,7 @@ func runServe(cmd *cobra.Command, args []string) {
 	go func() {
 		addr := cfg.Server.Addr()
 		slog.Info("Server starting", "addr", addr)
-		if err := app.Listen(addr); err != nil {
+		if err := fiberApp.Listen(addr); err != nil {
 			serverErr <- err
 		}
 	}()
@@ -212,7 +226,7 @@ func runServe(cmd *cobra.Command, args []string) {
 	// Shutdown server with timeout
 	shutdownComplete := make(chan struct{})
 	go func() {
-		if err := app.Shutdown(); err != nil {
+		if err := fiberApp.Shutdown(); err != nil {
 			slog.Error("Error shutting down server", "error", err)
 		}
 		close(shutdownComplete)
