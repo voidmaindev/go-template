@@ -13,6 +13,7 @@ A professional, scalable Go backend template using Fiber v2, GORM, PostgreSQL, a
 - **Docker Ready**: Multi-stage Dockerfile with docker-compose
 - **Validation**: Request validation using go-playground/validator
 - **Pagination**: Built-in pagination support for all list endpoints
+- **Filtering & Sorting**: Django-style query syntax with full operator support
 - **Structured Logging**: Uses Go 1.21+ slog for consistent, structured logging
 - **Graceful Shutdown**: Configurable shutdown timeout with connection draining
 - **Health Checks**: Comprehensive health endpoint with DB/Redis verification
@@ -160,6 +161,96 @@ Full CRUD for each: `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`
 | POST | `/api/v1/documents/:id/items` | Add item to document |
 | PUT | `/api/v1/documents/:id/items/:itemId` | Update document item |
 | DELETE | `/api/v1/documents/:id/items/:itemId` | Remove item |
+
+## Filtering & Sorting
+
+All list endpoints support Django-style filtering and sorting via query parameters.
+
+### Query Syntax
+
+```
+?field=value              # Equality (default operator)
+?field__operator=value    # Specific operator
+```
+
+### Supported Operators
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `eq` | Equals (default) | `?name=Berlin` or `?name__eq=Berlin` |
+| `gt` | Greater than | `?price__gt=1000` |
+| `lt` | Less than | `?price__lt=5000` |
+| `gte` | Greater than or equal | `?created_at__gte=2024-01-01` |
+| `lte` | Less than or equal | `?price__lte=9999` |
+| `contains` | Contains substring (case-insensitive) | `?name__contains=new` |
+| `starts_with` | Starts with (case-insensitive) | `?name__starts_with=New` |
+| `ends_with` | Ends with (case-insensitive) | `?email__ends_with=@gmail.com` |
+| `in` | In list (comma-separated) | `?status__in=active,pending` |
+| `is_null` | Is null | `?deleted_at__is_null=true` |
+| `is_not_null` | Is not null | `?email__is_not_null=true` |
+
+### Relation Filtering
+
+Filter on related entity fields using dot notation (one level deep):
+
+```
+?country.name__contains=Germany    # Filter cities by country name
+?city.country.code=DEU             # Filter documents by city's country code
+```
+
+### Sorting
+
+```
+?sort=field&order=asc     # Sort ascending (default)
+?sort=field&order=desc    # Sort descending
+```
+
+### Pagination
+
+```
+?page=1&page_size=20      # Page 1, 20 items per page
+```
+
+- Default page: 1
+- Default page_size: 10
+- Maximum page_size: 100
+
+### Combined Examples
+
+```bash
+# Get cities containing "New", sorted by name
+GET /api/v1/cities?name__contains=New&sort=name&order=asc
+
+# Get items priced between 1000 and 5000
+GET /api/v1/items?price__gte=1000&price__lte=5000
+
+# Get cities in Germany, page 2, 25 per page
+GET /api/v1/cities?country.name=Germany&page=2&page_size=25
+
+# Get users with email ending in @company.com, sorted by creation date
+GET /api/v1/users?email__ends_with=@company.com&sort=created_at&order=desc
+
+# Get documents created after 2024-01-01 with non-null notes
+GET /api/v1/documents?created_at__gte=2024-01-01&notes__is_not_null=true
+```
+
+### Response Format
+
+List endpoints return paginated results:
+
+```json
+{
+  "success": true,
+  "data": {
+    "data": [...],
+    "total": 100,
+    "page": 1,
+    "page_size": 10,
+    "total_pages": 10,
+    "has_more": true
+  }
+}
+```
 
 ## Request Examples
 
