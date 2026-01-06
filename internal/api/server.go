@@ -1039,36 +1039,126 @@ func (s *Server) DeleteDocumentItem(ctx context.Context, request DeleteDocumentI
 
 // HealthCheck implements StrictServerInterface.
 func (s *Server) HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error) {
+	checks := make(map[string]CheckResult)
+	now := time.Now()
+
 	// Check database connection
+	dbStatus := CheckResultStatusHealthy
+	var dbError *string
 	sqlDB, err := s.container.DB.DB()
 	if err != nil {
-		return HealthCheck503JSONResponse{
-			Status:   ptr("unhealthy"),
-			Database: ptr("connection failed"),
-		}, nil
+		dbStatus = CheckResultStatusUnhealthy
+		dbError = ptr("connection failed: " + err.Error())
+	} else if err := sqlDB.Ping(); err != nil {
+		dbStatus = CheckResultStatusUnhealthy
+		dbError = ptr("ping failed: " + err.Error())
 	}
-	if err := sqlDB.Ping(); err != nil {
-		return HealthCheck503JSONResponse{
-			Status:   ptr("unhealthy"),
-			Database: ptr("ping failed"),
-		}, nil
+	checks["database"] = CheckResult{
+		Status:    &dbStatus,
+		Error:     dbError,
+		Timestamp: &now,
 	}
 
 	// Check Redis connection
+	redisStatus := CheckResultStatusHealthy
+	var redisError *string
 	if s.container.Redis != nil {
 		if err := s.container.Redis.Ping(ctx).Err(); err != nil {
-			return HealthCheck503JSONResponse{
-				Status:   ptr("unhealthy"),
-				Database: ptr("ok"),
-				Redis:    ptr("ping failed"),
-			}, nil
+			redisStatus = CheckResultStatusUnhealthy
+			redisError = ptr("ping failed: " + err.Error())
 		}
+	}
+	checks["redis"] = CheckResult{
+		Status:    &redisStatus,
+		Error:     redisError,
+		Timestamp: &now,
+	}
+
+	// Determine overall status
+	overallStatus := HealthResponseStatusHealthy
+	if dbStatus == CheckResultStatusUnhealthy || redisStatus == CheckResultStatusUnhealthy {
+		overallStatus = HealthResponseStatusUnhealthy
+		return HealthCheck503JSONResponse{
+			Status:    &overallStatus,
+			Checks:    &checks,
+			Timestamp: &now,
+		}, nil
 	}
 
 	return HealthCheck200JSONResponse{
-		Status:   ptr("healthy"),
-		Database: ptr("ok"),
-		Redis:    ptr("ok"),
+		Status:    &overallStatus,
+		Checks:    &checks,
+		Timestamp: &now,
+	}, nil
+}
+
+// GetMetrics implements StrictServerInterface.
+func (s *Server) GetMetrics(ctx context.Context, request GetMetricsRequestObject) (GetMetricsResponseObject, error) {
+	// Metrics are handled by the Prometheus handler middleware, not here
+	// This is a placeholder that shouldn't be called directly
+	return GetMetrics200TextResponse("# Metrics endpoint handled by Prometheus middleware"), nil
+}
+
+// LivenessCheck implements StrictServerInterface.
+func (s *Server) LivenessCheck(ctx context.Context, request LivenessCheckRequestObject) (LivenessCheckResponseObject, error) {
+	status := Healthy
+	return LivenessCheck200JSONResponse{
+		Status: &status,
+	}, nil
+}
+
+// ReadinessCheck implements StrictServerInterface.
+func (s *Server) ReadinessCheck(ctx context.Context, request ReadinessCheckRequestObject) (ReadinessCheckResponseObject, error) {
+	checks := make(map[string]CheckResult)
+	now := time.Now()
+
+	// Check database connection
+	dbStatus := CheckResultStatusHealthy
+	var dbError *string
+	sqlDB, err := s.container.DB.DB()
+	if err != nil {
+		dbStatus = CheckResultStatusUnhealthy
+		dbError = ptr("connection failed: " + err.Error())
+	} else if err := sqlDB.Ping(); err != nil {
+		dbStatus = CheckResultStatusUnhealthy
+		dbError = ptr("ping failed: " + err.Error())
+	}
+	checks["database"] = CheckResult{
+		Status:    &dbStatus,
+		Error:     dbError,
+		Timestamp: &now,
+	}
+
+	// Check Redis connection
+	redisStatus := CheckResultStatusHealthy
+	var redisError *string
+	if s.container.Redis != nil {
+		if err := s.container.Redis.Ping(ctx).Err(); err != nil {
+			redisStatus = CheckResultStatusUnhealthy
+			redisError = ptr("ping failed: " + err.Error())
+		}
+	}
+	checks["redis"] = CheckResult{
+		Status:    &redisStatus,
+		Error:     redisError,
+		Timestamp: &now,
+	}
+
+	// Determine overall status
+	overallStatus := HealthResponseStatusHealthy
+	if dbStatus == CheckResultStatusUnhealthy || redisStatus == CheckResultStatusUnhealthy {
+		overallStatus = HealthResponseStatusUnhealthy
+		return ReadinessCheck503JSONResponse{
+			Status:    &overallStatus,
+			Checks:    &checks,
+			Timestamp: &now,
+		}, nil
+	}
+
+	return ReadinessCheck200JSONResponse{
+		Status:    &overallStatus,
+		Checks:    &checks,
+		Timestamp: &now,
 	}, nil
 }
 
