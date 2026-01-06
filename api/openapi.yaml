@@ -205,10 +205,10 @@ components:
         email:
           type: string
           format: email
-          example: user@example.com
+          example: admin@admin.com
         password:
           type: string
-          example: password123
+          example: Ab123456
 
     RefreshTokenRequest:
       type: object
