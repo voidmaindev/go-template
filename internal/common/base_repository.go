@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 
+	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"gorm.io/gorm"
 )
+
+const repositoryDomain = "repository"
 
 // BaseRepository provides a generic implementation of Repository interface
 type BaseRepository[T any] struct {
@@ -36,13 +39,13 @@ func (r *BaseRepository[T]) CreateBatch(ctx context.Context, entities []T, batch
 }
 
 // FindByID retrieves an entity by its primary key.
-// Returns ErrNotFound if the entity doesn't exist.
+// Returns a typed not found error if the entity doesn't exist.
 func (r *BaseRepository[T]) FindByID(ctx context.Context, id uint) (*T, error) {
 	var entity T
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.First(&entity, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNotFound
+			return nil, commonerrors.NotFound(repositoryDomain, "entity")
 		}
 		return nil, err
 	}
@@ -129,13 +132,13 @@ func (r *BaseRepository[T]) FindAllFiltered(ctx context.Context, params *filter.
 }
 
 // FindOne retrieves a single entity matching conditions.
-// Returns ErrNotFound if no entity matches.
+// Returns a typed not found error if no entity matches.
 func (r *BaseRepository[T]) FindOne(ctx context.Context, condition map[string]any) (*T, error) {
 	var entity T
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.Where(condition).First(&entity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNotFound
+			return nil, commonerrors.NotFound(repositoryDomain, "entity")
 		}
 		return nil, err
 	}

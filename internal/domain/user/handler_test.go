@@ -252,7 +252,7 @@ func TestHandler_Register(t *testing.T) {
 
 	t.Run("email already exists", func(t *testing.T) {
 		svc := &mockService{
-			registerErr: ErrEmailAlreadyExists,
+			registerErr: ErrEmailExists,
 		}
 		handler := NewHandler(svc)
 
@@ -344,7 +344,7 @@ func TestHandler_Login(t *testing.T) {
 
 	t.Run("invalid credentials", func(t *testing.T) {
 		svc := &mockService{
-			loginErr: common.ErrInvalidCredentials,
+			loginErr: ErrInvalidCredentials,
 		}
 		handler := NewHandler(svc)
 
@@ -501,7 +501,7 @@ func TestHandler_RefreshToken(t *testing.T) {
 
 	t.Run("invalid refresh token", func(t *testing.T) {
 		svc := &mockService{
-			refreshErr: common.ErrTokenInvalid,
+			refreshErr: ErrTokenInvalid,
 		}
 		handler := NewHandler(svc)
 
@@ -529,7 +529,7 @@ func TestHandler_RefreshToken(t *testing.T) {
 
 	t.Run("blacklisted token", func(t *testing.T) {
 		svc := &mockService{
-			refreshErr: common.ErrTokenBlacklisted,
+			refreshErr: ErrTokenBlacklisted,
 		}
 		handler := NewHandler(svc)
 

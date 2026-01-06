@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/pkg/utils"
@@ -59,7 +60,7 @@ func (m *mockRepository) FindByID(ctx context.Context, id uint) (*User, error) {
 	}
 	user, ok := m.users[id]
 	if !ok {
-		return nil, common.ErrNotFound
+		return nil, commonerrors.NotFound("repository", "entity")
 	}
 	return user, nil
 }
@@ -86,7 +87,7 @@ func (m *mockRepository) FindOne(ctx context.Context, condition map[string]any) 
 			return user, nil
 		}
 	}
-	return nil, common.ErrNotFound
+	return nil, commonerrors.NotFound("repository", "entity")
 }
 
 func (m *mockRepository) Update(ctx context.Context, entity *User) error {
@@ -94,7 +95,7 @@ func (m *mockRepository) Update(ctx context.Context, entity *User) error {
 		return m.updateErr
 	}
 	if _, ok := m.users[entity.ID]; !ok {
-		return common.ErrNotFound
+		return commonerrors.NotFound("repository", "entity")
 	}
 	entity.UpdatedAt = time.Now()
 	m.users[entity.ID] = entity
@@ -108,7 +109,7 @@ func (m *mockRepository) UpdateFields(ctx context.Context, id uint, fields map[s
 	}
 	user, ok := m.users[id]
 	if !ok {
-		return common.ErrNotFound
+		return commonerrors.NotFound("repository", "entity")
 	}
 	if pwd, ok := fields["password"].(string); ok {
 		user.Password = pwd
@@ -123,7 +124,7 @@ func (m *mockRepository) UpdateFields(ctx context.Context, id uint, fields map[s
 func (m *mockRepository) Delete(ctx context.Context, id uint) error {
 	user, ok := m.users[id]
 	if !ok {
-		return common.ErrNotFound
+		return commonerrors.NotFound("repository", "entity")
 	}
 	delete(m.users, id)
 	delete(m.emailIndex, user.Email)
@@ -165,7 +166,7 @@ func (m *mockRepository) GetDB() *gorm.DB {
 func (m *mockRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
 	user, ok := m.emailIndex[email]
 	if !ok {
-		return nil, common.ErrNotFound
+		return nil, commonerrors.NotFound("repository", "entity")
 	}
 	return user, nil
 }
@@ -261,8 +262,8 @@ func TestService_Register(t *testing.T) {
 		}
 
 		_, err := customSvc.Register(context.Background(), req)
-		if !errors.Is(err, ErrEmailAlreadyExists) {
-			t.Errorf("Register() error = %v, want %v", err, ErrEmailAlreadyExists)
+		if !errors.Is(err, ErrEmailExists) {
+			t.Errorf("Register() error = %v, want %v", err, ErrEmailExists)
 		}
 	})
 }
@@ -310,8 +311,8 @@ func TestService_Login(t *testing.T) {
 		}
 
 		_, err := svc.Login(context.Background(), req)
-		if !errors.Is(err, common.ErrInvalidCredentials) {
-			t.Errorf("Login() error = %v, want %v", err, common.ErrInvalidCredentials)
+		if !errors.Is(err, ErrInvalidCredentials) {
+			t.Errorf("Login() error = %v, want %v", err, ErrInvalidCredentials)
 		}
 	})
 
@@ -322,8 +323,8 @@ func TestService_Login(t *testing.T) {
 		}
 
 		_, err := svc.Login(context.Background(), req)
-		if !errors.Is(err, common.ErrInvalidCredentials) {
-			t.Errorf("Login() error = %v, want %v", err, common.ErrInvalidCredentials)
+		if !errors.Is(err, ErrInvalidCredentials) {
+			t.Errorf("Login() error = %v, want %v", err, ErrInvalidCredentials)
 		}
 	})
 }
@@ -607,8 +608,8 @@ func TestService_RefreshToken(t *testing.T) {
 
 	t.Run("invalid refresh token", func(t *testing.T) {
 		_, err := svc.RefreshToken(context.Background(), "invalid-token")
-		if !errors.Is(err, common.ErrTokenInvalid) {
-			t.Errorf("RefreshToken() error = %v, want %v", err, common.ErrTokenInvalid)
+		if !errors.Is(err, ErrTokenInvalid) {
+			t.Errorf("RefreshToken() error = %v, want %v", err, ErrTokenInvalid)
 		}
 	})
 
@@ -623,8 +624,8 @@ func TestService_RefreshToken(t *testing.T) {
 		accessToken, _ := utils.GenerateAccessToken(1, "user@example.com", "user", jwtCfg)
 
 		_, err := svc.RefreshToken(context.Background(), accessToken)
-		if !errors.Is(err, common.ErrTokenInvalid) {
-			t.Errorf("RefreshToken() error = %v, want %v", err, common.ErrTokenInvalid)
+		if !errors.Is(err, ErrTokenInvalid) {
+			t.Errorf("RefreshToken() error = %v, want %v", err, ErrTokenInvalid)
 		}
 	})
 

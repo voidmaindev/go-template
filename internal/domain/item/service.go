@@ -2,15 +2,11 @@ package item
 
 import (
 	"context"
-	"errors"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/pkg/utils"
-)
-
-var (
-	ErrItemNotFound = errors.New("item not found")
 )
 
 // Service defines the item service interface
@@ -44,7 +40,7 @@ func (s *service) Create(ctx context.Context, req *CreateItemRequest) (*Item, er
 	}
 
 	if err := s.repo.Create(ctx, item); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 
 	return item, nil
@@ -54,10 +50,10 @@ func (s *service) Create(ctx context.Context, req *CreateItemRequest) (*Item, er
 func (s *service) GetByID(ctx context.Context, id uint) (*Item, error) {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrItemNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 	}
 	return item, nil
 }
@@ -66,19 +62,19 @@ func (s *service) GetByID(ctx context.Context, id uint) (*Item, error) {
 func (s *service) Update(ctx context.Context, id uint, req *UpdateItemRequest) (*Item, error) {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrItemNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	// Map non-nil fields from request to model
 	if err := utils.UpdateModel(item, req); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	if err := s.repo.Update(ctx, item); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	return item, nil
@@ -88,20 +84,24 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateItemRequest) (
 func (s *service) Delete(ctx context.Context, id uint) error {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return ErrItemNotFound
 		}
-		return err
+		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	return s.repo.Delete(ctx, item.ID)
+	if err := s.repo.Delete(ctx, item.ID); err != nil {
+		return errors.Internal(domainName, err).WithOperation("Delete")
+	}
+
+	return nil
 }
 
 // List retrieves all items with pagination
 func (s *service) List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Item], error) {
 	items, total, err := s.repo.FindAll(ctx, pagination)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("List")
 	}
 
 	return common.NewPaginatedResult(items, total, pagination), nil
@@ -111,7 +111,7 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Item], error) {
 	items, total, err := s.repo.FindAllFiltered(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
 	return common.NewFilteredResult(items, total, params), nil

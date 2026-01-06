@@ -50,7 +50,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	// Register user
 	response, err := h.service.Register(c.Context(), &req)
 	if err != nil {
-		if errors.Is(err, ErrEmailAlreadyExists) {
+		if errors.Is(err, ErrEmailExists) {
 			return common.ConflictResponse(c, "email already exists")
 		}
 		return common.InternalServerErrorResponse(c)
@@ -83,7 +83,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	// Login user
 	response, err := h.service.Login(c.Context(), &req)
 	if err != nil {
-		if errors.Is(err, common.ErrInvalidCredentials) {
+		if errors.Is(err, ErrInvalidCredentials) {
 			return common.UnauthorizedResponse(c, "invalid email or password")
 		}
 		return common.InternalServerErrorResponse(c)
@@ -137,7 +137,7 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 	// Refresh token
 	response, err := h.service.RefreshToken(c.Context(), req.RefreshToken)
 	if err != nil {
-		if errors.Is(err, common.ErrTokenInvalid) || errors.Is(err, common.ErrTokenBlacklisted) {
+		if errors.Is(err, ErrTokenInvalid) || errors.Is(err, ErrTokenBlacklisted) {
 			return common.UnauthorizedResponse(c, "invalid or expired refresh token")
 		}
 		if errors.Is(err, ErrTokenRefreshUnavailable) {

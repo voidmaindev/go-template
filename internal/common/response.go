@@ -2,6 +2,7 @@ package common
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/voidmaindev/go-template/internal/common/errors"
 )
 
 // Response represents a standard API response
@@ -146,11 +147,18 @@ func ServiceUnavailableResponse(c *fiber.Ctx, message string) error {
 }
 
 // HandleError handles common errors and returns appropriate responses
+// It first checks for typed DomainError, then falls back to legacy error checks
 func HandleError(c *fiber.Ctx, err error) error {
 	if err == nil {
 		return nil
 	}
 
+	// First, check for typed domain errors (new error system)
+	if de := errors.GetDomainError(err); de != nil {
+		return HandleDomainError(c, de)
+	}
+
+	// Fall back to legacy error checks for backward compatibility
 	switch {
 	case IsNotFoundError(err):
 		return NotFoundResponse(c, "")
@@ -165,4 +173,49 @@ func HandleError(c *fiber.Ctx, err error) error {
 	default:
 		return InternalServerErrorResponse(c)
 	}
+}
+
+// HandleDomainError handles typed domain errors with structured response
+func HandleDomainError(c *fiber.Ctx, de *errors.DomainError) error {
+	requestID := getRequestID(c)
+
+	// Build error response with code and domain context
+	errorData := fiber.Map{
+		"code":    string(de.Code),
+		"message": de.Message,
+	}
+
+	// Add domain if present
+	if de.Domain != "" {
+		errorData["domain"] = de.Domain
+	}
+
+	// Add details if present
+	if de.Details != nil && len(de.Details) > 0 {
+		errorData["details"] = de.Details
+	}
+
+	response := Response{
+		Success:   false,
+		Error:     errorData,
+		RequestID: requestID,
+	}
+
+	return c.Status(de.HTTPStatus()).JSON(response)
+}
+
+// HandleErrorWithDomain is a convenience function that wraps errors in domain context
+func HandleErrorWithDomain(c *fiber.Ctx, domain string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// If it's already a domain error, handle it directly
+	if de := errors.GetDomainError(err); de != nil {
+		return HandleDomainError(c, de)
+	}
+
+	// Wrap unknown errors as internal errors
+	de := errors.Internal(domain, err)
+	return HandleDomainError(c, de)
 }

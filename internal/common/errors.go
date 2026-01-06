@@ -3,6 +3,8 @@ package common
 import (
 	"errors"
 	"fmt"
+
+	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 )
 
 // Common application errors
@@ -82,29 +84,29 @@ func WrapError(err error, message string) error {
 	return fmt.Errorf("%s: %w", message, err)
 }
 
-// IsNotFoundError checks if the error is a not found error
+// IsNotFoundError checks if the error is a not found error (supports both legacy and domain errors)
 func IsNotFoundError(err error) bool {
-	return errors.Is(err, ErrNotFound)
+	return errors.Is(err, ErrNotFound) || commonerrors.IsNotFound(err)
 }
 
-// IsUnauthorizedError checks if the error is an unauthorized error
+// IsUnauthorizedError checks if the error is an unauthorized error (supports both legacy and domain errors)
 func IsUnauthorizedError(err error) bool {
-	return errors.Is(err, ErrUnauthorized)
+	return errors.Is(err, ErrUnauthorized) || commonerrors.IsUnauthorized(err)
 }
 
-// IsForbiddenError checks if the error is a forbidden error
+// IsForbiddenError checks if the error is a forbidden error (supports both legacy and domain errors)
 func IsForbiddenError(err error) bool {
-	return errors.Is(err, ErrForbidden)
+	return errors.Is(err, ErrForbidden) || commonerrors.IsForbidden(err)
 }
 
-// IsValidationError checks if the error is a validation error
+// IsValidationError checks if the error is a validation error (supports both legacy and domain errors)
 func IsValidationError(err error) bool {
-	return errors.Is(err, ErrValidation)
+	return errors.Is(err, ErrValidation) || commonerrors.IsValidation(err)
 }
 
-// IsConflictError checks if the error is a conflict error
+// IsConflictError checks if the error is a conflict error (supports both legacy and domain errors)
 func IsConflictError(err error) bool {
-	return errors.Is(err, ErrConflict) || errors.Is(err, ErrAlreadyExists)
+	return errors.Is(err, ErrConflict) || errors.Is(err, ErrAlreadyExists) || commonerrors.IsConflict(err) || commonerrors.IsAlreadyExists(err)
 }
 
 // NewAppErrorWithContext creates an AppError with request and trace context.

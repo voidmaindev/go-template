@@ -2,17 +2,12 @@ package country
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/pkg/utils"
-)
-
-var (
-	ErrCountryNotFound     = errors.New("country not found")
-	ErrCountryCodeExists   = errors.New("country code already exists")
 )
 
 // Service defines the country service interface
@@ -46,7 +41,7 @@ func (s *service) Create(ctx context.Context, req *CreateCountryRequest) (*Count
 	// Check if code already exists
 	exists, err := s.repo.ExistsByCode(ctx, code)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 	if exists {
 		return nil, ErrCountryCodeExists
@@ -58,7 +53,7 @@ func (s *service) Create(ctx context.Context, req *CreateCountryRequest) (*Count
 	}
 
 	if err := s.repo.Create(ctx, country); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 
 	return country, nil
@@ -68,10 +63,10 @@ func (s *service) Create(ctx context.Context, req *CreateCountryRequest) (*Count
 func (s *service) GetByID(ctx context.Context, id uint) (*Country, error) {
 	country, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrCountryNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 	}
 	return country, nil
 }
@@ -80,10 +75,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*Country, error) {
 func (s *service) GetByCode(ctx context.Context, code string) (*Country, error) {
 	country, err := s.repo.FindByCode(ctx, strings.ToUpper(code))
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrCountryNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("GetByCode")
 	}
 	return country, nil
 }
@@ -92,18 +87,18 @@ func (s *service) GetByCode(ctx context.Context, code string) (*Country, error) 
 func (s *service) Update(ctx context.Context, id uint, req *UpdateCountryRequest) (*Country, error) {
 	country, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrCountryNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	// Handle Code validation separately (unique constraint + uppercase normalization)
 	if req.Code != nil {
 		code := strings.ToUpper(*req.Code)
 		existing, err := s.repo.FindByCode(ctx, code)
-		if err != nil {
-			return nil, err
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Internal(domainName, err).WithOperation("Update")
 		}
 		if existing != nil && existing.ID != id {
 			return nil, ErrCountryCodeExists
@@ -114,11 +109,11 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateCountryRequest
 
 	// Map remaining non-nil fields from request to model
 	if err := utils.UpdateModel(country, req); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	if err := s.repo.Update(ctx, country); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	return country, nil
@@ -128,20 +123,23 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateCountryRequest
 func (s *service) Delete(ctx context.Context, id uint) error {
 	country, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return ErrCountryNotFound
 		}
-		return err
+		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	return s.repo.Delete(ctx, country.ID)
+	if err := s.repo.Delete(ctx, country.ID); err != nil {
+		return errors.Internal(domainName, err).WithOperation("Delete")
+	}
+	return nil
 }
 
 // List retrieves all countries with pagination
 func (s *service) List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Country], error) {
 	countries, total, err := s.repo.FindAll(ctx, pagination)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("List")
 	}
 
 	return common.NewPaginatedResult(countries, total, pagination), nil
@@ -151,7 +149,7 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Country], error) {
 	countries, total, err := s.repo.FindAllFiltered(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
 	return common.NewFilteredResult(countries, total, params), nil

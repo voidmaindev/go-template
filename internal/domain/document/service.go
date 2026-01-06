@@ -2,21 +2,13 @@ package document
 
 import (
 	"context"
-	"errors"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/domain/city"
 	"github.com/voidmaindev/go-template/internal/domain/item"
 	"github.com/voidmaindev/go-template/pkg/utils"
-)
-
-var (
-	ErrDocumentNotFound     = errors.New("document not found")
-	ErrDocumentCodeExists   = errors.New("document code already exists")
-	ErrCityNotFound         = errors.New("city not found")
-	ErrItemNotFound         = errors.New("item not found")
-	ErrDocumentItemNotFound = errors.New("document item not found")
 )
 
 // Service defines the document service interface
@@ -59,7 +51,7 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	// Check if code already exists
 	exists, err := s.repo.ExistsByCode(ctx, req.Code)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 	if exists {
 		return nil, ErrDocumentCodeExists
@@ -68,20 +60,20 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	// Validate city exists
 	cityEntity, err := s.cityRepo.FindByID(ctx, req.CityID)
 	if err != nil {
-		return nil, err
-	}
-	if cityEntity == nil {
-		return nil, ErrCityNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrCityNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 
 	// Validate all items exist
 	for _, itemReq := range req.Items {
-		product, err := s.productRepo.FindByID(ctx, itemReq.ItemID)
+		_, err := s.productRepo.FindByID(ctx, itemReq.ItemID)
 		if err != nil {
-			return nil, err
-		}
-		if product == nil {
-			return nil, ErrItemNotFound
+			if errors.IsNotFound(err) {
+				return nil, ErrItemNotFound
+			}
+			return nil, errors.Internal(domainName, err).WithOperation("Create")
 		}
 	}
 
@@ -120,21 +112,26 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 
 	// Return with details
-	return s.repo.FindByIDWithDetails(ctx, doc.ID)
+	result, err := s.repo.FindByIDWithDetails(ctx, doc.ID)
+	if err != nil {
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
+	}
+	_ = cityEntity // Used for validation
+	return result, nil
 }
 
 // GetByID retrieves a document by ID
 func (s *service) GetByID(ctx context.Context, id uint) (*Document, error) {
 	doc, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
-	}
-	if doc == nil {
-		return nil, ErrDocumentNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrDocumentNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 	}
 	return doc, nil
 }
@@ -143,10 +140,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*Document, error) {
 func (s *service) GetByIDWithDetails(ctx context.Context, id uint) (*Document, error) {
 	doc, err := s.repo.FindByIDWithDetails(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrDocumentNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("GetByIDWithDetails")
 	}
 	return doc, nil
 }
@@ -155,17 +152,17 @@ func (s *service) GetByIDWithDetails(ctx context.Context, id uint) (*Document, e
 func (s *service) Update(ctx context.Context, id uint, req *UpdateDocumentRequest) (*Document, error) {
 	doc, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
-	}
-	if doc == nil {
-		return nil, ErrDocumentNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrDocumentNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	// Handle Code validation separately (unique constraint)
 	if req.Code != nil && *req.Code != doc.Code {
 		existing, err := s.repo.FindByCode(ctx, *req.Code)
-		if err != nil {
-			return nil, err
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Internal(domainName, err).WithOperation("Update")
 		}
 		if existing != nil && existing.ID != id {
 			return nil, ErrDocumentCodeExists
@@ -176,12 +173,12 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateDocumentReques
 
 	// Handle CityID validation separately (FK constraint)
 	if req.CityID != nil {
-		cityEntity, err := s.cityRepo.FindByID(ctx, *req.CityID)
+		_, err := s.cityRepo.FindByID(ctx, *req.CityID)
 		if err != nil {
-			return nil, err
-		}
-		if cityEntity == nil {
-			return nil, ErrCityNotFound
+			if errors.IsNotFound(err) {
+				return nil, ErrCityNotFound
+			}
+			return nil, errors.Internal(domainName, err).WithOperation("Update")
 		}
 		doc.CityID = *req.CityID
 		req.CityID = nil // Prevent copier from overwriting
@@ -189,39 +186,46 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateDocumentReques
 
 	// Map remaining non-nil fields from request to model
 	if err := utils.UpdateModel(doc, req); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	if err := s.repo.Update(ctx, doc); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
-	return s.repo.FindByIDWithDetails(ctx, id)
+	result, err := s.repo.FindByIDWithDetails(ctx, id)
+	if err != nil {
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
+	}
+	return result, nil
 }
 
 // Delete soft-deletes a document and its items
 func (s *service) Delete(ctx context.Context, id uint) error {
-	doc, err := s.repo.FindByID(ctx, id)
+	_, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return err
-	}
-	if doc == nil {
-		return ErrDocumentNotFound
+		if errors.IsNotFound(err) {
+			return ErrDocumentNotFound
+		}
+		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
 	// Delete items first
 	if err := s.itemRepo.DeleteByDocumentID(ctx, id); err != nil {
-		return err
+		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return errors.Internal(domainName, err).WithOperation("Delete")
+	}
+	return nil
 }
 
 // List retrieves all documents with pagination
 func (s *service) List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Document], error) {
 	docs, total, err := s.repo.FindAllWithCity(ctx, pagination)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("List")
 	}
 
 	return common.NewPaginatedResult(docs, total, pagination), nil
@@ -231,7 +235,7 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Document], error) {
 	docs, total, err := s.repo.FindAllFilteredWithCity(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
 	return common.NewFilteredResult(docs, total, params), nil
@@ -240,21 +244,21 @@ func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*com
 // AddItem adds an item to a document
 func (s *service) AddItem(ctx context.Context, documentID uint, req *AddDocumentItemRequest) (*DocumentItem, error) {
 	// Validate document exists
-	doc, err := s.repo.FindByID(ctx, documentID)
+	_, err := s.repo.FindByID(ctx, documentID)
 	if err != nil {
-		return nil, err
-	}
-	if doc == nil {
-		return nil, ErrDocumentNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrDocumentNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("AddItem")
 	}
 
 	// Validate item exists
 	product, err := s.productRepo.FindByID(ctx, req.ItemID)
 	if err != nil {
-		return nil, err
-	}
-	if product == nil {
-		return nil, ErrItemNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrItemNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("AddItem")
 	}
 
 	// Create document item
@@ -266,7 +270,7 @@ func (s *service) AddItem(ctx context.Context, documentID uint, req *AddDocument
 	}
 
 	if err := s.itemRepo.Create(ctx, docItem); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("AddItem")
 	}
 
 	// Recalculate total
@@ -282,30 +286,33 @@ func (s *service) AddItem(ctx context.Context, documentID uint, req *AddDocument
 // UpdateItem updates a document item
 func (s *service) UpdateItem(ctx context.Context, documentID, itemID uint, req *UpdateDocumentItemRequest) (*DocumentItem, error) {
 	// Validate document exists
-	doc, err := s.repo.FindByID(ctx, documentID)
+	_, err := s.repo.FindByID(ctx, documentID)
 	if err != nil {
-		return nil, err
-	}
-	if doc == nil {
-		return nil, ErrDocumentNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrDocumentNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("UpdateItem")
 	}
 
 	// Find document item
 	docItem, err := s.itemRepo.FindByID(ctx, itemID)
 	if err != nil {
-		return nil, err
+		if errors.IsNotFound(err) {
+			return nil, ErrDocumentItemNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("UpdateItem")
 	}
-	if docItem == nil || docItem.DocumentID != documentID {
+	if docItem.DocumentID != documentID {
 		return nil, ErrDocumentItemNotFound
 	}
 
 	// Map non-nil fields from request to model
 	if err := utils.UpdateModel(docItem, req); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("UpdateItem")
 	}
 
 	if err := s.itemRepo.Update(ctx, docItem); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("UpdateItem")
 	}
 
 	// Recalculate total
@@ -319,25 +326,28 @@ func (s *service) UpdateItem(ctx context.Context, documentID, itemID uint, req *
 // RemoveItem removes an item from a document
 func (s *service) RemoveItem(ctx context.Context, documentID, itemID uint) error {
 	// Validate document exists
-	doc, err := s.repo.FindByID(ctx, documentID)
+	_, err := s.repo.FindByID(ctx, documentID)
 	if err != nil {
-		return err
-	}
-	if doc == nil {
-		return ErrDocumentNotFound
+		if errors.IsNotFound(err) {
+			return ErrDocumentNotFound
+		}
+		return errors.Internal(domainName, err).WithOperation("RemoveItem")
 	}
 
 	// Find document item
 	docItem, err := s.itemRepo.FindByID(ctx, itemID)
 	if err != nil {
-		return err
+		if errors.IsNotFound(err) {
+			return ErrDocumentItemNotFound
+		}
+		return errors.Internal(domainName, err).WithOperation("RemoveItem")
 	}
-	if docItem == nil || docItem.DocumentID != documentID {
+	if docItem.DocumentID != documentID {
 		return ErrDocumentItemNotFound
 	}
 
 	if err := s.itemRepo.Delete(ctx, itemID); err != nil {
-		return err
+		return errors.Internal(domainName, err).WithOperation("RemoveItem")
 	}
 
 	// Recalculate total
@@ -348,7 +358,7 @@ func (s *service) RemoveItem(ctx context.Context, documentID, itemID uint) error
 func (s *service) recalculateTotal(ctx context.Context, documentID uint) error {
 	items, err := s.itemRepo.FindByDocumentID(ctx, documentID)
 	if err != nil {
-		return err
+		return errors.Internal(domainName, err).WithOperation("recalculateTotal")
 	}
 
 	var total int64
@@ -356,5 +366,8 @@ func (s *service) recalculateTotal(ctx context.Context, documentID uint) error {
 		total += item.GetLineTotal()
 	}
 
-	return s.repo.UpdateTotalAmount(ctx, documentID, total)
+	if err := s.repo.UpdateTotalAmount(ctx, documentID, total); err != nil {
+		return errors.Internal(domainName, err).WithOperation("recalculateTotal")
+	}
+	return nil
 }

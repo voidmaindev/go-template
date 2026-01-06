@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
+	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/city"
@@ -55,7 +56,7 @@ func (s *Server) Register(ctx context.Context, request RegisterRequestObject) (R
 
 	response, err := s.userService.Register(ctx, req)
 	if err != nil {
-		if errors.Is(err, user.ErrEmailAlreadyExists) {
+		if errors.Is(err, user.ErrEmailExists) {
 			return Register409JSONResponse{
 				Error:   ptr("conflict"),
 				Message: ptr("email already exists"),
@@ -79,7 +80,7 @@ func (s *Server) Login(ctx context.Context, request LoginRequestObject) (LoginRe
 
 	response, err := s.userService.Login(ctx, req)
 	if err != nil {
-		if errors.Is(err, common.ErrInvalidCredentials) {
+		if errors.Is(err, user.ErrInvalidCredentials) || commonerrors.IsUnauthorized(err) {
 			return Login401JSONResponse{
 				Error:   ptr("unauthorized"),
 				Message: ptr("invalid email or password"),
@@ -127,7 +128,7 @@ func (s *Server) Logout(ctx context.Context, request LogoutRequestObject) (Logou
 func (s *Server) RefreshToken(ctx context.Context, request RefreshTokenRequestObject) (RefreshTokenResponseObject, error) {
 	response, err := s.userService.RefreshToken(ctx, request.Body.RefreshToken)
 	if err != nil {
-		if errors.Is(err, common.ErrTokenInvalid) || errors.Is(err, common.ErrTokenBlacklisted) {
+		if errors.Is(err, user.ErrTokenInvalid) || errors.Is(err, user.ErrTokenBlacklisted) || commonerrors.IsUnauthorized(err) {
 			return RefreshToken401JSONResponse{
 				Error:   ptr("unauthorized"),
 				Message: ptr("invalid or expired refresh token"),

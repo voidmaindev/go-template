@@ -2,10 +2,10 @@ package user
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/telemetry"
@@ -15,15 +15,6 @@ import (
 // Token blacklist retry settings
 const (
 	blacklistMaxRetries = 3
-)
-
-// Service errors
-var (
-	ErrEmailAlreadyExists     = errors.New("email already exists")
-	ErrUserNotFound           = errors.New("user not found")
-	ErrInvalidPassword        = errors.New("invalid password")
-	ErrSamePassword           = errors.New("new password must be different from current password")
-	ErrTokenRefreshUnavailable = errors.New("token refresh temporarily unavailable")
 )
 
 // Service defines the user service interface
@@ -69,16 +60,16 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 	// Check if email already exists
 	exists, err := s.repo.ExistsByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Register")
 	}
 	if exists {
-		return nil, ErrEmailAlreadyExists
+		return nil, ErrEmailExists
 	}
 
 	// Hash password
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Register")
 	}
 
 	// Create user with default role
@@ -90,7 +81,7 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Register")
 	}
 
 	// Record metric
@@ -105,15 +96,15 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 	// Find user by email
 	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
-			return nil, common.ErrInvalidCredentials
+		if errors.IsNotFound(err) {
+			return nil, ErrInvalidCredentials
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Login")
 	}
 
 	// Verify password
 	if !utils.CheckPassword(req.Password, user.Password) {
-		return nil, common.ErrInvalidCredentials
+		return nil, ErrInvalidCredentials
 	}
 
 	// Record metric
@@ -141,25 +132,25 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 	// Validate refresh token
 	claims, err := utils.ValidateRefreshToken(refreshToken, s.jwtConfig.SecretKey)
 	if err != nil {
-		return nil, common.ErrTokenInvalid
+		return nil, ErrTokenInvalid
 	}
 
 	// Check if token is blacklisted
 	isBlacklisted, err := s.tokenStore.IsBlacklisted(ctx, refreshToken)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("RefreshToken")
 	}
 	if isBlacklisted {
-		return nil, common.ErrTokenBlacklisted
+		return nil, ErrTokenBlacklisted
 	}
 
 	// Get user
 	user, err := s.repo.FindByID(ctx, claims.UserID)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("RefreshToken")
 	}
 
 	// Blacklist old refresh token with retry logic
@@ -187,10 +178,10 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 func (s *service) GetByID(ctx context.Context, id uint) (*User, error) {
 	user, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 	}
 	return user, nil
 }
@@ -199,10 +190,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*User, error) {
 func (s *service) GetByEmail(ctx context.Context, email string) (*User, error) {
 	user, err := s.repo.FindByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("GetByEmail")
 	}
 	return user, nil
 }
@@ -211,19 +202,19 @@ func (s *service) GetByEmail(ctx context.Context, email string) (*User, error) {
 func (s *service) Update(ctx context.Context, id uint, req *UpdateUserRequest) (*User, error) {
 	user, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	// Map non-nil/non-empty fields from request to model
 	if err := utils.UpdateModel(user, req); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	if err := s.repo.Update(ctx, user); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	return user, nil
@@ -233,10 +224,10 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateUserRequest) (
 func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswordRequest) error {
 	user, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return ErrUserNotFound
 		}
-		return err
+		return errors.Internal(domainName, err).WithOperation("ChangePassword")
 	}
 
 	// Verify current password
@@ -252,33 +243,39 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswo
 	// Hash new password
 	hashedPassword, err := utils.HashPassword(req.NewPassword)
 	if err != nil {
-		return err
+		return errors.Internal(domainName, err).WithOperation("ChangePassword")
 	}
 
 	// Update password
-	return s.repo.UpdateFields(ctx, id, map[string]any{
+	if err := s.repo.UpdateFields(ctx, id, map[string]any{
 		"password": hashedPassword,
-	})
+	}); err != nil {
+		return errors.Internal(domainName, err).WithOperation("ChangePassword")
+	}
+	return nil
 }
 
 // Delete soft-deletes a user
 func (s *service) Delete(ctx context.Context, id uint) error {
 	_, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return ErrUserNotFound
 		}
-		return err
+		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return errors.Internal(domainName, err).WithOperation("Delete")
+	}
+	return nil
 }
 
 // List retrieves all users with pagination
 func (s *service) List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[User], error) {
 	users, total, err := s.repo.FindAll(ctx, pagination)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("List")
 	}
 
 	return common.NewPaginatedResult(users, total, pagination), nil
@@ -288,7 +285,7 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[User], error) {
 	users, total, err := s.repo.FindAllFiltered(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
 	return common.NewFilteredResult(users, total, params), nil

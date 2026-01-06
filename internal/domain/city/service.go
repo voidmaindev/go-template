@@ -2,17 +2,12 @@ package city
 
 import (
 	"context"
-	"errors"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/domain/country"
 	"github.com/voidmaindev/go-template/pkg/utils"
-)
-
-var (
-	ErrCityNotFound    = errors.New("city not found")
-	ErrCountryNotFound = errors.New("country not found")
 )
 
 // Service defines the city service interface
@@ -46,10 +41,10 @@ func (s *service) Create(ctx context.Context, req *CreateCityRequest) (*City, er
 	// Validate country exists
 	countryEntity, err := s.countryRepo.FindByID(ctx, req.CountryID)
 	if err != nil {
-		return nil, err
-	}
-	if countryEntity == nil {
-		return nil, ErrCountryNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrCountryNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 
 	city := &City{
@@ -58,7 +53,7 @@ func (s *service) Create(ctx context.Context, req *CreateCityRequest) (*City, er
 	}
 
 	if err := s.repo.Create(ctx, city); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 
 	// Load country for response
@@ -70,10 +65,10 @@ func (s *service) Create(ctx context.Context, req *CreateCityRequest) (*City, er
 func (s *service) GetByID(ctx context.Context, id uint) (*City, error) {
 	city, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
-	}
-	if city == nil {
-		return nil, ErrCityNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrCityNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 	}
 	return city, nil
 }
@@ -82,10 +77,10 @@ func (s *service) GetByID(ctx context.Context, id uint) (*City, error) {
 func (s *service) GetByIDWithCountry(ctx context.Context, id uint) (*City, error) {
 	city, err := s.repo.FindByIDWithCountry(ctx, id)
 	if err != nil {
-		if errors.Is(err, common.ErrNotFound) {
+		if errors.IsNotFound(err) {
 			return nil, ErrCityNotFound
 		}
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("GetByIDWithCountry")
 	}
 	return city, nil
 }
@@ -94,20 +89,20 @@ func (s *service) GetByIDWithCountry(ctx context.Context, id uint) (*City, error
 func (s *service) Update(ctx context.Context, id uint, req *UpdateCityRequest) (*City, error) {
 	city, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
-	}
-	if city == nil {
-		return nil, ErrCityNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrCityNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	// Handle CountryID validation separately (FK constraint)
 	if req.CountryID != nil {
 		countryEntity, err := s.countryRepo.FindByID(ctx, *req.CountryID)
 		if err != nil {
-			return nil, err
-		}
-		if countryEntity == nil {
-			return nil, ErrCountryNotFound
+			if errors.IsNotFound(err) {
+				return nil, ErrCountryNotFound
+			}
+			return nil, errors.Internal(domainName, err).WithOperation("Update")
 		}
 		city.CountryID = *req.CountryID
 		city.Country = *countryEntity
@@ -116,11 +111,11 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateCityRequest) (
 
 	// Map remaining non-nil fields from request to model
 	if err := utils.UpdateModel(city, req); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	if err := s.repo.Update(ctx, city); err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
 	return city, nil
@@ -128,22 +123,25 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateCityRequest) (
 
 // Delete soft-deletes a city
 func (s *service) Delete(ctx context.Context, id uint) error {
-	city, err := s.repo.FindByID(ctx, id)
+	_, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return err
-	}
-	if city == nil {
-		return ErrCityNotFound
+		if errors.IsNotFound(err) {
+			return ErrCityNotFound
+		}
+		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return errors.Internal(domainName, err).WithOperation("Delete")
+	}
+	return nil
 }
 
 // List retrieves all cities with pagination
 func (s *service) List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[City], error) {
 	cities, total, err := s.repo.FindAllWithCountry(ctx, pagination)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("List")
 	}
 
 	return common.NewPaginatedResult(cities, total, pagination), nil
@@ -153,7 +151,7 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[City], error) {
 	cities, total, err := s.repo.FindAllFilteredWithCountry(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
 	return common.NewFilteredResult(cities, total, params), nil
@@ -162,17 +160,17 @@ func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*com
 // ListByCountry retrieves all cities for a specific country
 func (s *service) ListByCountry(ctx context.Context, countryID uint, pagination *common.Pagination) (*common.PaginatedResult[City], error) {
 	// Validate country exists
-	countryEntity, err := s.countryRepo.FindByID(ctx, countryID)
+	_, err := s.countryRepo.FindByID(ctx, countryID)
 	if err != nil {
-		return nil, err
-	}
-	if countryEntity == nil {
-		return nil, ErrCountryNotFound
+		if errors.IsNotFound(err) {
+			return nil, ErrCountryNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("ListByCountry")
 	}
 
 	cities, total, err := s.repo.FindByCountryIDWithCountry(ctx, countryID, pagination)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("ListByCountry")
 	}
 
 	return common.NewPaginatedResult(cities, total, pagination), nil
