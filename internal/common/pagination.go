@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 )
 
@@ -72,6 +73,54 @@ func NewPaginationWithParams(page, pageSize int, sort, order string) *Pagination
 	}
 	p.Validate()
 	return p
+}
+
+// PaginationFromQuery parses pagination parameters from Fiber query string.
+// Supports optional default sort field for domain-specific defaults.
+func PaginationFromQuery(c *fiber.Ctx, defaultSort ...string) *Pagination {
+	sort := ""
+	if len(defaultSort) > 0 {
+		sort = defaultSort[0]
+	}
+	if s := c.Query("sort"); s != "" {
+		sort = s
+	}
+
+	p := &Pagination{
+		Page:     c.QueryInt("page", DefaultPage),
+		PageSize: c.QueryInt("page_size", DefaultPageSize),
+		Sort:     sort,
+		Order:    c.Query("order", "asc"),
+	}
+	p.Validate()
+	return p
+}
+
+// PaginationFromOptional creates pagination from optional pointer values.
+// Useful for OpenAPI generated params where page/pageSize are *int.
+func PaginationFromOptional(page, pageSize *int, sort, order *string) *Pagination {
+	p := &Pagination{
+		Page:     intOrDefault(page, DefaultPage),
+		PageSize: intOrDefault(pageSize, DefaultPageSize),
+		Sort:     stringOrDefault(sort, ""),
+		Order:    stringOrDefault(order, "asc"),
+	}
+	p.Validate()
+	return p
+}
+
+func intOrDefault(v *int, def int) int {
+	if v != nil {
+		return *v
+	}
+	return def
+}
+
+func stringOrDefault(v *string, def string) string {
+	if v != nil {
+		return *v
+	}
+	return def
 }
 
 // Validate ensures pagination values are within acceptable ranges

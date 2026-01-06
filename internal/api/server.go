@@ -736,10 +736,11 @@ func (s *Server) DeleteCity(ctx context.Context, request DeleteCityRequestObject
 
 // ListCitiesByCountry implements StrictServerInterface.
 func (s *Server) ListCitiesByCountry(ctx context.Context, request ListCitiesByCountryRequestObject) (ListCitiesByCountryResponseObject, error) {
-	pagination := &common.Pagination{
-		Page:     getIntOrDefault(request.Params.Page, 1),
-		PageSize: getIntOrDefault(request.Params.PageSize, 10),
-	}
+	pagination := common.PaginationFromOptional(
+		request.Params.Page,
+		request.Params.PageSize,
+		nil, nil, // Sort/Order not in API spec for this endpoint
+	)
 
 	result, err := s.cityService.ListByCountry(ctx, uint(request.CountryId), pagination)
 	if err != nil {

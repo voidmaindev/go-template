@@ -132,12 +132,7 @@ func (h *Handler) ListByCountry(c *fiber.Ctx) error {
 		return common.BadRequestResponse(c, "invalid country ID")
 	}
 
-	pagination := &common.Pagination{
-		Page:     c.QueryInt("page", 1),
-		PageSize: c.QueryInt("page_size", 10),
-		Sort:     c.Query("sort", "name"),
-		Order:    c.Query("order", "asc"),
-	}
+	pagination := common.PaginationFromQuery(c, "name")
 
 	result, err := h.service.ListByCountry(c.Context(), uint(countryID), pagination)
 	if err != nil {
