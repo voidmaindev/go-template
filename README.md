@@ -9,7 +9,8 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 - **Dependency Container**: Type-safe dependency injection with generics
 - **Generic Repository Pattern**: Maximum database abstraction using Go generics
 - **JWT Authentication**: Access and refresh tokens with Redis-based blacklisting
-- **CLI with Cobra**: Professional CLI with subcommands (serve, migrate, version)
+- **CLI with Cobra**: Professional CLI with subcommands (serve, migrate, seed, version)
+- **Database Seeders**: Separate seeder infrastructure with tracking and idempotency
 - **Docker Ready**: Multi-stage Dockerfile with docker-compose
 - **Validation**: Request validation using go-playground/validator
 - **Filtering & Sorting**: Django-style query syntax with full operator support
@@ -65,6 +66,7 @@ Generated files:
 │       ├── root.go
 │       ├── serve.go                 # serve [app] command
 │       ├── migrate.go               # migrate [up|down|status|reset|refresh]
+│       ├── seed.go                  # seed [status|reset] --fresh
 │       └── version.go               # version command
 ├── internal/
 │   ├── api/                         # Generated API code
@@ -80,9 +82,12 @@ Generated files:
 │   ├── container/                   # Dependency container
 │   ├── config/                      # Configuration management
 │   ├── database/                    # Database connection
-│   │   └── migrations/              # GORM Go code migrations
-│   │       ├── migrations.go        # Migration registry & runner
-│   │       └── 000001_*.go          # Individual migrations
+│   │   ├── migrations/              # GORM Go code migrations
+│   │   │   ├── migrations.go        # Migration registry & runner
+│   │   │   └── 000001_*.go          # Individual migrations
+│   │   └── seeders/                 # Database seeders
+│   │       ├── seeders.go           # Seeder registry & runner
+│   │       └── admin_user.go        # Default admin user seeder
 │   ├── redis/                       # Redis client
 │   ├── logger/                      # Structured logging
 │   ├── health/                      # Kubernetes health probes
@@ -153,10 +158,13 @@ Generated files:
    docker compose --profile observability up -d
    ```
 
-3. **Run migrations and start the server**
+3. **Run migrations, seed data, and start the server**
    ```bash
    # Run migrations for main app
    go run ./cmd/api migrate main
+
+   # Run seeders (creates default admin user)
+   go run ./cmd/api seed
 
    # Start the main app
    go run ./cmd/api serve main
@@ -177,6 +185,12 @@ go run ./cmd/api migrate down 3       # Rollback last 3 migrations
 go run ./cmd/api migrate status       # Show migration status
 go run ./cmd/api migrate reset        # Rollback all migrations
 go run ./cmd/api migrate refresh      # Reset + re-apply all migrations
+
+# Database seeders
+go run ./cmd/api seed                 # Run all pending seeders
+go run ./cmd/api seed --fresh         # Reset + run all seeders
+go run ./cmd/api seed status          # Show seeder status
+go run ./cmd/api seed reset           # Clear seeder records (allows re-run)
 
 # With flags
 go run ./cmd/api serve main -p 8080   # Custom port
@@ -522,6 +536,16 @@ Configuration can be set via environment variables or `config.yaml` file. Enviro
 | `JWT_ACCESS_EXPIRY` | 15m | Access token expiry |
 | `JWT_REFRESH_EXPIRY` | 168h | Refresh token expiry (7 days) |
 | `JWT_ISSUER` | go-template | JWT issuer |
+
+### Seeding
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SEED_ADMIN_EMAIL` | admin | Admin user email |
+| `SEED_ADMIN_PASSWORD` | (required in prod) | Admin user password |
+| `SEED_ADMIN_NAME` | Administrator | Admin user display name |
+
+> **Note**: In production, `SEED_ADMIN_PASSWORD` must be set via environment variable or secrets. The application will fail validation if not provided.
 
 ### CORS
 
