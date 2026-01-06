@@ -25,7 +25,7 @@ func (s *AdminUserSeeder) Name() string {
 
 // Run creates the default admin user if it doesn't exist.
 // Configuration via Viper/environment variables:
-//   - SEED_ADMIN_EMAIL: Admin email (default: admin)
+//   - SEED_ADMIN_EMAIL: Admin email (default: admin@admin.com)
 //   - SEED_ADMIN_PASSWORD: Admin password (REQUIRED in production)
 //   - SEED_ADMIN_NAME: Admin name (default: Administrator)
 func (s *AdminUserSeeder) Run(db *gorm.DB, cfg *config.Config) error {

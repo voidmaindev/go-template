@@ -545,7 +545,7 @@ Configuration can be set via environment variables or `config.yaml` file. Enviro
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SEED_ADMIN_EMAIL` | admin | Admin user email |
+| `SEED_ADMIN_EMAIL` | admin@admin.com | Admin user email |
 | `SEED_ADMIN_PASSWORD` | (required in prod) | Admin user password |
 | `SEED_ADMIN_NAME` | Administrator | Admin user display name |
 

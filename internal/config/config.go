@@ -211,7 +211,7 @@ func setDefaults() {
 	viper.SetDefault("telemetry.sampling_ratio", 1.0)
 
 	// Seed defaults (password intentionally empty - must be set in production)
-	viper.SetDefault("seed.admin_email", "admin")
+	viper.SetDefault("seed.admin_email", "admin@admin.com")
 	viper.SetDefault("seed.admin_password", "") // Empty by default, required in production
 	viper.SetDefault("seed.admin_name", "Administrator")
 }
