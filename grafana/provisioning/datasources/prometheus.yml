@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=
 apiVersion: 1
 
 datasources:
