@@ -109,14 +109,32 @@ Generated files:
 │   │   └── setup_test.go            # Test suite setup
 │   ├── common/                      # Shared components
 │   │   ├── filter/                  # Filtering & sorting system
+│   │   ├── errors/                  # Typed domain errors with codes
+│   │   │   ├── codes.go             # ErrorCode type with HTTP mapping
+│   │   │   ├── domain_error.go      # DomainError struct
+│   │   │   └── helpers.go           # NotFound, Unauthorized, etc.
+│   │   ├── validation/              # Centralized validation
+│   │   │   ├── result.go            # FieldError and Result types
+│   │   │   ├── validator.go         # Validator wrapper
+│   │   │   └── builder.go           # Composable validation builder
+│   │   ├── ctxutil/                 # Context utilities
+│   │   │   └── context.go           # Request/User context helpers
+│   │   ├── logging/                 # Structured logging
+│   │   │   └── logger.go            # Domain/Operation logger
 │   │   ├── base_model.go            # Base model with timestamps
 │   │   ├── base_repository.go       # Generic repository implementation
 │   │   ├── repository.go            # Repository interface
+│   │   ├── specification.go         # Query specification pattern
+│   │   ├── query_options.go         # Composable query options
 │   │   ├── pagination.go            # Pagination utilities
 │   │   ├── response.go              # HTTP response helpers (with request_id)
-│   │   └── errors.go                # Common errors (with trace context)
+│   │   └── errors.go                # Legacy errors (backward compat)
 │   └── domain/
 │       ├── user/                    # User domain with auth
+│       │   ├── errors.go            # Domain-specific errors
+│       │   ├── specs.go             # Query specifications
+│       │   ├── validation.go        # Domain validator
+│       │   └── ...                  # model, dto, service, handler
 │       ├── item/                    # Item domain (example)
 │       ├── country/                 # Country domain (example)
 │       ├── city/                    # City domain (depends on country)
@@ -396,12 +414,321 @@ curl -X POST http://localhost:3000/api/v1/items \
   -d '{"name": "Product", "description": "A product", "price": 1999}'
 ```
 
+## Error Handling
+
+The template uses a typed domain error system with automatic HTTP status mapping.
+
+### Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `NOT_FOUND` | 404 | Resource not found |
+| `ALREADY_EXISTS` | 409 | Duplicate resource |
+| `VALIDATION_ERROR` | 400 | Invalid input |
+| `UNAUTHORIZED` | 401 | Authentication required |
+| `FORBIDDEN` | 403 | Permission denied |
+| `CONFLICT` | 409 | State conflict |
+| `INTERNAL_ERROR` | 500 | Internal server error |
+| `BAD_REQUEST` | 400 | Malformed request |
+
+### Defining Domain Errors
+
+Each domain defines its own errors in `errors.go`:
+
+```go
+package item
+
+import "github.com/voidmaindev/go-template/internal/common/errors"
+
+const domainName = "item"
+
+var (
+    ErrItemNotFound = errors.NotFound(domainName, "item")
+    ErrItemExists   = errors.AlreadyExists(domainName, "item", "name")
+)
+```
+
+### Using Errors in Services
+
+```go
+func (s *service) GetByID(ctx context.Context, id uint) (*Item, error) {
+    item, err := s.repo.FindByID(ctx, id)
+    if err != nil {
+        if errors.IsNotFound(err) {
+            return nil, ErrItemNotFound
+        }
+        return nil, errors.Internal(domainName, err).WithOperation("GetByID")
+    }
+    return item, nil
+}
+```
+
+### Error Response Format
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "item not found",
+    "domain": "item"
+  },
+  "request_id": "abc-123"
+}
+```
+
+## Validation
+
+The template provides a composable validation system that combines struct tags with business rules.
+
+### Struct Tag Validation
+
+```go
+type CreateItemRequest struct {
+    Name        string `json:"name" validate:"required,min=1,max=255"`
+    Description string `json:"description" validate:"max=1000"`
+    Price       int64  `json:"price" validate:"required,gte=0"`
+}
+```
+
+### Custom Business Rules
+
+```go
+func (v *Validator) ValidateCreate(ctx context.Context, req *CreateItemRequest) *validation.Result {
+    return validation.NewBuilder(ctx).
+        Struct(v.validator, req).                    // Struct tag validation
+        CustomWithCode("name", "DUPLICATE", func(ctx context.Context) error {
+            exists, _ := v.repo.ExistsByName(ctx, req.Name)
+            if exists {
+                return fmt.Errorf("item with this name already exists")
+            }
+            return nil
+        }).
+        Condition(req.Price < 0, "price", "INVALID", "price cannot be negative").
+        Result()
+}
+```
+
+### Validation Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "validation failed",
+    "details": [
+      {"field": "name", "code": "REQUIRED", "message": "field is required"},
+      {"field": "price", "code": "TOO_SMALL", "message": "value is too small"}
+    ]
+  },
+  "request_id": "abc-123"
+}
+```
+
+## Query Specifications
+
+The specification pattern allows composable, reusable query conditions.
+
+### Built-in Specifications
+
+```go
+// By field value
+spec := common.ByField("status", "active")
+
+// Combine with AND
+spec := common.And(
+    common.ByField("status", "active"),
+    common.ByField("type", "product"),
+)
+
+// Combine with OR
+spec := common.Or(
+    common.ByField("role", "admin"),
+    common.ByField("role", "moderator"),
+)
+```
+
+### Domain-Specific Specifications
+
+Each domain can define its own specs in `specs.go`:
+
+```go
+package user
+
+// ByEmail finds user by email
+type EmailSpec struct {
+    Email string
+}
+
+func ByEmail(email string) EmailSpec {
+    return EmailSpec{Email: email}
+}
+
+func (s EmailSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
+    return db.Where("email = ?", s.Email)
+}
+```
+
+### Using Specifications
+
+```go
+// Find one by spec
+user, err := repo.FindOne(ctx, user.ByEmail("user@example.com"))
+
+// Find many with options
+users, total, err := repo.FindBySpec(ctx,
+    common.And(user.ByRole("admin"), user.ActiveAfter(lastMonth)),
+    common.WithPagination(pagination),
+    common.WithPreload("Profile"),
+)
+```
+
+## Query Options
+
+Composable query options replace method explosion with a flexible API.
+
+### Available Options
+
+```go
+// Eager loading
+common.WithPreload("Country", "Items")
+
+// Pagination
+common.WithPagination(&common.Pagination{Page: 1, PageSize: 20})
+
+// Sorting
+common.WithSort("created_at", "desc")
+
+// Dynamic filtering
+common.WithFilter(filterParams)
+
+// Limit/Offset (non-paginated)
+common.WithLimit(10)
+common.WithOffset(5)
+```
+
+### Usage Examples
+
+```go
+// Simple list with pagination
+items, total, _ := repo.FindAll(ctx,
+    common.WithPagination(pagination),
+    common.WithSort("name", "asc"),
+)
+
+// With preloading and filtering
+cities, total, _ := repo.FindAll(ctx,
+    common.WithPreload("Country"),
+    common.WithFilter(filterParams),
+    common.WithPagination(pagination),
+)
+
+// Using builder pattern
+opts := common.NewQueryBuilder().
+    Preload("Country", "Items").
+    Paginate(1, 20).
+    Sort("created_at", true).
+    Build()
+
+items, total, _ := repo.FindAll(ctx, opts)
+```
+
+## Context Propagation
+
+Request context (request ID, user info) flows through all layers for logging and tracing.
+
+### Context Values
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `request_id` | string | Unique request identifier |
+| `trace_id` | string | OpenTelemetry trace ID |
+| `user_id` | uint | Authenticated user ID |
+| `user_email` | string | Authenticated user email |
+| `user_role` | string | Authenticated user role |
+
+### Accessing Context
+
+```go
+import "github.com/voidmaindev/go-template/internal/common/ctxutil"
+
+func (s *service) Create(ctx context.Context, req *CreateRequest) error {
+    requestID := ctxutil.GetRequestID(ctx)
+    userID := ctxutil.GetUserID(ctx)
+
+    // Context values are automatically included in logs
+    s.logger.WithOperation("create").Info(ctx, "creating item")
+}
+```
+
+## Structured Logging
+
+Domain-aware logging with automatic context enrichment.
+
+### Basic Usage
+
+```go
+import "github.com/voidmaindev/go-template/internal/common/logging"
+
+type service struct {
+    logger *logging.Logger
+}
+
+func NewService() Service {
+    return &service{
+        logger: logging.New("item"),
+    }
+}
+```
+
+### Operation Logging
+
+```go
+func (s *service) Create(ctx context.Context, req *CreateRequest) (*Item, error) {
+    log := s.logger.WithOperation("create")
+
+    log.Info(ctx, "creating item", "name", req.Name)
+
+    // ... create item ...
+
+    log.WithEntity("item", item.ID).Info(ctx, "item created")
+    return item, nil
+}
+```
+
+### Log Output (JSON)
+
+```json
+{
+  "time": "2024-01-15T10:30:00Z",
+  "level": "INFO",
+  "msg": "item created",
+  "domain": "item",
+  "operation": "create",
+  "request_id": "abc-123",
+  "trace_id": "xyz-789",
+  "user_id": 42,
+  "entity_type": "item",
+  "entity_id": 156
+}
+```
+
 ## Creating New Domains
 
 To add a new domain:
 
 1. Create folder `internal/domain/<name>/`
-2. Create files: `model.go`, `dto.go`, `repository.go`, `service.go`, `handler.go`, `register.go`
+2. Create files:
+   - `model.go` - Domain model
+   - `dto.go` - Request/Response types
+   - `errors.go` - Domain-specific errors
+   - `repository.go` - Repository interface
+   - `service.go` - Business logic
+   - `handler.go` - HTTP handlers
+   - `register.go` - DI and route registration
+   - `specs.go` - Query specifications (optional)
+   - `validation.go` - Domain validation (optional)
 3. In `register.go`, implement the `container.Domain` interface:
 
 ```go
