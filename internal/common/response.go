@@ -191,7 +191,7 @@ func HandleDomainError(c *fiber.Ctx, de *errors.DomainError) error {
 	}
 
 	// Add details if present
-	if de.Details != nil && len(de.Details) > 0 {
+	if len(de.Details) > 0 {
 		errorData["details"] = de.Details
 	}
 
