@@ -1,11 +1,21 @@
 package middleware
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/voidmaindev/go-template/internal/common"
+)
+
+const (
+	// RateLimitHeaderLimit is the header for the rate limit maximum.
+	RateLimitHeaderLimit = "X-RateLimit-Limit"
+	// RateLimitHeaderRemaining is the header for remaining requests.
+	RateLimitHeaderRemaining = "X-RateLimit-Remaining"
+	// RateLimitHeaderReset is the header for when the rate limit resets.
+	RateLimitHeaderReset = "X-RateLimit-Reset"
 )
 
 // RateLimitConfig holds rate limiting configuration
@@ -49,7 +59,8 @@ func AuthRateLimitConfig() *RateLimitConfig {
 	}
 }
 
-// RateLimitMiddleware creates a rate limiting middleware with the given config
+// RateLimitMiddleware creates a rate limiting middleware with the given config.
+// It adds standard rate limit headers to all responses.
 func RateLimitMiddleware(cfg *RateLimitConfig) fiber.Handler {
 	if cfg == nil {
 		cfg = DefaultRateLimitConfig()
@@ -65,6 +76,12 @@ func RateLimitMiddleware(cfg *RateLimitConfig) fiber.Handler {
 			return c.IP()
 		},
 		LimitReached: func(c *fiber.Ctx) error {
+			// Add rate limit headers on limit reached
+			resetTime := time.Now().Add(cfg.Window).Unix()
+			c.Set(RateLimitHeaderLimit, strconv.Itoa(cfg.Max))
+			c.Set(RateLimitHeaderRemaining, "0")
+			c.Set(RateLimitHeaderReset, strconv.FormatInt(resetTime, 10))
+
 			return c.Status(fiber.StatusTooManyRequests).JSON(common.Response{
 				Success: false,
 				Error:   "too many requests, please try again later",
@@ -73,6 +90,48 @@ func RateLimitMiddleware(cfg *RateLimitConfig) fiber.Handler {
 		SkipFailedRequests:     false,
 		SkipSuccessfulRequests: false,
 	})
+}
+
+// RateLimitMiddlewareWithHeaders creates a rate limiting middleware that adds
+// rate limit headers to all responses (including successful ones).
+func RateLimitMiddlewareWithHeaders(cfg *RateLimitConfig) fiber.Handler {
+	if cfg == nil {
+		cfg = DefaultRateLimitConfig()
+	}
+
+	// Use the standard limiter with header injection
+	rateLimiter := limiter.New(limiter.Config{
+		Max:        cfg.Max,
+		Expiration: cfg.Window,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			if cfg.KeyGenerator != nil {
+				return cfg.KeyGenerator(c)
+			}
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			resetTime := time.Now().Add(cfg.Window).Unix()
+			c.Set(RateLimitHeaderLimit, strconv.Itoa(cfg.Max))
+			c.Set(RateLimitHeaderRemaining, "0")
+			c.Set(RateLimitHeaderReset, strconv.FormatInt(resetTime, 10))
+
+			return c.Status(fiber.StatusTooManyRequests).JSON(common.Response{
+				Success: false,
+				Error:   "too many requests, please try again later",
+			})
+		},
+		SkipFailedRequests:     false,
+		SkipSuccessfulRequests: false,
+	})
+
+	// Wrap to add headers on all responses
+	return func(c *fiber.Ctx) error {
+		// Add limit header before processing
+		c.Set(RateLimitHeaderLimit, strconv.Itoa(cfg.Max))
+
+		// Process request through rate limiter
+		return rateLimiter(c)
+	}
 }
 
 // AuthRateLimiter creates a rate limiter specifically for authentication endpoints

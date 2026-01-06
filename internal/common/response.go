@@ -6,10 +6,11 @@ import (
 
 // Response represents a standard API response
 type Response struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
-	Data    any `json:"data,omitempty"`
-	Error   any `json:"error,omitempty"`
+	Success   bool   `json:"success"`
+	Message   string `json:"message,omitempty"`
+	Data      any    `json:"data,omitempty"`
+	Error     any    `json:"error,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // SuccessResponse sends a success response with data
@@ -50,27 +51,43 @@ func DeletedResponse(c *fiber.Ctx) error {
 
 // ErrorResponse sends an error response with a status code
 func ErrorResponse(c *fiber.Ctx, statusCode int, message string) error {
+	requestID := getRequestID(c)
 	return c.Status(statusCode).JSON(Response{
-		Success: false,
-		Error:   message,
+		Success:   false,
+		Error:     message,
+		RequestID: requestID,
 	})
+}
+
+// getRequestID extracts the request ID from the Fiber context.
+func getRequestID(c *fiber.Ctx) string {
+	if id := c.Locals("requestid"); id != nil {
+		if str, ok := id.(string); ok {
+			return str
+		}
+	}
+	return ""
 }
 
 // ErrorResponseWithDetails sends an error response with details
 func ErrorResponseWithDetails(c *fiber.Ctx, statusCode int, message string, details any) error {
+	requestID := getRequestID(c)
 	return c.Status(statusCode).JSON(Response{
-		Success: false,
-		Error:   message,
-		Data:    details,
+		Success:   false,
+		Error:     message,
+		Data:      details,
+		RequestID: requestID,
 	})
 }
 
 // ValidationErrorResponse sends a 400 response for validation errors
 func ValidationErrorResponse(c *fiber.Ctx, errors any) error {
+	requestID := getRequestID(c)
 	return c.Status(fiber.StatusBadRequest).JSON(Response{
-		Success: false,
-		Error:   "validation failed",
-		Data:    errors,
+		Success:   false,
+		Error:     "validation failed",
+		Data:      errors,
+		RequestID: requestID,
 	})
 }
 

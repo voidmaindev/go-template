@@ -11,12 +11,13 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	App      AppConfig      `mapstructure:"app"`
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	CORS     CORSConfig     `mapstructure:"cors"`
+	App       AppConfig       `mapstructure:"app"`
+	Server    ServerConfig    `mapstructure:"server"`
+	Database  DatabaseConfig  `mapstructure:"database"`
+	Redis     RedisConfig     `mapstructure:"redis"`
+	JWT       JWTConfig       `mapstructure:"jwt"`
+	CORS      CORSConfig      `mapstructure:"cors"`
+	Telemetry TelemetryConfig `mapstructure:"telemetry"`
 }
 
 // AppConfig holds application-level configuration
@@ -73,6 +74,16 @@ type JWTConfig struct {
 // CORSConfig holds CORS configuration
 type CORSConfig struct {
 	AllowedOrigins string `mapstructure:"allowed_origins"`
+}
+
+// TelemetryConfig holds telemetry configuration
+type TelemetryConfig struct {
+	Enabled        bool    `mapstructure:"enabled"`
+	ServiceName    string  `mapstructure:"service_name"`
+	ServiceVersion string  `mapstructure:"service_version"`
+	OTLPEndpoint   string  `mapstructure:"otlp_endpoint"`
+	OTLPInsecure   bool    `mapstructure:"otlp_insecure"`
+	SamplingRatio  float64 `mapstructure:"sampling_ratio"`
 }
 
 // Load loads configuration from config file and environment variables
@@ -177,6 +188,14 @@ func setDefaults() {
 
 	// CORS defaults
 	viper.SetDefault("cors.allowed_origins", "http://localhost:3000,http://localhost:5173")
+
+	// Telemetry defaults
+	viper.SetDefault("telemetry.enabled", false)
+	viper.SetDefault("telemetry.service_name", "go-template")
+	viper.SetDefault("telemetry.service_version", "1.0.0")
+	viper.SetDefault("telemetry.otlp_endpoint", "localhost:4318")
+	viper.SetDefault("telemetry.otlp_insecure", true)
+	viper.SetDefault("telemetry.sampling_ratio", 1.0)
 }
 
 // bindEnvVars binds environment variables to viper keys
@@ -225,6 +244,14 @@ func bindEnvVars() {
 
 	// CORS
 	viper.BindEnv("cors.allowed_origins", "CORS_ALLOWED_ORIGINS")
+
+	// Telemetry
+	viper.BindEnv("telemetry.enabled", "TELEMETRY_ENABLED")
+	viper.BindEnv("telemetry.service_name", "TELEMETRY_SERVICE_NAME")
+	viper.BindEnv("telemetry.service_version", "TELEMETRY_SERVICE_VERSION")
+	viper.BindEnv("telemetry.otlp_endpoint", "OTLP_ENDPOINT")
+	viper.BindEnv("telemetry.otlp_insecure", "OTLP_INSECURE")
+	viper.BindEnv("telemetry.sampling_ratio", "TELEMETRY_SAMPLING_RATIO")
 }
 
 // DSN returns the PostgreSQL connection string

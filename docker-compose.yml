@@ -43,6 +43,13 @@ services:
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-168h}
       - JWT_ISSUER=${JWT_ISSUER:-go-template}
+      # Telemetry (OpenTelemetry)
+      - TELEMETRY_ENABLED=${TELEMETRY_ENABLED:-false}
+      - TELEMETRY_SERVICE_NAME=${TELEMETRY_SERVICE_NAME:-go-template}
+      - TELEMETRY_SERVICE_VERSION=${TELEMETRY_SERVICE_VERSION:-1.0.0}
+      - OTLP_ENDPOINT=${OTLP_ENDPOINT:-jaeger:4318}
+      - OTLP_INSECURE=${OTLP_INSECURE:-true}
+      - TELEMETRY_SAMPLING_RATIO=${TELEMETRY_SAMPLING_RATIO:-1.0}
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,7 +59,7 @@ services:
     networks:
       - go-template-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -95,11 +102,66 @@ services:
     networks:
       - go-template-network
 
+  # Observability services (optional - enable via profiles)
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    container_name: go-template-jaeger
+    profiles:
+      - observability
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+    networks:
+      - go-template-network
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: go-template-prometheus
+    profiles:
+      - observability
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - go-template-network
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: go-template-grafana
+    profiles:
+      - observability
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - go-template-network
+
 volumes:
   postgres_data:
     name: go-template-postgres-data
   redis_data:
     name: go-template-redis-data
+  prometheus_data:
+    name: go-template-prometheus-data
+  grafana_data:
+    name: go-template-grafana-data
 
 networks:
   go-template-network:

@@ -15,6 +15,12 @@ type Client struct {
 	*redis.Client
 }
 
+// WrapClient wraps a raw go-redis client in our Client wrapper.
+// Useful for testing where you create the raw client directly.
+func WrapClient(client *redis.Client) *Client {
+	return &Client{Client: client}
+}
+
 // Connect establishes a connection to Redis
 func Connect(cfg *config.RedisConfig) (*Client, error) {
 	client := redis.NewClient(&redis.Options{

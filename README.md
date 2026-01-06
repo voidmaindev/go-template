@@ -16,10 +16,16 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 - **Pagination**: Built-in pagination for all list endpoints
 - **Structured Logging**: Uses Go 1.21+ slog for consistent, structured logging
 - **Graceful Shutdown**: Configurable shutdown timeout with connection draining
-- **Health Checks**: Comprehensive health endpoint with DB/Redis verification
+- **Health Checks**: Kubernetes-ready probes (`/healthz`, `/readyz`, `/health`)
 - **Security Hardened**: Error sanitization, info leakage prevention, secure defaults
 - **Comprehensive Tests**: Unit tests for services, middleware, handlers, and utilities
 - **OpenAPI 3.0 Documentation**: Spec-first API with Scalar UI
+- **GORM Go Code Migrations**: Versioned database migrations with rollback support
+- **OpenTelemetry Tracing**: Distributed tracing with OTLP export
+- **Prometheus Metrics**: HTTP, database, and business metrics at `/metrics`
+- **Request Timeouts**: Configurable per-operation timeout middleware
+- **Rate Limiting**: With standard headers (`X-RateLimit-*`)
+- **Request Correlation**: Request ID in all error responses
 
 ## API Documentation
 
@@ -58,7 +64,7 @@ Generated files:
 │   └── cmd/                         # Cobra CLI commands
 │       ├── root.go
 │       ├── serve.go                 # serve [app] command
-│       ├── migrate.go               # migrate [app] command
+│       ├── migrate.go               # migrate [up|down|status|reset|refresh]
 │       └── version.go               # version command
 ├── internal/
 │   ├── api/                         # Generated API code
@@ -73,18 +79,37 @@ Generated files:
 │   │   └── geography.go             # geography app (country, city)
 │   ├── container/                   # Dependency container
 │   ├── config/                      # Configuration management
-│   ├── database/                    # Database connection & migrations
+│   ├── database/                    # Database connection
+│   │   └── migrations/              # GORM Go code migrations
+│   │       ├── migrations.go        # Migration registry & runner
+│   │       └── 000001_*.go          # Individual migrations
 │   ├── redis/                       # Redis client
 │   ├── logger/                      # Structured logging
-│   ├── middleware/                  # JWT, CORS, logging, recovery
+│   ├── health/                      # Kubernetes health probes
+│   │   └── health.go                # /healthz, /readyz, /health
+│   ├── telemetry/                   # Observability
+│   │   ├── telemetry.go             # OpenTelemetry initialization
+│   │   ├── tracer.go                # Span helpers
+│   │   └── metrics.go               # Prometheus metrics
+│   ├── middleware/                  # HTTP middleware
+│   │   ├── jwt.go                   # JWT authentication
+│   │   ├── ratelimit.go             # Rate limiting with headers
+│   │   ├── timeout.go               # Request timeouts
+│   │   └── ...                      # CORS, logging, recovery
+│   ├── testutil/                    # Test utilities
+│   │   ├── testutil.go              # Assertions & helpers
+│   │   ├── containers.go            # Testcontainers (Postgres/Redis)
+│   │   └── fixtures.go              # Test data factories
+│   ├── integration/                 # Integration tests
+│   │   └── setup_test.go            # Test suite setup
 │   ├── common/                      # Shared components
 │   │   ├── filter/                  # Filtering & sorting system
 │   │   ├── base_model.go            # Base model with timestamps
 │   │   ├── base_repository.go       # Generic repository implementation
 │   │   ├── repository.go            # Repository interface
 │   │   ├── pagination.go            # Pagination utilities
-│   │   ├── response.go              # HTTP response helpers
-│   │   └── errors.go                # Common errors
+│   │   ├── response.go              # HTTP response helpers (with request_id)
+│   │   └── errors.go                # Common errors (with trace context)
 │   └── domain/
 │       ├── user/                    # User domain with auth
 │       ├── item/                    # Item domain (example)
@@ -121,7 +146,11 @@ Generated files:
 
 2. **Start infrastructure with Docker Compose**
    ```bash
+   # Core services only (Postgres, Redis, API)
    docker compose up -d
+
+   # With observability stack (Jaeger, Prometheus, Grafana)
+   docker compose --profile observability up -d
    ```
 
 3. **Run migrations and start the server**
@@ -140,9 +169,14 @@ Generated files:
 go run ./cmd/api serve main           # Run main app (all domains)
 go run ./cmd/api serve geography      # Run geography app (country, city only)
 
-# Run migrations
-go run ./cmd/api migrate main         # Migrate main app tables
-go run ./cmd/api migrate geography    # Migrate geography app tables
+# Database migrations
+go run ./cmd/api migrate up           # Apply all pending migrations
+go run ./cmd/api migrate up --to=000003    # Migrate up to specific version
+go run ./cmd/api migrate down         # Rollback last migration
+go run ./cmd/api migrate down 3       # Rollback last 3 migrations
+go run ./cmd/api migrate status       # Show migration status
+go run ./cmd/api migrate reset        # Rollback all migrations
+go run ./cmd/api migrate refresh      # Reset + re-apply all migrations
 
 # With flags
 go run ./cmd/api serve main -p 8080   # Custom port
@@ -495,6 +529,71 @@ Configuration can be set via environment variables or `config.yaml` file. Enviro
 |----------|---------|-------------|
 | `CORS_ALLOWED_ORIGINS` | localhost:3000,localhost:5173 | Allowed CORS origins |
 
+### Telemetry (OpenTelemetry)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TELEMETRY_ENABLED` | false | Enable OpenTelemetry tracing |
+| `TELEMETRY_SERVICE_NAME` | go-template | Service name for traces |
+| `TELEMETRY_SERVICE_VERSION` | 1.0.0 | Service version for traces |
+| `OTLP_ENDPOINT` | localhost:4318 | OTLP collector endpoint |
+| `OTLP_INSECURE` | true | Use insecure connection |
+| `TELEMETRY_SAMPLING_RATIO` | 1.0 | Trace sampling ratio (0.0-1.0) |
+
+## Observability
+
+### Prometheus Metrics
+
+When the server is running, Prometheus metrics are available at `/metrics`:
+
+```bash
+curl http://localhost:3000/metrics
+```
+
+Available metrics:
+- `http_requests_total` - Total HTTP requests by method, path, status
+- `http_request_duration_seconds` - Request latency histogram
+- `db_queries_total` - Database query count
+- `db_query_duration_seconds` - Database query latency
+- `redis_operations_total` - Redis operation count
+- Custom business metrics
+
+### Distributed Tracing
+
+Enable OpenTelemetry tracing by setting:
+
+```bash
+TELEMETRY_ENABLED=true
+OTLP_ENDPOINT=localhost:4318  # Jaeger, Tempo, or any OTLP collector
+```
+
+Traces include:
+- HTTP request spans with method, path, status
+- Database query spans
+- Redis operation spans
+- Custom spans via `telemetry.StartSpan()`
+
+### Local Observability Stack
+
+Start the full observability stack with Docker:
+
+```bash
+docker compose --profile observability up -d
+```
+
+This starts:
+| Service | URL | Description |
+|---------|-----|-------------|
+| Jaeger | http://localhost:16686 | Distributed tracing UI |
+| Prometheus | http://localhost:9090 | Metrics database & query |
+| Grafana | http://localhost:3001 | Dashboards (admin/admin) |
+
+Enable telemetry in your `.env`:
+```bash
+TELEMETRY_ENABLED=true
+OTLP_ENDPOINT=jaeger:4318
+```
+
 ## Testing
 
 ```bash
@@ -512,6 +611,50 @@ go test ./internal/domain/user/... -v
 go test ./internal/common/filter/... -v
 ```
 
+## Kubernetes Deployment
+
+### Health Probes
+
+The application provides Kubernetes-ready health endpoints:
+
+| Endpoint | Purpose | Use For |
+|----------|---------|---------|
+| `GET /healthz` | Liveness probe | `livenessProbe` - is the app alive? |
+| `GET /readyz` | Readiness probe | `readinessProbe` - are dependencies ready? |
+| `GET /health` | Combined check | Backward compatible, detailed status |
+
+Example Kubernetes deployment:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 5
+```
+
+### Rate Limiting
+
+All API endpoints include rate limit headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Max requests per window |
+| `X-RateLimit-Remaining` | Remaining requests |
+| `X-RateLimit-Reset` | Unix timestamp when limit resets |
+
+Default limits:
+- General API: 100 requests/minute
+- Auth endpoints: 5 requests/minute
+
 ## Security Features
 
 - **Error Sanitization**: Internal errors are logged but not exposed to clients
@@ -520,8 +663,10 @@ go test ./internal/common/filter/... -v
 - **Timing Attack Prevention**: Constant-time responses for sensitive operations
 - **Info Leakage Prevention**: Generic error messages for authentication failures
 - **SQL Injection Prevention**: Parameterized queries with field whitelisting
-- **Health Checks**: Verify both DB and Redis connectivity
+- **Health Checks**: Kubernetes-ready liveness and readiness probes
 - **Graceful Shutdown**: Configurable timeout for connection draining
+- **Request Correlation**: All error responses include `request_id` for debugging
+- **Rate Limiting**: Standard headers for client-side rate limit awareness
 
 ## License
 

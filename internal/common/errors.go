@@ -24,10 +24,12 @@ var (
 
 // AppError represents an application error with additional context
 type AppError struct {
-	Err     error
-	Message string
-	Code    string
-	Details any
+	Err       error
+	Message   string
+	Code      string
+	Details   any
+	RequestID string // Correlation ID from X-Request-ID header
+	TraceID   string // OpenTelemetry trace ID
 }
 
 // Error implements the error interface
@@ -103,4 +105,21 @@ func IsValidationError(err error) bool {
 // IsConflictError checks if the error is a conflict error
 func IsConflictError(err error) bool {
 	return errors.Is(err, ErrConflict) || errors.Is(err, ErrAlreadyExists)
+}
+
+// NewAppErrorWithContext creates an AppError with request and trace context.
+func NewAppErrorWithContext(err error, message, requestID, traceID string) *AppError {
+	return &AppError{
+		Err:       err,
+		Message:   message,
+		RequestID: requestID,
+		TraceID:   traceID,
+	}
+}
+
+// WithContext adds request and trace context to an existing AppError.
+func (e *AppError) WithContext(requestID, traceID string) *AppError {
+	e.RequestID = requestID
+	e.TraceID = traceID
+	return e
 }

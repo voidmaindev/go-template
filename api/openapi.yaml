@@ -66,6 +66,32 @@ info:
     - Default page: 1
     - Default page_size: 10
     - Maximum page_size: 100
+
+    ## Rate Limiting
+
+    API endpoints are rate limited. Rate limit information is included in response headers:
+
+    | Header | Description |
+    |--------|-------------|
+    | `X-RateLimit-Limit` | Maximum requests allowed in the window |
+    | `X-RateLimit-Remaining` | Remaining requests in the current window |
+    | `X-RateLimit-Reset` | Unix timestamp when the rate limit resets |
+
+    When rate limited, the API returns `429 Too Many Requests`.
+
+    ## Request Tracing
+
+    All error responses include a `request_id` field for debugging and correlation with server logs.
+
+    ## Health Endpoints
+
+    Kubernetes-compatible health probes are available:
+
+    | Endpoint | Description |
+    |----------|-------------|
+    | `GET /healthz` | Liveness probe - is the app alive? |
+    | `GET /readyz` | Readiness probe - are dependencies healthy? |
+    | `GET /health` | Combined health check (backward compatible) |
   version: 1.0.0
   contact:
     name: API Support
@@ -127,6 +153,10 @@ components:
           type: string
         error:
           type: string
+        request_id:
+          type: string
+          description: Unique request identifier for correlation and debugging
+          example: "550e8400-e29b-41d4-a716-446655440000"
 
     # Pagination
     PaginationMeta:
@@ -589,13 +619,46 @@ components:
       properties:
         status:
           type: string
-          example: ok
-        database:
+          enum: [healthy, unhealthy, degraded]
+          example: healthy
+        checks:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CheckResult'
+        version:
           type: string
-          example: connected
-        redis:
+          example: "1.0.0"
+        uptime:
           type: string
-          example: connected
+          example: "2h30m15s"
+        timestamp:
+          type: string
+          format: date-time
+
+    CheckResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        latency:
+          type: string
+          example: "1.234ms"
+        details:
+          type: object
+        error:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    LivenessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: healthy
 
   parameters:
     PageParam:
@@ -1865,8 +1928,10 @@ paths:
     get:
       tags:
         - Health
-      summary: Health check
-      description: Check service health status
+      summary: Combined health check
+      description: |
+        Combined health check endpoint (backward compatible).
+        Returns detailed status of all dependencies.
       operationId: healthCheck
       responses:
         '200':
@@ -1877,6 +1942,55 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
         '503':
           description: Service unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Liveness probe
+      description: |
+        Kubernetes liveness probe endpoint.
+        Returns 200 if the application is alive and running.
+        Use this for Kubernetes `livenessProbe` configuration.
+      operationId: livenessCheck
+      responses:
+        '200':
+          description: Application is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResponse'
+        '503':
+          description: Application is not responding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResponse'
+
+  /readyz:
+    get:
+      tags:
+        - Health
+      summary: Readiness probe
+      description: |
+        Kubernetes readiness probe endpoint.
+        Returns 200 if the application is ready to serve traffic.
+        Checks database, Redis, and other dependencies.
+        Use this for Kubernetes `readinessProbe` configuration.
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Application is ready to serve traffic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Application is not ready (dependencies unhealthy)
           content:
             application/json:
               schema:
