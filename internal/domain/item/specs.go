@@ -20,7 +20,7 @@ func ByName(name string) NameSpec {
 }
 
 func (s NameSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s NameSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -38,7 +38,7 @@ func ByNameContains(name string) NameContainsSpec {
 }
 
 func (s NameContainsSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s NameContainsSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -57,7 +57,7 @@ func ByPriceRange(min, max int64) PriceRangeSpec {
 }
 
 func (s PriceRangeSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s PriceRangeSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -75,7 +75,7 @@ func ByPriceAbove(price int64) PriceAboveSpec {
 }
 
 func (s PriceAboveSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s PriceAboveSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -93,7 +93,7 @@ func ByPriceBelow(price int64) PriceBelowSpec {
 }
 
 func (s PriceBelowSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s PriceBelowSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -109,7 +109,7 @@ func HasDescription() HasDescriptionSpec {
 }
 
 func (s HasDescriptionSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s HasDescriptionSpec) ApplyGorm(db *gorm.DB) *gorm.DB {

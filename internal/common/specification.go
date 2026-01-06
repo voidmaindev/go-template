@@ -1,6 +1,20 @@
 package common
 
-import "gorm.io/gorm"
+import (
+	"fmt"
+
+	"gorm.io/gorm"
+)
+
+// AsGormDB safely asserts query to *gorm.DB with a descriptive panic message.
+// Use this in Apply() methods instead of raw type assertion.
+func AsGormDB(query any) *gorm.DB {
+	db, ok := query.(*gorm.DB)
+	if !ok {
+		panic(fmt.Sprintf("specification: expected *gorm.DB, got %T", query))
+	}
+	return db
+}
 
 // Specification defines a query specification interface
 type Specification interface {
@@ -30,7 +44,7 @@ func ByID(id uint) IDSpec {
 }
 
 func (s IDSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s IDSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -49,7 +63,7 @@ func ByField(field string, value any) FieldSpec {
 }
 
 func (s FieldSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -68,7 +82,7 @@ func ByFieldContains(field, value string) FieldContainsSpec {
 }
 
 func (s FieldContainsSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldContainsSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -87,7 +101,7 @@ func ByFieldIn(field string, values ...any) FieldInSpec {
 }
 
 func (s FieldInSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldInSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -109,7 +123,7 @@ func And(specs ...Specification) AndSpec {
 }
 
 func (s AndSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s AndSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -132,7 +146,7 @@ func Or(specs ...Specification) OrSpec {
 }
 
 func (s OrSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s OrSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -165,7 +179,7 @@ func Not(spec Specification) NotSpec {
 }
 
 func (s NotSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s NotSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -192,7 +206,7 @@ func ByFieldGT(field string, value any) FieldGTSpec {
 }
 
 func (s FieldGTSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldGTSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -211,7 +225,7 @@ func ByFieldGTE(field string, value any) FieldGTESpec {
 }
 
 func (s FieldGTESpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldGTESpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -230,7 +244,7 @@ func ByFieldLT(field string, value any) FieldLTSpec {
 }
 
 func (s FieldLTSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldLTSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -249,7 +263,7 @@ func ByFieldLTE(field string, value any) FieldLTESpec {
 }
 
 func (s FieldLTESpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldLTESpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -269,7 +283,7 @@ func ByFieldBetween(field string, min, max any) FieldBetweenSpec {
 }
 
 func (s FieldBetweenSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldBetweenSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -291,7 +305,7 @@ func ByFieldNull(field string) FieldNullSpec {
 }
 
 func (s FieldNullSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldNullSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -309,7 +323,7 @@ func ByFieldNotNull(field string) FieldNotNullSpec {
 }
 
 func (s FieldNotNullSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(AsGormDB(query))
 }
 
 func (s FieldNotNullSpec) ApplyGorm(db *gorm.DB) *gorm.DB {

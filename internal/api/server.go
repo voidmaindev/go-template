@@ -788,8 +788,9 @@ func (s *Server) CreateDocument(ctx context.Context, request CreateDocumentReque
 		}, nil
 	}
 
-	docItems := make([]document.CreateDocumentItemRequest, 0)
+	var docItems []document.CreateDocumentItemRequest
 	if request.Body.Items != nil {
+		docItems = make([]document.CreateDocumentItemRequest, 0, len(*request.Body.Items))
 		for _, item := range *request.Body.Items {
 			docItems = append(docItems, document.CreateDocumentItemRequest{
 				ItemID:   uint(item.ItemId),

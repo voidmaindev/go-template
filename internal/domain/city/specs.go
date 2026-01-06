@@ -20,7 +20,7 @@ func ByName(name string) NameSpec {
 }
 
 func (s NameSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s NameSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -38,7 +38,7 @@ func ByNameContains(name string) NameContainsSpec {
 }
 
 func (s NameContainsSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s NameContainsSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -56,7 +56,7 @@ func ByCountryID(countryID uint) CountryIDSpec {
 }
 
 func (s CountryIDSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s CountryIDSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -74,7 +74,7 @@ func ByCountryCode(code string) CountryCodeSpec {
 }
 
 func (s CountryCodeSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s CountryCodeSpec) ApplyGorm(db *gorm.DB) *gorm.DB {

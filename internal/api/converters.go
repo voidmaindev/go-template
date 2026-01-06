@@ -71,10 +71,7 @@ func toUserListResponse(result *common.FilteredResult[user.User], params *filter
 		users[i] = toUserResponse(&u)
 	}
 
-	totalPages := int(result.Total) / params.Limit
-	if int(result.Total)%params.Limit > 0 {
-		totalPages++
-	}
+	totalPages := common.CalculateTotalPages(result.Total, params.Limit)
 
 	return UserListResponse{
 		Data:       &users,
@@ -115,10 +112,7 @@ func toItemListResponse(result *common.FilteredResult[item.Item], params *filter
 		items[i] = toItemResponse(&it)
 	}
 
-	totalPages := int(result.Total) / params.Limit
-	if int(result.Total)%params.Limit > 0 {
-		totalPages++
-	}
+	totalPages := common.CalculateTotalPages(result.Total, params.Limit)
 
 	return ItemListResponse{
 		Data:       &items,
@@ -158,10 +152,7 @@ func toCountryListResponse(result *common.FilteredResult[country.Country], param
 		countries[i] = toCountryResponse(&c)
 	}
 
-	totalPages := int(result.Total) / params.Limit
-	if int(result.Total)%params.Limit > 0 {
-		totalPages++
-	}
+	totalPages := common.CalculateTotalPages(result.Total, params.Limit)
 
 	return CountryListResponse{
 		Data:       &countries,
@@ -208,10 +199,7 @@ func toCityListResponse(result *common.FilteredResult[city.City], params *filter
 		cities[i] = toCityResponse(&c)
 	}
 
-	totalPages := int(result.Total) / params.Limit
-	if int(result.Total)%params.Limit > 0 {
-		totalPages++
-	}
+	totalPages := common.CalculateTotalPages(result.Total, params.Limit)
 
 	return CityListResponse{
 		Data:       &cities,
@@ -277,10 +265,7 @@ func toDocumentListResponse(result *common.FilteredResult[document.Document], pa
 		docs[i] = toDocumentResponse(&d)
 	}
 
-	totalPages := int(result.Total) / params.Limit
-	if int(result.Total)%params.Limit > 0 {
-		totalPages++
-	}
+	totalPages := common.CalculateTotalPages(result.Total, params.Limit)
 
 	return DocumentListResponse{
 		Data:       &docs,

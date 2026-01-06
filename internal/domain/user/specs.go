@@ -22,7 +22,7 @@ func ByEmail(email string) EmailSpec {
 }
 
 func (s EmailSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s EmailSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -40,7 +40,7 @@ func ByRole(role Role) RoleSpec {
 }
 
 func (s RoleSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s RoleSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -58,7 +58,7 @@ func ActiveAfter(t time.Time) ActiveAfterSpec {
 }
 
 func (s ActiveAfterSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s ActiveAfterSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -76,7 +76,7 @@ func CreatedBefore(t time.Time) CreatedBeforeSpec {
 }
 
 func (s CreatedBeforeSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s CreatedBeforeSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -94,7 +94,7 @@ func ByNameContains(name string) NameContainsSpec {
 }
 
 func (s NameContainsSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s NameContainsSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -112,7 +112,7 @@ func ByEmailContains(email string) EmailContainsSpec {
 }
 
 func (s EmailContainsSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s EmailContainsSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -128,7 +128,7 @@ func AdminUsers() AdminUsersSpec {
 }
 
 func (s AdminUsersSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s AdminUsersSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
@@ -144,7 +144,7 @@ func RegularUsers() RegularUsersSpec {
 }
 
 func (s RegularUsersSpec) Apply(query any) any {
-	return s.ApplyGorm(query.(*gorm.DB))
+	return s.ApplyGorm(common.AsGormDB(query))
 }
 
 func (s RegularUsersSpec) ApplyGorm(db *gorm.DB) *gorm.DB {

@@ -229,6 +229,14 @@ type FilteredResult[T any] struct {
 	HasMore    bool  `json:"has_more"`
 }
 
+// CalculateTotalPages computes the number of pages needed for the given total and page size.
+func CalculateTotalPages(total int64, pageSize int) int {
+	if pageSize <= 0 {
+		return 0
+	}
+	return int(math.Ceil(float64(total) / float64(pageSize)))
+}
+
 // NewFilteredResult creates a new filtered result from filter.Params
 func NewFilteredResult[T any](data []T, total int64, params *filter.Params) *FilteredResult[T] {
 	if params == nil {
