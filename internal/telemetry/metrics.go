@@ -1,6 +1,8 @@
 package telemetry
 
 import (
+	"sync"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/prometheus/client_golang/prometheus"
@@ -139,18 +141,21 @@ func PrometheusHandler() fiber.Handler {
 }
 
 // DefaultMetrics is the global metrics instance.
-var DefaultMetrics *Metrics
+var (
+	DefaultMetrics *Metrics
+	metricsOnce    sync.Once
+)
 
-// InitMetrics initializes the default metrics.
+// InitMetrics initializes the default metrics (safe to call multiple times).
 func InitMetrics(namespace string) {
-	DefaultMetrics = NewMetrics(namespace)
+	metricsOnce.Do(func() {
+		DefaultMetrics = NewMetrics(namespace)
+	})
 }
 
 // GetMetrics returns the default metrics instance.
 func GetMetrics() *Metrics {
-	if DefaultMetrics == nil {
-		InitMetrics("")
-	}
+	InitMetrics("")
 	return DefaultMetrics
 }
 

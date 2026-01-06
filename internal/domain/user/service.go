@@ -8,6 +8,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/telemetry"
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
@@ -92,6 +93,9 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 		return nil, err
 	}
 
+	// Record metric
+	telemetry.IncrementUsersRegistered()
+
 	// Generate tokens
 	return s.generateTokenResponse(user)
 }
@@ -111,6 +115,9 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 	if !utils.CheckPassword(req.Password, user.Password) {
 		return nil, common.ErrInvalidCredentials
 	}
+
+	// Record metric
+	telemetry.IncrementUsersLoggedIn()
 
 	// Generate tokens
 	return s.generateTokenResponse(user)

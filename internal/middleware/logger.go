@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/voidmaindev/go-template/internal/telemetry"
 )
 
 // RequestIDKey is the key used to store the request ID in fiber context
@@ -44,6 +46,13 @@ func SetupSlogLogger(app *fiber.App) {
 	app.Use(func(c *fiber.Ctx) error {
 		start := time.Now()
 
+		// Copy method and path before c.Next() as Fiber reuses buffers
+		method := c.Method()
+		path := c.Path()
+		// Make copies of the strings to avoid buffer reuse issues
+		method = string([]byte(method))
+		path = string([]byte(path))
+
 		// Process request
 		err := c.Next()
 
@@ -51,11 +60,21 @@ func SetupSlogLogger(app *fiber.App) {
 		latency := time.Since(start)
 		status := c.Response().StatusCode()
 
+		// Record Prometheus metrics (skip /metrics endpoint to avoid collection conflicts)
+		if path != "/metrics" {
+			telemetry.RecordHTTPRequest(
+				method,
+				path,
+				strconv.Itoa(status),
+				latency.Seconds(),
+			)
+		}
+
 		// Log based on status code, include request ID for tracing
 		attrs := []any{
 			"request_id", GetRequestID(c),
-			"method", c.Method(),
-			"path", c.Path(),
+			"method", method,
+			"path", path,
 			"status", status,
 			"latency", latency,
 			"ip", c.IP(),
