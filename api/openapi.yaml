@@ -83,15 +83,16 @@ info:
 
     All error responses include a `request_id` field for debugging and correlation with server logs.
 
-    ## Health Endpoints
+    ## Health & Metrics Endpoints
 
-    Kubernetes-compatible health probes are available:
+    Kubernetes-compatible health probes and Prometheus metrics are available:
 
     | Endpoint | Description |
     |----------|-------------|
     | `GET /healthz` | Liveness probe - is the app alive? |
     | `GET /readyz` | Readiness probe - are dependencies healthy? |
     | `GET /health` | Combined health check (backward compatible) |
+    | `GET /metrics` | Prometheus metrics endpoint |
   version: 1.0.0
   contact:
     name: API Support
@@ -1995,3 +1996,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics
+      description: |
+        Prometheus metrics endpoint.
+        Returns application metrics in Prometheus text format.
+        Use this for Prometheus scraping configuration.
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP http_requests_total Total HTTP requests
+                  # TYPE http_requests_total counter
+                  http_requests_total{method="GET",path="/api/v1/items",status="200"} 42
