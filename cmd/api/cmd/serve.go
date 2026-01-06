@@ -16,9 +16,11 @@ import (
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/database"
 	"github.com/voidmaindev/go-template/internal/docs"
+	"github.com/voidmaindev/go-template/internal/health"
 	"github.com/voidmaindev/go-template/internal/logger"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/internal/redis"
+	"github.com/voidmaindev/go-template/internal/telemetry"
 )
 
 
@@ -132,34 +134,12 @@ func runServe(cmd *cobra.Command, args []string) {
 	middleware.SetupSlogLogger(fiberApp)
 	middleware.SetupCustomRecovery(fiberApp, cfg.App.IsDevelopment())
 
-	// Health check endpoint with DB and Redis verification
-	fiberApp.Get("/health", func(c *fiber.Ctx) error {
-		// Check database connectivity
-		if err := database.HealthCheck(db); err != nil {
-			slog.Error("Health check failed: database", "error", err)
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-				"status":  "unhealthy",
-				"service": cfg.App.Name,
-				"error":   "database connection failed",
-			})
-		}
+	// Setup health check routes (/healthz, /readyz, /health)
+	healthChecker := health.DefaultHealthChecker(db, redisClient.Client, cfg.Telemetry.ServiceVersion)
+	health.SetupHealthRoutes(fiberApp, healthChecker)
 
-		// Check Redis connectivity
-		if err := redisClient.HealthCheck(c.Context()); err != nil {
-			slog.Error("Health check failed: redis", "error", err)
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-				"status":  "unhealthy",
-				"service": cfg.App.Name,
-				"error":   "redis connection failed",
-			})
-		}
-
-		return c.JSON(fiber.Map{
-			"status":  "healthy",
-			"service": cfg.App.Name,
-			"env":     cfg.App.Environment,
-		})
-	})
+	// Setup Prometheus metrics endpoint
+	fiberApp.Get("/metrics", telemetry.PrometheusHandler())
 
 	// OpenAPI documentation endpoints
 	fiberApp.Get("/docs", docs.ScalarHandler("/openapi.json"))
