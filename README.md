@@ -124,6 +124,10 @@ Generated files:
 ├── pkg/
 │   ├── utils/                       # Hash, JWT, money utilities
 │   └── validator/                   # Validation helpers
+├── grafana/
+│   └── provisioning/                # Grafana auto-provisioning
+│       ├── datasources/             # Prometheus datasource config
+│       └── dashboards/              # Pre-built dashboard JSON files
 ├── .env.example                     # Environment variables template
 ├── config.yaml.example              # Configuration file template
 ├── oapi-codegen.yaml                # OpenAPI code generator config
@@ -135,7 +139,7 @@ Generated files:
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.24+
 - Docker & Docker Compose
 - PostgreSQL 16+
 - Redis 7+
@@ -616,6 +620,32 @@ Enable telemetry in your `.env`:
 ```bash
 TELEMETRY_ENABLED=true
 OTLP_ENDPOINT=jaeger:4318
+```
+
+### Pre-Built Grafana Dashboards
+
+Grafana comes with auto-provisioned dashboards ready out-of-the-box. No manual configuration required.
+
+**Available Dashboards** (in "Go Application" folder):
+
+| Dashboard | Description |
+|-----------|-------------|
+| **Go Runtime Metrics** | Goroutines, memory allocation, heap usage, GC duration, OS threads |
+| **HTTP Metrics** | Request rate, p95 latency, error rate, requests in flight, top endpoints |
+| **Business & Infrastructure** | Users registered, logins, documents created, DB queries, Redis operations |
+
+All dashboards use the `go_template_*` metric prefix and auto-refresh every 30 seconds.
+
+**Provisioning Location:**
+```
+grafana/provisioning/
+├── datasources/
+│   └── prometheus.yml    # Auto-configured Prometheus connection
+└── dashboards/
+    ├── dashboards.yml    # Dashboard provider config
+    ├── go-runtime.json   # Go runtime metrics
+    ├── http-metrics.json # HTTP request metrics
+    └── business-metrics.json # Business & DB metrics
 ```
 
 ## Testing
