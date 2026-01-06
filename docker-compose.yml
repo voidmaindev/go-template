@@ -9,8 +9,8 @@ services:
     environment:
       # Application
       - APP_NAME=${APP_NAME:-go-template}
-      - APP_ENV=${APP_ENV:-production}
-      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_ENV=${APP_ENV:-development}
+      - APP_DEBUG=${APP_DEBUG:-true}
       # Server
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=3000
