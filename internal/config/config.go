@@ -18,6 +18,7 @@ type Config struct {
 	JWT       JWTConfig       `mapstructure:"jwt"`
 	CORS      CORSConfig      `mapstructure:"cors"`
 	Telemetry TelemetryConfig `mapstructure:"telemetry"`
+	Seed      SeedConfig      `mapstructure:"seed"`
 }
 
 // AppConfig holds application-level configuration
@@ -86,6 +87,13 @@ type TelemetryConfig struct {
 	SamplingRatio  float64 `mapstructure:"sampling_ratio"`
 }
 
+// SeedConfig holds database seeding configuration
+type SeedConfig struct {
+	AdminEmail    string `mapstructure:"admin_email"`
+	AdminPassword string `mapstructure:"admin_password"`
+	AdminName     string `mapstructure:"admin_name"`
+}
+
 // Load loads configuration from config file and environment variables
 func Load() (*Config, error) {
 	// Set defaults
@@ -138,6 +146,11 @@ func (c *Config) Validate() error {
 	// Database SSL validation in production
 	if c.App.IsProduction() && c.Database.SSLMode == "disable" {
 		return errors.New("database SSL cannot be disabled in production")
+	}
+
+	// Seed password validation in production
+	if c.App.IsProduction() && c.Seed.AdminPassword == "" {
+		return errors.New("SEED_ADMIN_PASSWORD is required in production")
 	}
 
 	return nil
@@ -196,6 +209,11 @@ func setDefaults() {
 	viper.SetDefault("telemetry.otlp_endpoint", "localhost:4318")
 	viper.SetDefault("telemetry.otlp_insecure", true)
 	viper.SetDefault("telemetry.sampling_ratio", 1.0)
+
+	// Seed defaults (password intentionally empty - must be set in production)
+	viper.SetDefault("seed.admin_email", "admin")
+	viper.SetDefault("seed.admin_password", "") // Empty by default, required in production
+	viper.SetDefault("seed.admin_name", "Administrator")
 }
 
 // bindEnvVars binds environment variables to viper keys
@@ -252,6 +270,11 @@ func bindEnvVars() {
 	viper.BindEnv("telemetry.otlp_endpoint", "OTLP_ENDPOINT")
 	viper.BindEnv("telemetry.otlp_insecure", "OTLP_INSECURE")
 	viper.BindEnv("telemetry.sampling_ratio", "TELEMETRY_SAMPLING_RATIO")
+
+	// Seed
+	viper.BindEnv("seed.admin_email", "SEED_ADMIN_EMAIL")
+	viper.BindEnv("seed.admin_password", "SEED_ADMIN_PASSWORD")
+	viper.BindEnv("seed.admin_name", "SEED_ADMIN_NAME")
 }
 
 // DSN returns the PostgreSQL connection string

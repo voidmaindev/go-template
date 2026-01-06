@@ -349,7 +349,6 @@ func DefaultMigrator(db *gorm.DB) *Migrator {
 		&CreateCitiesTable{},
 		&CreateDocumentsTable{},
 		&CreateDocumentItemsTable{},
-		&SeedAdminUser{},
 	)
 	return m
 }

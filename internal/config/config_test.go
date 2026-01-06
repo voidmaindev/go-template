@@ -115,8 +115,30 @@ func TestConfig_Validate_Production(t *testing.T) {
 				Database: DatabaseConfig{
 					Host: "db.example.com",
 				},
+				Seed: SeedConfig{
+					AdminPassword: "secure-admin-password",
+				},
 			},
 			wantError: false,
+		},
+		{
+			name: "production with missing seed password",
+			config: Config{
+				App: AppConfig{
+					Environment: "production",
+				},
+				JWT: JWTConfig{
+					SecretKey: "my-production-secret-key-at-least-32-chars",
+				},
+				Database: DatabaseConfig{
+					Host: "db.example.com",
+				},
+				Seed: SeedConfig{
+					AdminPassword: "",
+				},
+			},
+			wantError: true,
+			errorMsg:  "SEED_ADMIN_PASSWORD is required in production",
 		},
 		{
 			name: "production with empty secret",
