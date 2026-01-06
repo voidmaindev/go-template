@@ -159,10 +159,6 @@ func (m *mockRepository) Transaction(ctx context.Context, fn func(txRepo common.
 	return fn(m)
 }
 
-func (m *mockRepository) GetDB() *gorm.DB {
-	return nil
-}
-
 func (m *mockRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
 	user, ok := m.emailIndex[email]
 	if !ok {

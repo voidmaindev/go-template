@@ -214,8 +214,10 @@ func (r *BaseRepository[T]) Transaction(ctx context.Context, fn func(txRepo Repo
 	})
 }
 
-// GetDB returns the underlying database connection
-func (r *BaseRepository[T]) GetDB() *gorm.DB {
+// DB returns the underlying database connection for use by embedding repositories.
+// This is intentionally not part of the Repository[T] interface to avoid leaking
+// infrastructure concerns to consumers.
+func (r *BaseRepository[T]) DB() *gorm.DB {
 	return r.db
 }
 

@@ -56,7 +56,4 @@ type Repository[T any] interface {
 
 	// Transaction executes operations within a transaction
 	Transaction(ctx context.Context, fn func(txRepo Repository[T]) error) error
-
-	// GetDB returns the underlying database connection
-	GetDB() *gorm.DB
 }
