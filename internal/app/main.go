@@ -17,8 +17,8 @@ func init() {
 		Domains: func() []container.Domain {
 			return []container.Domain{
 				// Core domains (no dependencies)
-				user.NewDomain(),
-				rbac.NewDomain(), // depends on: user (for token store), must be registered early for permission checks
+				rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
+				user.NewDomain(), // depends on: rbac
 				item.NewDomain(),
 				country.NewDomain(),
 

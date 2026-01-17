@@ -366,11 +366,13 @@ func (s *service) SyncGlobalRoles(ctx context.Context) error {
 		slog.Error("failed to add admin wildcard policy", "error", err)
 	}
 
-	// 2. full_reader = read ALL domains
+	// 2. full_reader = read NON-PROTECTED domains only
 	s.enforcer.RemoveFilteredPolicy(0, RoleCodeFullReader)
 	for _, dom := range allDomains {
-		if _, err := s.enforcer.AddPolicy(RoleCodeFullReader, dom, ActionRead); err != nil {
-			slog.Error("failed to add full_reader policy", "domain", dom, "error", err)
+		if !IsProtectedDomain(dom) {
+			if _, err := s.enforcer.AddPolicy(RoleCodeFullReader, dom, ActionRead); err != nil {
+				slog.Error("failed to add full_reader policy", "domain", dom, "error", err)
+			}
 		}
 	}
 

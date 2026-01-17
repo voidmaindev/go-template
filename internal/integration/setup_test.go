@@ -44,9 +44,9 @@ func SetupTestSuite(t *testing.T) *TestSuite {
 	// Create container with test dependencies
 	c := container.New(db, redisClient, cfg)
 
-	// Register all domains
-	c.AddDomain(user.NewDomain())
+	// Register all domains (rbac must be before user, as user depends on rbac.Service)
 	c.AddDomain(rbac.NewDomain())
+	c.AddDomain(user.NewDomain())
 	c.AddDomain(item.NewDomain())
 	c.AddDomain(country.NewDomain())
 	c.AddDomain(city.NewDomain())

@@ -110,6 +110,8 @@ tags:
     description: Authentication endpoints (register, login, logout, refresh)
   - name: Users
     description: User management endpoints
+  - name: RBAC
+    description: Role-Based Access Control management
   - name: Items
     description: Item CRUD operations
   - name: Countries
@@ -195,6 +197,12 @@ components:
           type: string
           minLength: 2
           example: John Doe
+        role_codes:
+          type: array
+          description: Optional RBAC roles to assign (defaults to full_reader)
+          items:
+            type: string
+          example: ["full_reader"]
 
     LoginRequest:
       type: object
@@ -661,6 +669,205 @@ components:
           enum: [healthy, unhealthy]
           example: healthy
 
+    # === RBAC DTOs ===
+    CreateRoleRequest:
+      type: object
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+          description: Unique role identifier
+          example: content_editor
+        name:
+          type: string
+          description: Human-readable role name
+          example: Content Editor
+        description:
+          type: string
+          description: Role description
+          example: Can edit content but not delete
+        permissions:
+          type: array
+          description: Initial permissions to assign
+          items:
+            $ref: '#/components/schemas/PermissionInput'
+
+    PermissionInput:
+      type: object
+      required:
+        - domain
+        - actions
+      properties:
+        domain:
+          type: string
+          description: Resource domain (e.g., items, countries)
+          example: items
+        actions:
+          type: array
+          description: Allowed actions on the domain
+          items:
+            type: string
+            enum: [read, write, delete]
+          example: [read, write]
+
+    UpdateRolePermissionsRequest:
+      type: object
+      required:
+        - permissions
+      properties:
+        permissions:
+          type: array
+          description: New permissions (replaces existing)
+          items:
+            $ref: '#/components/schemas/PermissionInput'
+
+    AssignRoleRequest:
+      type: object
+      required:
+        - role_code
+      properties:
+        role_code:
+          type: string
+          description: Role code to assign
+          example: full_reader
+
+    RoleResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          example: full_reader
+        name:
+          type: string
+          example: Full Reader
+        description:
+          type: string
+          example: Read access to all resources
+        is_system:
+          type: boolean
+          description: Whether this is a built-in system role
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RoleWithPermissionsResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          example: full_reader
+        name:
+          type: string
+          example: Full Reader
+        description:
+          type: string
+          example: Read access to all resources
+        is_system:
+          type: boolean
+          example: true
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionResponse'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PermissionResponse:
+      type: object
+      properties:
+        domain:
+          type: string
+          example: items
+        actions:
+          type: array
+          items:
+            type: string
+          example: [read]
+
+    RoleListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleResponse'
+        total:
+          type: integer
+          format: int64
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+        has_more:
+          type: boolean
+
+    UserRolesResponse:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRoleResponse'
+
+    UserRoleResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: full_reader
+        name:
+          type: string
+          example: Full Reader
+
+    DomainResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          example: items
+        is_protected:
+          type: boolean
+          description: Whether this domain requires special permissions
+          example: false
+
+    DomainsResponse:
+      type: object
+      properties:
+        domains:
+          type: array
+          items:
+            $ref: '#/components/schemas/DomainResponse'
+
+    ActionsResponse:
+      type: object
+      properties:
+        actions:
+          type: array
+          items:
+            type: string
+          example: [read, write, delete]
+
   parameters:
     PageParam:
       name: page
@@ -1000,6 +1207,397 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # === RBAC ===
+  /rbac/roles:
+    get:
+      tags:
+        - RBAC
+      summary: List all roles
+      description: Get paginated list of all roles in the system
+      operationId: listRoles
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - RBAC
+      summary: Create a new role
+      description: Create a new custom role with optional initial permissions
+      operationId: createRole
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleWithPermissionsResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Role code already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rbac/roles/{code}:
+    get:
+      tags:
+        - RBAC
+      summary: Get role by code
+      description: Get role details including permissions by its code
+      operationId: getRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: Role code
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleWithPermissionsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - RBAC
+      summary: Delete role
+      description: Delete a custom role by code (system roles cannot be deleted)
+      operationId: deleteRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: Role code
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Role deleted
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role or cannot delete system role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rbac/roles/{code}/permissions:
+    put:
+      tags:
+        - RBAC
+      summary: Update role permissions
+      description: Replace all permissions for a role
+      operationId: updateRolePermissions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: Role code
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRolePermissionsRequest'
+      responses:
+        '200':
+          description: Permissions updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleWithPermissionsResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role or cannot modify system role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rbac/users/{id}/roles:
+    get:
+      tags:
+        - RBAC
+      summary: Get user's roles
+      description: Get all roles assigned to a user
+      operationId: getUserRoles
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: User's roles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRolesResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role or own user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - RBAC
+      summary: Assign role to user
+      description: Assign a role to a user
+      operationId: assignRoleToUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRoleRequest'
+      responses:
+        '200':
+          description: Role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRolesResponse'
+        '400':
+          description: Validation error or role already assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rbac/users/{id}/roles/{code}:
+    delete:
+      tags:
+        - RBAC
+      summary: Remove role from user
+      description: Remove a role from a user
+      operationId: removeRoleFromUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - name: code
+          in: path
+          required: true
+          description: Role code to remove
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Role removed
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User or role assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rbac/domains:
+    get:
+      tags:
+        - RBAC
+      summary: List available domains
+      description: Get all available resource domains for permission assignment
+      operationId: listDomains
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rbac/actions:
+    get:
+      tags:
+        - RBAC
+      summary: List available actions
+      description: Get all available actions for permission assignment
+      operationId: listActions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - requires admin role
           content:
             application/json:
               schema:

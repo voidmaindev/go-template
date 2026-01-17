@@ -46,8 +46,11 @@ func (d *domain) Register(c *container.Container) {
 	repo := NewRepository(c.DB)
 	c.Set(RepositoryKey, repo)
 
+	// Get RBAC service (must be registered before user domain)
+	rbacSvc := container.MustGetTyped[rbac.Service](c, rbac.ServiceKey)
+
 	// Initialize service
-	service := NewService(repo, tokenStore, &c.Config.JWT, c.Config.App.IsProduction())
+	service := NewService(repo, tokenStore, &c.Config.JWT, c.Config.App.IsProduction(), rbacSvc)
 	c.Set(ServiceKey, service)
 
 	// Initialize handler

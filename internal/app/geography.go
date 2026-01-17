@@ -14,9 +14,9 @@ func init() {
 		Description: "Geography service (countries and cities)",
 		Domains: func() []container.Domain {
 			return []container.Domain{
-				// User domain required for JWT auth
-				user.NewDomain(),
-				rbac.NewDomain(), // Required for RBAC permission checks
+				// Core domains (user depends on rbac)
+				rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
+				user.NewDomain(), // depends on: rbac
 
 				// Geography domains
 				country.NewDomain(),

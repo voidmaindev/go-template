@@ -6,9 +6,10 @@ import (
 
 // RegisterRequest represents the registration request
 type RegisterRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,password"`
-	Name     string `json:"name" validate:"required,min=2,max=100"`
+	Email     string   `json:"email" validate:"required,email"`
+	Password  string   `json:"password" validate:"required,password"`
+	Name      string   `json:"name" validate:"required,min=2,max=100"`
+	RoleCodes []string `json:"role_codes" validate:"omitempty,dive,min=1"`
 }
 
 // LoginRequest represents the login request

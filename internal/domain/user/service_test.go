@@ -10,6 +10,7 @@ import (
 	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -204,6 +205,74 @@ func (m *mockTokenStore) IsBlacklisted(ctx context.Context, token string) (bool,
 	return m.blacklisted[token], nil
 }
 
+// mockRbacService implements rbac.Service for testing
+type mockRbacService struct {
+	assignedRoles map[uint][]string
+	assignRoleErr error
+}
+
+func newMockRbacService() *mockRbacService {
+	return &mockRbacService{
+		assignedRoles: make(map[uint][]string),
+	}
+}
+
+func (m *mockRbacService) CreateRole(ctx context.Context, req *rbac.CreateRoleRequest) (*rbac.Role, error) {
+	return nil, nil
+}
+
+func (m *mockRbacService) GetRoleByCode(ctx context.Context, code string) (*rbac.RoleWithPermissions, error) {
+	return nil, nil
+}
+
+func (m *mockRbacService) ListRoles(ctx context.Context, params *filter.Params) (*common.FilteredResult[rbac.Role], error) {
+	return nil, nil
+}
+
+func (m *mockRbacService) UpdateRolePermissions(ctx context.Context, code string, req *rbac.UpdateRolePermissionsRequest) (*rbac.RoleWithPermissions, error) {
+	return nil, nil
+}
+
+func (m *mockRbacService) DeleteRole(ctx context.Context, code string) error {
+	return nil
+}
+
+func (m *mockRbacService) GetUserRoles(ctx context.Context, userID uint) ([]rbac.UserRoleResponse, error) {
+	return nil, nil
+}
+
+func (m *mockRbacService) AssignRole(ctx context.Context, userID uint, roleCode string) error {
+	if m.assignRoleErr != nil {
+		return m.assignRoleErr
+	}
+	m.assignedRoles[userID] = append(m.assignedRoles[userID], roleCode)
+	return nil
+}
+
+func (m *mockRbacService) RemoveRole(ctx context.Context, userID uint, roleCode string) error {
+	return nil
+}
+
+func (m *mockRbacService) CheckPermission(ctx context.Context, userID uint, domain, action string) (bool, error) {
+	return true, nil
+}
+
+func (m *mockRbacService) GetDomains(ctx context.Context) []rbac.DomainResponse {
+	return nil
+}
+
+func (m *mockRbacService) GetActions(ctx context.Context) []string {
+	return nil
+}
+
+func (m *mockRbacService) SyncGlobalRoles(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockRbacService) CountAdminUsers(ctx context.Context) (int, error) {
+	return 0, nil
+}
+
 func getTestConfig() *config.JWTConfig {
 	return &config.JWTConfig{
 		SecretKey:          "test-secret-key-at-least-32-chars!!",
@@ -216,12 +285,14 @@ func getTestConfig() *config.JWTConfig {
 func TestService_Register(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
+	rbacSvc := newMockRbacService()
 
 	// Create a custom service with our mock
 	customSvc := &service{
 		repo:       repo,
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
+		rbacSvc:    rbacSvc,
 	}
 
 	t.Run("successful registration", func(t *testing.T) {
@@ -271,6 +342,7 @@ func TestService_Login(t *testing.T) {
 		repo:       repo,
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
+		rbacSvc:    newMockRbacService(),
 	}
 
 	// Create a user first
@@ -332,6 +404,7 @@ func TestService_GetByID(t *testing.T) {
 		repo:       repo,
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
+		rbacSvc:    newMockRbacService(),
 	}
 
 	// Create a user
@@ -367,6 +440,7 @@ func TestService_GetByEmail(t *testing.T) {
 		repo:       repo,
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
+		rbacSvc:    newMockRbacService(),
 	}
 
 	repo.Create(context.Background(), &User{
@@ -401,6 +475,7 @@ func TestService_Update(t *testing.T) {
 		repo:       repo,
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
+		rbacSvc:    newMockRbacService(),
 	}
 
 	repo.Create(context.Background(), &User{
@@ -445,6 +520,7 @@ func TestService_ChangePassword(t *testing.T) {
 		repo:       repo,
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
+		rbacSvc:    newMockRbacService(),
 	}
 
 	hashedPassword, _ := utils.HashPassword("currentpassword")
@@ -514,6 +590,7 @@ func TestService_Delete(t *testing.T) {
 		repo:       repo,
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
+		rbacSvc:    newMockRbacService(),
 	}
 
 	repo.Create(context.Background(), &User{
@@ -550,6 +627,7 @@ func TestService_List(t *testing.T) {
 		repo:       repo,
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
+		rbacSvc:    newMockRbacService(),
 	}
 
 	// Create multiple users
@@ -593,6 +671,7 @@ func TestService_RefreshToken(t *testing.T) {
 		repo:       repo,
 		tokenStore: ts,
 		jwtConfig:  cfg,
+		rbacSvc:    newMockRbacService(),
 	}
 
 	// Create a user

@@ -8,6 +8,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/telemetry"
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
@@ -43,15 +44,17 @@ type service struct {
 	tokenStore   *TokenStore
 	jwtConfig    *config.JWTConfig
 	isProduction bool
+	rbacSvc      rbac.Service
 }
 
 // NewService creates a new user service
-func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, isProduction bool) Service {
+func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, isProduction bool, rbacSvc rbac.Service) Service {
 	return &service{
 		repo:         repo,
 		tokenStore:   tokenStore,
 		jwtConfig:    jwtConfig,
 		isProduction: isProduction,
+		rbacSvc:      rbacSvc,
 	}
 }
 
@@ -82,6 +85,19 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 
 	if err := s.repo.Create(ctx, user); err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("Register")
+	}
+
+	// Assign RBAC roles (default to full_reader if none specified)
+	roleCodes := req.RoleCodes
+	if len(roleCodes) == 0 {
+		roleCodes = []string{rbac.RoleCodeFullReader}
+	}
+
+	for _, roleCode := range roleCodes {
+		if err := s.rbacSvc.AssignRole(ctx, user.ID, roleCode); err != nil {
+			// Log warning but don't fail registration
+			slog.Warn("failed to assign role during registration", "role", roleCode, "userID", user.ID, "error", err)
+		}
 	}
 
 	// Record metric
