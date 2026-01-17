@@ -1,10 +1,12 @@
 package document
 
 import (
+	"github.com/casbin/casbin/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/city"
 	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
@@ -64,21 +66,20 @@ func (d *domain) Register(c *container.Container) {
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := container.MustGetTyped[*Handler](c, HandlerKey)
 	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
+	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
 	jwtConfig := &c.Config.JWT
 
 	documents := api.Group("/documents", middleware.JWTMiddleware(jwtConfig, tokenStore))
 
-	// Document read operations
-	documents.Get("/", handler.List)
-	documents.Get("/:id", handler.GetByID)
+	// Document operations
+	documents.Get("/", middleware.RequirePermission(enforcer, "document", rbac.ActionRead), handler.List)
+	documents.Get("/:id", middleware.RequirePermission(enforcer, "document", rbac.ActionRead), handler.GetByID)
+	documents.Post("/", middleware.RequirePermission(enforcer, "document", rbac.ActionWrite), handler.Create)
+	documents.Put("/:id", middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.Update)
+	documents.Delete("/:id", middleware.RequirePermission(enforcer, "document", rbac.ActionDelete), handler.Delete)
 
-	// Document write operations require admin role
-	documents.Post("/", middleware.RequireAdmin(), handler.Create)
-	documents.Put("/:id", middleware.RequireAdmin(), handler.Update)
-	documents.Delete("/:id", middleware.RequireAdmin(), handler.Delete)
-
-	// Document items - write operations require admin role
-	documents.Post("/:id/items", middleware.RequireAdmin(), handler.AddItem)
-	documents.Put("/:id/items/:itemId", middleware.RequireAdmin(), handler.UpdateItem)
-	documents.Delete("/:id/items/:itemId", middleware.RequireAdmin(), handler.RemoveItem)
+	// Document items
+	documents.Post("/:id/items", middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.AddItem)
+	documents.Put("/:id/items/:itemId", middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.UpdateItem)
+	documents.Delete("/:id/items/:itemId", middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.RemoveItem)
 }

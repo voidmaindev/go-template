@@ -4,6 +4,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/city"
 	"github.com/voidmaindev/go-template/internal/domain/country"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 )
 
@@ -15,6 +16,7 @@ func init() {
 			return []container.Domain{
 				// User domain required for JWT auth
 				user.NewDomain(),
+				rbac.NewDomain(), // Required for RBAC permission checks
 
 				// Geography domains
 				country.NewDomain(),

@@ -129,3 +129,13 @@ func (c *Container) RegisterRoutes(api fiber.Router) {
 		d.Routes(api, c)
 	}
 }
+
+// GetDomainNames returns the names of all registered domains
+// This is used by RBAC to auto-discover available domains
+func (c *Container) GetDomainNames() []string {
+	names := make([]string, len(c.domains))
+	for i, d := range c.domains {
+		names[i] = d.Name()
+	}
+	return names
+}

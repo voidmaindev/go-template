@@ -9,6 +9,7 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 - **Dependency Container**: Type-safe dependency injection with generics
 - **Generic Repository Pattern**: Maximum database abstraction using Go generics
 - **JWT Authentication**: Access and refresh tokens with Redis-based blacklisting
+- **RBAC Authorization**: Casbin-powered role-based access control with multi-role users
 - **CLI with Cobra**: Professional CLI with subcommands (serve, migrate, seed, version)
 - **Database Seeders**: Separate seeder infrastructure with tracking and idempotency
 - **Docker Ready**: Multi-stage Dockerfile with docker-compose
@@ -60,6 +61,8 @@ Generated files:
 .
 ├── api/
 │   └── openapi.yaml                 # OpenAPI 3.0 specification
+├── config/
+│   └── rbac_model.conf              # Casbin RBAC model configuration
 ├── cmd/api/
 │   ├── main.go                      # Application entry point
 │   └── cmd/                         # Cobra CLI commands
@@ -87,7 +90,8 @@ Generated files:
 │   │   │   └── 000001_*.go          # Individual migrations
 │   │   └── seeders/                 # Database seeders
 │   │       ├── seeders.go           # Seeder registry & runner
-│   │       └── admin_user.go        # Default admin user seeder
+│   │       ├── admin_user.go        # Default admin user seeder
+│   │       └── rbac_seeder.go       # RBAC system roles & SA user
 │   ├── redis/                       # Redis client
 │   ├── logger/                      # Structured logging
 │   ├── health/                      # Kubernetes health probes
@@ -98,6 +102,7 @@ Generated files:
 │   │   └── metrics.go               # Prometheus metrics
 │   ├── middleware/                  # HTTP middleware
 │   │   ├── jwt.go                   # JWT authentication
+│   │   ├── rbac.go                  # RBAC permission middleware
 │   │   ├── ratelimit.go             # Rate limiting with headers
 │   │   ├── timeout.go               # Request timeouts
 │   │   └── ...                      # CORS, logging, recovery
@@ -134,6 +139,10 @@ Generated files:
 │       │   ├── errors.go            # Domain-specific errors
 │       │   ├── specs.go             # Query specifications
 │       │   ├── validation.go        # Domain validator
+│       │   └── ...                  # model, dto, service, handler
+│       ├── rbac/                    # RBAC domain (Casbin)
+│       │   ├── permissions.go       # Action constants & helpers
+│       │   ├── enforcer.go          # Casbin enforcer setup
 │       │   └── ...                  # model, dto, service, handler
 │       ├── item/                    # Item domain (example)
 │       ├── country/                 # Country domain (example)
@@ -277,6 +286,144 @@ Full CRUD for each: `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`
 | POST | `/api/v1/documents/:id/items` | Add item to document |
 | PUT | `/api/v1/documents/:id/items/:itemId` | Update document item |
 | DELETE | `/api/v1/documents/:id/items/:itemId` | Remove item |
+
+## Role-Based Access Control (RBAC)
+
+The template includes a comprehensive RBAC system powered by [Casbin](https://casbin.org/) for fine-grained permission management.
+
+### Overview
+
+- **Multi-role users**: Users can have multiple roles assigned
+- **Domain-based permissions**: Each domain (user, item, country, etc.) has separate permissions
+- **Auto-discovery**: Domains are automatically discovered from the container
+- **Policy sync on startup**: System roles are automatically synchronized with registered domains
+
+### System Roles
+
+| Role | Description | Permissions |
+|------|-------------|-------------|
+| `admin` | Super administrator | Full access to everything (`*:*`) |
+| `full_reader` | Read-only access | Read access to ALL domains |
+| `full_writer` | Write access | Full CRUD on non-protected domains, read-only on protected |
+
+**Protected domains**: `user`, `rbac` - These domains contain sensitive data and `full_writer` only gets read access.
+
+### Actions
+
+| Action | Description |
+|--------|-------------|
+| `read` | View/list resources |
+| `write` | Create new resources |
+| `modify` | Update existing resources |
+| `delete` | Delete resources |
+
+### RBAC API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| **Roles** | | |
+| GET | `/api/v1/rbac/roles` | List all roles |
+| POST | `/api/v1/rbac/roles` | Create a new role |
+| GET | `/api/v1/rbac/roles/:code` | Get role with permissions |
+| PUT | `/api/v1/rbac/roles/:code/permissions` | Update role permissions |
+| DELETE | `/api/v1/rbac/roles/:code` | Delete role (not system roles) |
+| **User Roles** | | |
+| GET | `/api/v1/rbac/users/:id/roles` | Get user's roles |
+| POST | `/api/v1/rbac/users/:id/roles` | Assign role to user |
+| DELETE | `/api/v1/rbac/users/:id/roles/:code` | Remove role from user |
+| **Discovery** | | |
+| GET | `/api/v1/rbac/domains` | Get all registered domains |
+| GET | `/api/v1/rbac/actions` | Get all available actions |
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RBAC_MODEL_PATH` | config/rbac_model.conf | Casbin model configuration path |
+| `RBAC_SUPER_ADMIN_EMAIL` | sa@admin.com | Super admin email |
+| `RBAC_SUPER_ADMIN_PASSWORD` | (required in prod) | Super admin password |
+| `RBAC_SUPER_ADMIN_NAME` | Super Admin | Super admin display name |
+
+> **Note**: The super admin user is created by the RBAC seeder and is assigned the `admin` role automatically.
+
+### Creating Custom Roles
+
+Create a role with specific permissions:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/rbac/roles \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin_token>" \
+  -d '{
+    "code": "seller",
+    "name": "Sales Person",
+    "description": "Can manage items and documents",
+    "permissions": [
+      {"domain": "item", "actions": ["read", "write", "modify"]},
+      {"domain": "document", "actions": ["read", "write", "modify", "delete"]}
+    ]
+  }'
+```
+
+### Assigning Roles
+
+Assign a role to a user:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/rbac/users/5/roles \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin_token>" \
+  -d '{"role_code": "seller"}'
+```
+
+### Permission Middleware
+
+All domain routes are protected by RBAC middleware:
+
+```go
+// internal/domain/item/register.go
+enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
+
+items := api.Group("/items", middleware.JWTMiddleware(cfg, tokenStore))
+items.Get("/", middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.List)
+items.Post("/", middleware.RequirePermission(enforcer, "item", rbac.ActionWrite), handler.Create)
+items.Put("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionModify), handler.Update)
+items.Delete("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionDelete), handler.Delete)
+```
+
+### Available Middleware
+
+| Middleware | Description |
+|------------|-------------|
+| `RequirePermission(enforcer, domain, action)` | Requires specific permission |
+| `RequireAnyPermission(enforcer, ...permissions)` | Requires any of the permissions |
+| `RequireAllPermissions(enforcer, ...permissions)` | Requires all permissions |
+| `HasPermission(c, enforcer, domain, action)` | Check permission in handlers |
+
+### Casbin Model
+
+The RBAC system uses a RBAC model with role hierarchy:
+
+```ini
+[request_definition]
+r = sub, dom, act
+
+[policy_definition]
+p = sub, dom, act
+
+[role_definition]
+g = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && (p.dom == "*" || r.dom == p.dom) && (p.act == "*" || r.act == p.act)
+```
+
+- **sub**: Subject (user:ID or role name)
+- **dom**: Domain (item, user, document, etc.)
+- **act**: Action (read, write, modify, delete)
 
 ## Filtering & Sorting
 

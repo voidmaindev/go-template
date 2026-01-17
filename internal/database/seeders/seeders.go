@@ -201,6 +201,7 @@ func DefaultSeederManager(db *gorm.DB, cfg *config.Config) *SeederManager {
 	m := NewSeederManager(db, cfg)
 	m.Register(
 		&AdminUserSeeder{},
+		&RBACSeeder{},
 	)
 	return m
 }

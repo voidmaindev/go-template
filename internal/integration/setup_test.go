@@ -12,6 +12,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/country"
 	"github.com/voidmaindev/go-template/internal/domain/document"
 	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/redis"
 	"github.com/voidmaindev/go-template/internal/testutil"
@@ -45,6 +46,7 @@ func SetupTestSuite(t *testing.T) *TestSuite {
 
 	// Register all domains
 	c.AddDomain(user.NewDomain())
+	c.AddDomain(rbac.NewDomain())
 	c.AddDomain(item.NewDomain())
 	c.AddDomain(country.NewDomain())
 	c.AddDomain(city.NewDomain())

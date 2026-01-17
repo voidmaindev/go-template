@@ -6,6 +6,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/country"
 	"github.com/voidmaindev/go-template/internal/domain/document"
 	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 )
 
@@ -17,6 +18,7 @@ func init() {
 			return []container.Domain{
 				// Core domains (no dependencies)
 				user.NewDomain(),
+				rbac.NewDomain(), // depends on: user (for token store), must be registered early for permission checks
 				item.NewDomain(),
 				country.NewDomain(),
 

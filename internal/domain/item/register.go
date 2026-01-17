@@ -1,8 +1,10 @@
 package item
 
 import (
+	"github.com/casbin/casbin/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
@@ -53,13 +55,13 @@ func (d *domain) Register(c *container.Container) {
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := container.MustGetTyped[*Handler](c, HandlerKey)
 	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
+	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
 	jwtConfig := &c.Config.JWT
 
 	items := api.Group("/items", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	items.Get("/", handler.List)
-	items.Get("/:id", handler.GetByID)
-	// Write operations require admin role
-	items.Post("/", middleware.RequireAdmin(), handler.Create)
-	items.Put("/:id", middleware.RequireAdmin(), handler.Update)
-	items.Delete("/:id", middleware.RequireAdmin(), handler.Delete)
+	items.Get("/", middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.List)
+	items.Get("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.GetByID)
+	items.Post("/", middleware.RequirePermission(enforcer, "item", rbac.ActionWrite), handler.Create)
+	items.Put("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionModify), handler.Update)
+	items.Delete("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionDelete), handler.Delete)
 }

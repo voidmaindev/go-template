@@ -1,8 +1,10 @@
 package user
 
 import (
+	"github.com/casbin/casbin/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
@@ -57,6 +59,7 @@ func (d *domain) Register(c *container.Container) {
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := container.MustGetTyped[*Handler](c, HandlerKey)
 	tokenStore := container.MustGetTyped[*TokenStore](c, TokenStoreKey)
+	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
 	jwtConfig := &c.Config.JWT
 
 	// Auth routes (public) - with rate limiting to prevent brute force
@@ -71,10 +74,12 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 
 	// User routes (protected)
 	users := api.Group("/users", middleware.JWTMiddleware(jwtConfig, tokenStore))
+	// Self-management routes (any authenticated user)
 	users.Get("/me", handler.GetMe)
 	users.Put("/me", handler.UpdateMe)
 	users.Put("/me/password", handler.ChangePassword)
-	users.Get("/", handler.List)
-	users.Get("/:id", handler.GetByID)
-	users.Delete("/:id", handler.Delete)
+	// Admin routes (require RBAC permission)
+	users.Get("/", middleware.RequirePermission(enforcer, "user", rbac.ActionRead), handler.List)
+	users.Get("/:id", middleware.RequirePermission(enforcer, "user", rbac.ActionRead), handler.GetByID)
+	users.Delete("/:id", middleware.RequirePermission(enforcer, "user", rbac.ActionDelete), handler.Delete)
 }

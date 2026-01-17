@@ -1,9 +1,11 @@
 package city
 
 import (
+	"github.com/casbin/casbin/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/country"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
@@ -57,17 +59,17 @@ func (d *domain) Register(c *container.Container) {
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := container.MustGetTyped[*Handler](c, HandlerKey)
 	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
+	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
 	jwtConfig := &c.Config.JWT
 
 	cities := api.Group("/cities", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	cities.Get("/", handler.List)
-	cities.Get("/:id", handler.GetByID)
-	// Write operations require admin role
-	cities.Post("/", middleware.RequireAdmin(), handler.Create)
-	cities.Put("/:id", middleware.RequireAdmin(), handler.Update)
-	cities.Delete("/:id", middleware.RequireAdmin(), handler.Delete)
+	cities.Get("/", middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.List)
+	cities.Get("/:id", middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.GetByID)
+	cities.Post("/", middleware.RequirePermission(enforcer, "city", rbac.ActionWrite), handler.Create)
+	cities.Put("/:id", middleware.RequirePermission(enforcer, "city", rbac.ActionModify), handler.Update)
+	cities.Delete("/:id", middleware.RequirePermission(enforcer, "city", rbac.ActionDelete), handler.Delete)
 
-	// Nested route for cities by country
+	// Nested route for cities by country (uses city read permission)
 	countries := api.Group("/countries", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	countries.Get("/:countryId/cities", handler.ListByCountry)
+	countries.Get("/:countryId/cities", middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.ListByCountry)
 }
