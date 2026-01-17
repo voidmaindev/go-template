@@ -97,10 +97,7 @@ type SeedConfig struct {
 
 // RBACConfig holds RBAC configuration
 type RBACConfig struct {
-	ModelPath          string `mapstructure:"model_path"`
-	SuperAdminEmail    string `mapstructure:"super_admin_email"`
-	SuperAdminPassword string `mapstructure:"super_admin_password"`
-	SuperAdminName     string `mapstructure:"super_admin_name"`
+	ModelPath string `mapstructure:"model_path"`
 }
 
 // Load loads configuration from config file and environment variables
@@ -226,9 +223,6 @@ func setDefaults() {
 
 	// RBAC defaults
 	viper.SetDefault("rbac.model_path", "config/rbac_model.conf")
-	viper.SetDefault("rbac.super_admin_email", "sa@admin.com")
-	viper.SetDefault("rbac.super_admin_password", "") // Empty by default, required in production
-	viper.SetDefault("rbac.super_admin_name", "Super Admin")
 }
 
 // bindEnvVars binds environment variables to viper keys
@@ -293,9 +287,6 @@ func bindEnvVars() {
 
 	// RBAC
 	viper.BindEnv("rbac.model_path", "RBAC_MODEL_PATH")
-	viper.BindEnv("rbac.super_admin_email", "RBAC_SA_EMAIL")
-	viper.BindEnv("rbac.super_admin_password", "RBAC_SA_PASSWORD")
-	viper.BindEnv("rbac.super_admin_name", "RBAC_SA_NAME")
 }
 
 // DSN returns the PostgreSQL connection string

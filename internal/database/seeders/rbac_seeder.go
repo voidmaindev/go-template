@@ -9,17 +9,10 @@ import (
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
-	"github.com/voidmaindev/go-template/pkg/utils"
 	"gorm.io/gorm"
 )
 
-const (
-	// DefaultSuperAdminPassword is the fallback password for development only.
-	// In production, RBAC_SUPER_ADMIN_PASSWORD must be set via environment variable.
-	DefaultSuperAdminPassword = "Ab123456"
-)
-
-// RBACSeeder creates system roles and super admin user
+// RBACSeeder creates system roles and assigns admin role to the default admin user.
 type RBACSeeder struct{}
 
 // Name returns the seeder name.
@@ -27,11 +20,8 @@ func (s *RBACSeeder) Name() string {
 	return "rbac_system_roles"
 }
 
-// Run creates system roles and super admin user.
-// Configuration via Viper/environment variables:
-//   - RBAC_SA_EMAIL: Super admin email (default: sa@admin.com)
-//   - RBAC_SA_PASSWORD: Super admin password (REQUIRED in production)
-//   - RBAC_SA_NAME: Super admin name (default: Super Admin)
+// Run creates system roles and assigns admin role to the default admin user.
+// The admin user must be created first by AdminUserSeeder.
 func (s *RBACSeeder) Run(db *gorm.DB, cfg *config.Config) error {
 	// Create system roles metadata
 	systemRoles := []rbac.Role{
@@ -86,57 +76,31 @@ func (s *RBACSeeder) Run(db *gorm.DB, cfg *config.Config) error {
 
 	slog.Info("system role policies created")
 
-	// Create super admin user
-	saEmail := cfg.RBAC.SuperAdminEmail
-	saName := cfg.RBAC.SuperAdminName
-	saPassword := cfg.RBAC.SuperAdminPassword
-
-	if saPassword == "" {
-		slog.Warn("RBAC_SA_PASSWORD not set - using default password. Change this in production!")
-		saPassword = DefaultSuperAdminPassword
-	}
-
-	hashedPassword, err := utils.HashPassword(saPassword)
-	if err != nil {
-		return fmt.Errorf("failed to hash super admin password: %w", err)
-	}
-
-	saUser := &user.User{
-		Email:    saEmail,
-		Password: hashedPassword,
-		Name:     saName,
-		Role:     user.RoleAdmin, // Keep the user model role field for backward compatibility
-	}
-
-	// Find or create super admin user
-	var existingUser user.User
-	result := db.Where("email = ?", saEmail).First(&existingUser)
+	// Find the admin user created by AdminUserSeeder
+	adminEmail := cfg.Seed.AdminEmail
+	var adminUser user.User
+	result := db.Where("email = ?", adminEmail).First(&adminUser)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			// Create new super admin user
-			if err := db.Create(saUser).Error; err != nil {
-				return fmt.Errorf("failed to create super admin user: %w", err)
-			}
-			existingUser = *saUser
-			slog.Info("super admin user created", "email", saEmail)
-		} else {
-			return fmt.Errorf("failed to check for existing super admin: %w", result.Error)
+			slog.Warn("admin user not found - run AdminUserSeeder first", "email", adminEmail)
+			return nil // Don't fail, admin user will be assigned role on next run
 		}
-	} else {
-		slog.Info("super admin user already exists", "email", saEmail)
+		return fmt.Errorf("failed to find admin user: %w", result.Error)
 	}
 
-	// Assign admin role to super admin user via Casbin
-	subject := rbac.FormatUserSubject(existingUser.ID)
+	// Assign admin role to the admin user via Casbin
+	subject := rbac.FormatUserSubject(adminUser.ID)
 	hasRole, _ := enforcer.HasRoleForUser(subject, rbac.RoleCodeAdmin)
 	if !hasRole {
 		if _, err := enforcer.AddRoleForUser(subject, rbac.RoleCodeAdmin); err != nil {
-			return fmt.Errorf("failed to assign admin role to super admin: %w", err)
+			return fmt.Errorf("failed to assign admin role: %w", err)
 		}
 		if err := enforcer.SavePolicy(); err != nil {
 			return fmt.Errorf("failed to save admin role assignment: %w", err)
 		}
-		slog.Info("admin role assigned to super admin user")
+		slog.Info("admin role assigned to admin user", "email", adminEmail)
+	} else {
+		slog.Info("admin user already has admin role", "email", adminEmail)
 	}
 
 	return nil

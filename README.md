@@ -340,11 +340,8 @@ The template includes a comprehensive RBAC system powered by [Casbin](https://ca
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RBAC_MODEL_PATH` | config/rbac_model.conf | Casbin model configuration path |
-| `RBAC_SUPER_ADMIN_EMAIL` | sa@admin.com | Super admin email |
-| `RBAC_SUPER_ADMIN_PASSWORD` | (required in prod) | Super admin password |
-| `RBAC_SUPER_ADMIN_NAME` | Super Admin | Super admin display name |
 
-> **Note**: The super admin user is created by the RBAC seeder and is assigned the `admin` role automatically.
+> **Note**: The RBAC seeder assigns the `admin` role to the default admin user (created by AdminUserSeeder). Configure the admin user via `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, and `SEED_ADMIN_NAME`.
 
 ### Creating Custom Roles
 
