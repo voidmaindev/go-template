@@ -281,7 +281,11 @@ func (s *Server) ListUsers(ctx context.Context, request ListUsersRequestObject) 
 
 	result, err := s.userService.ListFiltered(ctx, params)
 	if err != nil {
-		return ListUsers401JSONResponse{}, nil
+		slog.Error("ListUsers failed", "error", err)
+		return ListUsers500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to list users"),
+		}, nil
 	}
 
 	return ListUsers200JSONResponse(toUserListResponse(result, params)), nil
@@ -311,7 +315,11 @@ func (s *Server) GetUser(ctx context.Context, request GetUserRequestObject) (Get
 				Message: ptr("user not found"),
 			}, nil
 		}
-		return GetUser401JSONResponse{}, nil
+		slog.Error("GetUser failed", "error", err, "user_id", request.Id)
+		return GetUser500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to get user"),
+		}, nil
 	}
 
 	return GetUser200JSONResponse(toUserResponse(u)), nil
@@ -345,7 +353,11 @@ func (s *Server) DeleteUser(ctx context.Context, request DeleteUserRequestObject
 				Message: ptr("user not found"),
 			}, nil
 		}
-		return DeleteUser401JSONResponse{}, nil
+		slog.Error("DeleteUser failed", "error", err, "user_id", request.Id)
+		return DeleteUser500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to delete user"),
+		}, nil
 	}
 
 	return DeleteUser204Response{}, nil
@@ -367,7 +379,11 @@ func (s *Server) ListItems(ctx context.Context, request ListItemsRequestObject) 
 
 	result, err := s.itemService.ListFiltered(ctx, params)
 	if err != nil {
-		return ListItems401JSONResponse{}, nil
+		slog.Error("ListItems failed", "error", err)
+		return ListItems500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to list items"),
+		}, nil
 	}
 
 	return ListItems200JSONResponse(toItemListResponse(result, params)), nil
@@ -403,7 +419,11 @@ func (s *Server) GetItem(ctx context.Context, request GetItemRequestObject) (Get
 				Message: ptr("item not found"),
 			}, nil
 		}
-		return GetItem401JSONResponse{}, nil
+		slog.Error("GetItem failed", "error", err, "item_id", request.Id)
+		return GetItem500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to get item"),
+		}, nil
 	}
 
 	return GetItem200JSONResponse(toItemResponse(i)), nil
@@ -451,7 +471,11 @@ func (s *Server) DeleteItem(ctx context.Context, request DeleteItemRequestObject
 				Message: ptr("item not found"),
 			}, nil
 		}
-		return DeleteItem401JSONResponse{}, nil
+		slog.Error("DeleteItem failed", "error", err, "item_id", request.Id)
+		return DeleteItem500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to delete item"),
+		}, nil
 	}
 
 	return DeleteItem204Response{}, nil
@@ -473,7 +497,11 @@ func (s *Server) ListCountries(ctx context.Context, request ListCountriesRequest
 
 	result, err := s.countryService.ListFiltered(ctx, params)
 	if err != nil {
-		return ListCountries401JSONResponse{}, nil
+		slog.Error("ListCountries failed", "error", err)
+		return ListCountries500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to list countries"),
+		}, nil
 	}
 
 	return ListCountries200JSONResponse(toCountryListResponse(result, params)), nil
@@ -514,7 +542,11 @@ func (s *Server) GetCountry(ctx context.Context, request GetCountryRequestObject
 				Message: ptr("country not found"),
 			}, nil
 		}
-		return GetCountry401JSONResponse{}, nil
+		slog.Error("GetCountry failed", "error", err, "country_id", request.Id)
+		return GetCountry500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to get country"),
+		}, nil
 	}
 
 	return GetCountry200JSONResponse(toCountryResponse(c)), nil
@@ -561,7 +593,11 @@ func (s *Server) DeleteCountry(ctx context.Context, request DeleteCountryRequest
 				Message: ptr("country not found"),
 			}, nil
 		}
-		return DeleteCountry401JSONResponse{}, nil
+		slog.Error("DeleteCountry failed", "error", err, "country_id", request.Id)
+		return DeleteCountry500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to delete country"),
+		}, nil
 	}
 
 	return DeleteCountry204Response{}, nil
@@ -583,7 +619,11 @@ func (s *Server) ListCities(ctx context.Context, request ListCitiesRequestObject
 
 	result, err := s.cityService.ListFiltered(ctx, params)
 	if err != nil {
-		return ListCities401JSONResponse{}, nil
+		slog.Error("ListCities failed", "error", err)
+		return ListCities500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to list cities"),
+		}, nil
 	}
 
 	return ListCities200JSONResponse(toCityListResponse(result, params)), nil
@@ -624,7 +664,11 @@ func (s *Server) GetCity(ctx context.Context, request GetCityRequestObject) (Get
 				Message: ptr("city not found"),
 			}, nil
 		}
-		return GetCity401JSONResponse{}, nil
+		slog.Error("GetCity failed", "error", err, "city_id", request.Id)
+		return GetCity500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to get city"),
+		}, nil
 	}
 
 	return GetCity200JSONResponse(toCityResponse(c)), nil
@@ -674,7 +718,11 @@ func (s *Server) DeleteCity(ctx context.Context, request DeleteCityRequestObject
 				Message: ptr("city not found"),
 			}, nil
 		}
-		return DeleteCity401JSONResponse{}, nil
+		slog.Error("DeleteCity failed", "error", err, "city_id", request.Id)
+		return DeleteCity500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to delete city"),
+		}, nil
 	}
 
 	return DeleteCity204Response{}, nil
@@ -696,7 +744,11 @@ func (s *Server) ListCitiesByCountry(ctx context.Context, request ListCitiesByCo
 				Message: ptr("country not found"),
 			}, nil
 		}
-		return ListCitiesByCountry401JSONResponse{}, nil
+		slog.Error("ListCitiesByCountry failed", "error", err, "country_id", request.CountryId)
+		return ListCitiesByCountry500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to list cities"),
+		}, nil
 	}
 
 	return ListCitiesByCountry200JSONResponse(toCityListFromPaginated(result)), nil
@@ -718,7 +770,11 @@ func (s *Server) ListDocuments(ctx context.Context, request ListDocumentsRequest
 
 	result, err := s.documentService.ListFiltered(ctx, params)
 	if err != nil {
-		return ListDocuments401JSONResponse{}, nil
+		slog.Error("ListDocuments failed", "error", err)
+		return ListDocuments500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to list documents"),
+		}, nil
 	}
 
 	return ListDocuments200JSONResponse(toDocumentListResponse(result, params)), nil
@@ -785,7 +841,11 @@ func (s *Server) GetDocument(ctx context.Context, request GetDocumentRequestObje
 				Message: ptr("document not found"),
 			}, nil
 		}
-		return GetDocument401JSONResponse{}, nil
+		slog.Error("GetDocument failed", "error", err, "document_id", request.Id)
+		return GetDocument500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to get document"),
+		}, nil
 	}
 
 	return GetDocument200JSONResponse(toDocumentResponse(d)), nil
@@ -845,7 +905,11 @@ func (s *Server) DeleteDocument(ctx context.Context, request DeleteDocumentReque
 				Message: ptr("document not found"),
 			}, nil
 		}
-		return DeleteDocument401JSONResponse{}, nil
+		slog.Error("DeleteDocument failed", "error", err, "document_id", request.Id)
+		return DeleteDocument500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to delete document"),
+		}, nil
 	}
 
 	return DeleteDocument204Response{}, nil
@@ -934,7 +998,11 @@ func (s *Server) DeleteDocumentItem(ctx context.Context, request DeleteDocumentI
 				Message: ptr("document item not found"),
 			}, nil
 		}
-		return DeleteDocumentItem401JSONResponse{}, nil
+		slog.Error("DeleteDocumentItem failed", "error", err, "document_id", request.Id, "item_id", request.ItemId)
+		return DeleteDocumentItem500JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr("failed to delete document item"),
+		}, nil
 	}
 
 	return DeleteDocumentItem204Response{}, nil
@@ -1173,9 +1241,10 @@ func (s *Server) ListRoles(ctx context.Context, request ListRolesRequestObject) 
 	params := buildFilterParams(request.Params.Page, request.Params.PageSize, nil, nil)
 	result, err := s.rbacService.ListRoles(ctx, params)
 	if err != nil {
-		return ListRoles401JSONResponse{
+		slog.Error("ListRoles failed", "error", err)
+		return ListRoles500JSONResponse{
 			Error:   ptr("internal_error"),
-			Message: ptr(err.Error()),
+			Message: ptr("failed to list roles"),
 		}, nil
 	}
 
@@ -1259,9 +1328,10 @@ func (s *Server) GetRole(ctx context.Context, request GetRoleRequestObject) (Get
 				Message: ptr("Role not found"),
 			}, nil
 		}
-		return GetRole401JSONResponse{
+		slog.Error("GetRole failed", "error", err, "role_code", request.Code)
+		return GetRole500JSONResponse{
 			Error:   ptr("internal_error"),
-			Message: ptr(err.Error()),
+			Message: ptr("failed to get role"),
 		}, nil
 	}
 
@@ -1300,9 +1370,10 @@ func (s *Server) DeleteRole(ctx context.Context, request DeleteRoleRequestObject
 				Message: ptr("Cannot delete system role"),
 			}, nil
 		}
-		return DeleteRole401JSONResponse{
+		slog.Error("DeleteRole failed", "error", err, "role_code", request.Code)
+		return DeleteRole500JSONResponse{
 			Error:   ptr("internal_error"),
-			Message: ptr(err.Error()),
+			Message: ptr("failed to delete role"),
 		}, nil
 	}
 
@@ -1380,9 +1451,10 @@ func (s *Server) GetUserRoles(ctx context.Context, request GetUserRolesRequestOb
 
 	roles, err := s.rbacService.GetUserRoles(ctx, uint(request.Id))
 	if err != nil {
-		return GetUserRoles401JSONResponse{
+		slog.Error("GetUserRoles failed", "error", err, "user_id", request.Id)
+		return GetUserRoles500JSONResponse{
 			Error:   ptr("internal_error"),
-			Message: ptr(err.Error()),
+			Message: ptr("failed to get user roles"),
 		}, nil
 	}
 
