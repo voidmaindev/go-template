@@ -20,6 +20,7 @@ type Config struct {
 	Telemetry TelemetryConfig `mapstructure:"telemetry"`
 	Seed      SeedConfig      `mapstructure:"seed"`
 	RBAC      RBACConfig      `mapstructure:"rbac"`
+	RateLimit RateLimitConfig `mapstructure:"ratelimit"`
 }
 
 // AppConfig holds application-level configuration
@@ -98,6 +99,18 @@ type SeedConfig struct {
 // RBACConfig holds RBAC configuration
 type RBACConfig struct {
 	ModelPath string `mapstructure:"model_path"`
+}
+
+// RateLimitConfig holds distributed rate limiting configuration
+type RateLimitConfig struct {
+	Enabled        bool `mapstructure:"enabled"`
+	AuthLimit      int  `mapstructure:"auth_limit"`       // Public auth endpoints (login, register)
+	AuthUserLimit  int  `mapstructure:"auth_user_limit"`  // Authenticated auth ops (logout, password)
+	RBACAdminLimit int  `mapstructure:"rbac_admin_limit"` // RBAC admin operations
+	APIWriteLimit  int  `mapstructure:"api_write_limit"`  // POST, PUT, DELETE operations
+	APIReadLimit   int  `mapstructure:"api_read_limit"`   // GET operations
+	GlobalLimit    int  `mapstructure:"global_limit"`     // Fallback catch-all
+	WindowSeconds  int  `mapstructure:"window_seconds"`   // Rate limit window in seconds
 }
 
 // Load loads configuration from config file and environment variables
@@ -223,6 +236,16 @@ func setDefaults() {
 
 	// RBAC defaults
 	viper.SetDefault("rbac.model_path", "config/rbac_model.conf")
+
+	// Rate limit defaults (sliding window algorithm)
+	viper.SetDefault("ratelimit.enabled", true)
+	viper.SetDefault("ratelimit.auth_limit", 5)        // 5 requests/min for login, register
+	viper.SetDefault("ratelimit.auth_user_limit", 10)  // 10 requests/min for logout, password change
+	viper.SetDefault("ratelimit.rbac_admin_limit", 30) // 30 requests/min for RBAC management
+	viper.SetDefault("ratelimit.api_write_limit", 60)  // 60 requests/min for POST, PUT, DELETE
+	viper.SetDefault("ratelimit.api_read_limit", 200)  // 200 requests/min for GET
+	viper.SetDefault("ratelimit.global_limit", 1000)   // 1000 requests/min fallback
+	viper.SetDefault("ratelimit.window_seconds", 60)   // 1 minute window
 }
 
 // bindEnvVars binds environment variables to viper keys
@@ -287,6 +310,16 @@ func bindEnvVars() {
 
 	// RBAC
 	viper.BindEnv("rbac.model_path", "RBAC_MODEL_PATH")
+
+	// Rate limit
+	viper.BindEnv("ratelimit.enabled", "RATELIMIT_ENABLED")
+	viper.BindEnv("ratelimit.auth_limit", "RATELIMIT_AUTH_LIMIT")
+	viper.BindEnv("ratelimit.auth_user_limit", "RATELIMIT_AUTH_USER_LIMIT")
+	viper.BindEnv("ratelimit.rbac_admin_limit", "RATELIMIT_RBAC_ADMIN_LIMIT")
+	viper.BindEnv("ratelimit.api_write_limit", "RATELIMIT_API_WRITE_LIMIT")
+	viper.BindEnv("ratelimit.api_read_limit", "RATELIMIT_API_READ_LIMIT")
+	viper.BindEnv("ratelimit.global_limit", "RATELIMIT_GLOBAL_LIMIT")
+	viper.BindEnv("ratelimit.window_seconds", "RATELIMIT_WINDOW_SECONDS")
 }
 
 // DSN returns the PostgreSQL connection string

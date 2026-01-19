@@ -56,12 +56,15 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := container.MustGetTyped[*Handler](c, HandlerKey)
 	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
 	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
+	rateLimiter := container.MustGetTyped[*middleware.RateLimiterFactory](c, middleware.RateLimiterFactoryKey)
 	jwtConfig := &c.Config.JWT
 
 	items := api.Group("/items", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	items.Get("/", middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.List)
-	items.Get("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.GetByID)
-	items.Post("/", middleware.RequirePermission(enforcer, "item", rbac.ActionWrite), handler.Create)
-	items.Put("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionModify), handler.Update)
-	items.Delete("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionDelete), handler.Delete)
+	// GET endpoints - api_read tier (200 req/min)
+	items.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.List)
+	items.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.GetByID)
+	// Write endpoints - api_write tier (60 req/min)
+	items.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "item", rbac.ActionWrite), handler.Create)
+	items.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "item", rbac.ActionModify), handler.Update)
+	items.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "item", rbac.ActionDelete), handler.Delete)
 }

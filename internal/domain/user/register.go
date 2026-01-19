@@ -63,26 +63,27 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := container.MustGetTyped[*Handler](c, HandlerKey)
 	tokenStore := container.MustGetTyped[*TokenStore](c, TokenStoreKey)
 	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
+	rateLimiter := container.MustGetTyped[*middleware.RateLimiterFactory](c, middleware.RateLimiterFactoryKey)
 	jwtConfig := &c.Config.JWT
 
-	// Auth routes (public) - with rate limiting to prevent brute force
-	auth := api.Group("/auth", middleware.AuthRateLimiter())
+	// Auth routes (public) - with strict rate limiting to prevent brute force
+	auth := api.Group("/auth", rateLimiter.ForTier(middleware.TierAuth))
 	auth.Post("/register", handler.Register)
 	auth.Post("/login", handler.Login)
 	auth.Post("/refresh", handler.RefreshToken)
 
-	// Auth routes (protected)
-	authProtected := auth.Group("", middleware.JWTMiddleware(jwtConfig, tokenStore))
+	// Auth routes (protected) - with auth_user tier rate limiting
+	authProtected := auth.Group("", middleware.JWTMiddleware(jwtConfig, tokenStore), rateLimiter.ForTier(middleware.TierAuthUser))
 	authProtected.Post("/logout", handler.Logout)
 
 	// User routes (protected)
 	users := api.Group("/users", middleware.JWTMiddleware(jwtConfig, tokenStore))
 	// Self-management routes (any authenticated user)
-	users.Get("/me", handler.GetMe)
-	users.Put("/me", handler.UpdateMe)
-	users.Put("/me/password", handler.ChangePassword)
+	users.Get("/me", rateLimiter.ForTier(middleware.TierAPIRead), handler.GetMe)
+	users.Put("/me", rateLimiter.ForTier(middleware.TierAPIWrite), handler.UpdateMe)
+	users.Put("/me/password", rateLimiter.ForTier(middleware.TierAuthUser), handler.ChangePassword)
 	// Admin routes (require RBAC permission)
-	users.Get("/", middleware.RequirePermission(enforcer, "user", rbac.ActionRead), handler.List)
-	users.Get("/:id", middleware.RequirePermission(enforcer, "user", rbac.ActionRead), handler.GetByID)
-	users.Delete("/:id", middleware.RequirePermission(enforcer, "user", rbac.ActionDelete), handler.Delete)
+	users.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "user", rbac.ActionRead), handler.List)
+	users.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "user", rbac.ActionRead), handler.GetByID)
+	users.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "user", rbac.ActionDelete), handler.Delete)
 }

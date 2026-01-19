@@ -75,10 +75,11 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := container.MustGetTyped[*Handler](c, HandlerKey)
 	tokenStore := container.MustGetTyped[middleware.TokenBlacklist](c, userTokenStoreKey)
 	enforcer := container.MustGetTyped[*casbin.Enforcer](c, EnforcerKey)
+	rateLimiter := container.MustGetTyped[*middleware.RateLimiterFactory](c, middleware.RateLimiterFactoryKey)
 	jwtConfig := &c.Config.JWT
 
-	// All RBAC routes require authentication
-	rbacGroup := api.Group("/rbac", middleware.JWTMiddleware(jwtConfig, tokenStore))
+	// All RBAC routes require authentication and admin-tier rate limiting
+	rbacGroup := api.Group("/rbac", middleware.JWTMiddleware(jwtConfig, tokenStore), rateLimiter.ForTier(middleware.TierRBACAdmin))
 
 	// Role management (admin only via RBAC)
 	roles := rbacGroup.Group("/roles", middleware.RequirePermission(enforcer, "rbac", ActionRead))

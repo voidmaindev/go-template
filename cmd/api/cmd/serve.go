@@ -95,6 +95,18 @@ func runServe(cmd *cobra.Command, args []string) {
 	// Create dependency container
 	c := container.New(db, redisClient, cfg)
 
+	// Initialize rate limiter factory (Redis-based distributed rate limiting)
+	rateLimiterFactory := middleware.NewRateLimiterFactory(redisClient, &cfg.RateLimit)
+	c.Set(middleware.RateLimiterFactoryKey, rateLimiterFactory)
+	if cfg.RateLimit.Enabled {
+		slog.Info("Distributed rate limiting enabled",
+			"auth_limit", cfg.RateLimit.AuthLimit,
+			"api_read_limit", cfg.RateLimit.APIReadLimit,
+			"api_write_limit", cfg.RateLimit.APIWriteLimit,
+			"window_seconds", cfg.RateLimit.WindowSeconds,
+		)
+	}
+
 	// Register domains for this app
 	for _, d := range a.Domains() {
 		c.AddDomain(d)

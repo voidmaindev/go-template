@@ -141,3 +141,65 @@ func (c *Client) SetMultipleWithExpiry(ctx context.Context, keys []string, value
 	_, err := pipe.Exec(ctx)
 	return err
 }
+
+// RateLimitResult contains the result of a rate limit check
+type RateLimitResult struct {
+	Allowed   bool
+	Remaining int
+	ResetAt   int64 // Unix timestamp
+}
+
+// RateLimitCheck performs an atomic sliding window rate limit check using Redis sorted sets.
+// Uses a Lua script for atomicity across Redis cluster nodes.
+// Returns whether the request is allowed, remaining requests, and reset timestamp.
+func (c *Client) RateLimitCheck(ctx context.Context, key string, limit int, window time.Duration) (*RateLimitResult, error) {
+	now := time.Now().UnixMilli()
+	windowStart := now - window.Milliseconds()
+	resetAt := now + window.Milliseconds()
+
+	// Lua script for atomic sliding window rate limiting
+	// 1. Remove old entries outside the window
+	// 2. Count current entries
+	// 3. If under limit, add new entry
+	// 4. Set expiry on the key
+	script := redis.NewScript(`
+		local key = KEYS[1]
+		local now = tonumber(ARGV[1])
+		local window_start = tonumber(ARGV[2])
+		local limit = tonumber(ARGV[3])
+		local window_ms = tonumber(ARGV[4])
+
+		-- Remove entries older than window
+		redis.call('ZREMRANGEBYSCORE', key, 0, window_start)
+
+		-- Count current entries
+		local count = redis.call('ZCARD', key)
+
+		-- Check if under limit
+		if count < limit then
+			-- Add new entry with current timestamp as both score and member
+			redis.call('ZADD', key, now, now)
+			-- Set expiry to window duration
+			redis.call('PEXPIRE', key, window_ms)
+			return {1, limit - count - 1}
+		else
+			-- Set expiry even when denied to ensure cleanup
+			redis.call('PEXPIRE', key, window_ms)
+			return {0, 0}
+		end
+	`)
+
+	result, err := script.Run(ctx, c.Client, []string{key}, now, windowStart, limit, window.Milliseconds()).Slice()
+	if err != nil {
+		return nil, fmt.Errorf("rate limit script failed: %w", err)
+	}
+
+	allowed := result[0].(int64) == 1
+	remaining := int(result[1].(int64))
+
+	return &RateLimitResult{
+		Allowed:   allowed,
+		Remaining: remaining,
+		ResetAt:   resetAt / 1000, // Convert to Unix seconds
+	}, nil
+}
