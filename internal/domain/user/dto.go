@@ -23,6 +23,11 @@ type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
+// LogoutRequest represents the logout request (optional body)
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 // ChangePasswordRequest represents the change password request
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required"`

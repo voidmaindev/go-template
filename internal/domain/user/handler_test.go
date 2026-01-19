@@ -56,7 +56,7 @@ func (m *mockService) Login(ctx context.Context, req *LoginRequest) (*TokenRespo
 	return m.loginResponse, nil
 }
 
-func (m *mockService) Logout(ctx context.Context, token string) error {
+func (m *mockService) Logout(ctx context.Context, accessToken, refreshToken string) error {
 	return m.logoutErr
 }
 

@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -99,6 +100,8 @@ func (s *Server) Login(ctx context.Context, request LoginRequestObject) (LoginRe
 }
 
 // Logout implements StrictServerInterface.
+// Note: To fully prevent refresh token reuse attacks, update the OpenAPI spec
+// to accept a refresh_token in the request body.
 func (s *Server) Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error) {
 	// Get token from fiber context - need to extract from ctx
 	fiberCtx := getFiberContext(ctx)
@@ -109,15 +112,26 @@ func (s *Server) Logout(ctx context.Context, request LogoutRequestObject) (Logou
 		}, nil
 	}
 
-	token := middleware.GetTokenFromContext(fiberCtx)
-	if token == "" {
+	accessToken := middleware.GetTokenFromContext(fiberCtx)
+	if accessToken == "" {
 		return Logout401JSONResponse{
 			Error:   ptr("unauthorized"),
 			Message: ptr("no token provided"),
 		}, nil
 	}
 
-	if err := s.userService.Logout(ctx, token); err != nil {
+	// Try to extract refresh token from raw body if present
+	var refreshToken string
+	if fiberCtx.Body() != nil {
+		var body struct {
+			RefreshToken string `json:"refresh_token"`
+		}
+		if err := fiberCtx.BodyParser(&body); err == nil && body.RefreshToken != "" {
+			refreshToken = body.RefreshToken
+		}
+	}
+
+	if err := s.userService.Logout(ctx, accessToken, refreshToken); err != nil {
 		return Logout401JSONResponse{
 			Error:   ptr("unauthorized"),
 			Message: ptr("logout failed"),
@@ -941,10 +955,12 @@ func (s *Server) HealthCheck(ctx context.Context, request HealthCheckRequestObje
 	sqlDB, err := s.container.DB.DB()
 	if err != nil {
 		dbStatus = CheckResultStatusUnhealthy
-		dbError = ptr("connection failed: " + err.Error())
+		dbError = ptr("unhealthy")
+		slog.Error("health check: database connection failed", "error", err)
 	} else if err := sqlDB.Ping(); err != nil {
 		dbStatus = CheckResultStatusUnhealthy
-		dbError = ptr("ping failed: " + err.Error())
+		dbError = ptr("unhealthy")
+		slog.Error("health check: database ping failed", "error", err)
 	}
 	checks["database"] = CheckResult{
 		Status:    &dbStatus,
@@ -958,7 +974,8 @@ func (s *Server) HealthCheck(ctx context.Context, request HealthCheckRequestObje
 	if s.container.Redis != nil {
 		if err := s.container.Redis.Ping(ctx).Err(); err != nil {
 			redisStatus = CheckResultStatusUnhealthy
-			redisError = ptr("ping failed: " + err.Error())
+			redisError = ptr("unhealthy")
+			slog.Error("health check: redis ping failed", "error", err)
 		}
 	}
 	checks["redis"] = CheckResult{
@@ -1011,10 +1028,12 @@ func (s *Server) ReadinessCheck(ctx context.Context, request ReadinessCheckReque
 	sqlDB, err := s.container.DB.DB()
 	if err != nil {
 		dbStatus = CheckResultStatusUnhealthy
-		dbError = ptr("connection failed: " + err.Error())
+		dbError = ptr("unhealthy")
+		slog.Error("readiness check: database connection failed", "error", err)
 	} else if err := sqlDB.Ping(); err != nil {
 		dbStatus = CheckResultStatusUnhealthy
-		dbError = ptr("ping failed: " + err.Error())
+		dbError = ptr("unhealthy")
+		slog.Error("readiness check: database ping failed", "error", err)
 	}
 	checks["database"] = CheckResult{
 		Status:    &dbStatus,
@@ -1028,7 +1047,8 @@ func (s *Server) ReadinessCheck(ctx context.Context, request ReadinessCheckReque
 	if s.container.Redis != nil {
 		if err := s.container.Redis.Ping(ctx).Err(); err != nil {
 			redisStatus = CheckResultStatusUnhealthy
-			redisError = ptr("ping failed: " + err.Error())
+			redisError = ptr("unhealthy")
+			slog.Error("readiness check: redis ping failed", "error", err)
 		}
 	}
 	checks["redis"] = CheckResult{

@@ -23,7 +23,7 @@ type Service interface {
 	// Authentication
 	Register(ctx context.Context, req *RegisterRequest) (*TokenResponse, error)
 	Login(ctx context.Context, req *LoginRequest) (*TokenResponse, error)
-	Logout(ctx context.Context, token string) error
+	Logout(ctx context.Context, accessToken, refreshToken string) error
 	RefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, error)
 
 	// User management
@@ -139,17 +139,33 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 	return s.generateTokenResponse(user)
 }
 
-// Logout invalidates a token
-func (s *service) Logout(ctx context.Context, token string) error {
-	// Get token expiry
-	expiry, err := utils.GetTokenExpiry(token, s.jwtConfig.SecretKey)
+// Logout invalidates both access and refresh tokens
+func (s *service) Logout(ctx context.Context, accessToken, refreshToken string) error {
+	// Blacklist access token
+	accessExpiry, err := utils.GetTokenExpiry(accessToken, s.jwtConfig.SecretKey)
 	if err != nil {
 		// Token might already be expired, but we still try to blacklist it
-		expiry = s.jwtConfig.AccessTokenExpiry
+		accessExpiry = s.jwtConfig.AccessTokenExpiry
+	}
+	if err := s.tokenStore.Blacklist(ctx, accessToken, accessExpiry); err != nil {
+		return err
 	}
 
-	// Add token to blacklist
-	return s.tokenStore.Blacklist(ctx, token, expiry)
+	// Blacklist refresh token if provided (prevents token reuse attack)
+	if refreshToken != "" {
+		refreshExpiry, err := utils.GetTokenExpiry(refreshToken, s.jwtConfig.SecretKey)
+		if err != nil {
+			refreshExpiry = s.jwtConfig.RefreshTokenExpiry
+		}
+		if err := s.tokenStore.Blacklist(ctx, refreshToken, refreshExpiry); err != nil {
+			slog.Error("failed to blacklist refresh token during logout",
+				"error", err,
+			)
+			// Continue anyway - access token is already blacklisted
+		}
+	}
+
+	return nil
 }
 
 // RefreshToken generates new tokens from a refresh token

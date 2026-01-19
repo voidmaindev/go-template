@@ -101,12 +101,16 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 // @Failure 401 {object} common.Response
 // @Router /auth/logout [post]
 func (h *Handler) Logout(c *fiber.Ctx) error {
-	token := middleware.GetTokenFromContext(c)
-	if token == "" {
+	accessToken := middleware.GetTokenFromContext(c)
+	if accessToken == "" {
 		return common.UnauthorizedResponse(c, "no token provided")
 	}
 
-	if err := h.service.Logout(c.Context(), token); err != nil {
+	// Try to extract refresh token from body (optional)
+	var req LogoutRequest
+	_ = c.BodyParser(&req) // Ignore error - refresh token is optional
+
+	if err := h.service.Logout(c.Context(), accessToken, req.RefreshToken); err != nil {
 		return common.InternalServerErrorResponse(c)
 	}
 
