@@ -133,21 +133,10 @@ func generateHandlerTestToken(userID uint, email string) string {
 		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 		Issuer:             cfg.Issuer,
 	}
-	token, _ := utils.GenerateAccessToken(userID, email, "user", jwtCfg)
+	token, _ := utils.GenerateAccessToken(userID, email, jwtCfg)
 	return token
 }
 
-func generateHandlerTestAdminToken(userID uint, email string) string {
-	cfg := getHandlerTestConfig()
-	jwtCfg := &utils.JWTConfig{
-		SecretKey:          cfg.SecretKey,
-		AccessTokenExpiry:  cfg.AccessTokenExpiry,
-		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
-		Issuer:             cfg.Issuer,
-	}
-	token, _ := utils.GenerateAccessToken(userID, email, "admin", jwtCfg)
-	return token
-}
 
 func createTestUser() *User {
 	return &User{
@@ -776,8 +765,8 @@ func TestHandler_GetByID(t *testing.T) {
 		app.Use(middleware.JWTMiddleware(cfg, nil))
 		app.Get("/users/:id", handler.GetByID)
 
-		// Use admin token to bypass authorization and test the "not found" path
-		token := generateHandlerTestAdminToken(1, "admin@example.com")
+		// Authorization is handled by RBAC middleware at route level
+		token := generateHandlerTestToken(1, "test@example.com")
 
 		req := httptest.NewRequest(http.MethodGet, "/users/999", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -838,8 +827,8 @@ func TestHandler_List(t *testing.T) {
 		app.Use(middleware.JWTMiddleware(cfg, nil))
 		app.Get("/users", handler.List)
 
-		// List requires admin role
-		token := generateHandlerTestAdminToken(1, "admin@example.com")
+		// Authorization is handled by RBAC middleware at route level
+		token := generateHandlerTestToken(1, "test@example.com")
 
 		req := httptest.NewRequest(http.MethodGet, "/users?page=1&page_size=10", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -872,8 +861,8 @@ func TestHandler_List(t *testing.T) {
 		app.Use(middleware.JWTMiddleware(cfg, nil))
 		app.Get("/users", handler.List)
 
-		// List requires admin role
-		token := generateHandlerTestAdminToken(1, "admin@example.com")
+		// Authorization is handled by RBAC middleware at route level
+		token := generateHandlerTestToken(1, "test@example.com")
 
 		req := httptest.NewRequest(http.MethodGet, "/users", nil)
 		req.Header.Set("Authorization", "Bearer "+token)

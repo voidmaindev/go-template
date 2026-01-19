@@ -349,6 +349,7 @@ func DefaultMigrator(db *gorm.DB) *Migrator {
 		&CreateCitiesTable{},
 		&CreateDocumentsTable{},
 		&CreateDocumentItemsTable{},
+		&DropUserRoleColumn{},
 	)
 	return m
 }

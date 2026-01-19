@@ -47,7 +47,6 @@ func (s *AdminUserSeeder) Run(db *gorm.DB, cfg *config.Config) error {
 		Email:    email,
 		Password: hashedPassword,
 		Name:     name,
-		Role:     user.RoleAdmin,
 	}
 
 	// FirstOrCreate ensures idempotency - won't duplicate if already exists

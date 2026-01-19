@@ -251,11 +251,6 @@ components:
           format: email
         name:
           type: string
-        role:
-          type: string
-          enum:
-            - user
-            - admin
         created_at:
           type: string
           format: date-time
@@ -1120,7 +1115,6 @@ paths:
         **Example filters:**
         - `?email__contains=@company.com` - Users with company email
         - `?name__starts_with=John` - Users whose name starts with John
-        - `?role=admin` - Admin users only
         - `?created_at__gte=2024-01-01` - Users created after Jan 1, 2024
       operationId: listUsers
       security:

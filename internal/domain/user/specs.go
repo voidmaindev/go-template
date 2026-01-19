@@ -29,24 +29,6 @@ func (s EmailSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
 	return db.Where("email = ?", s.Email)
 }
 
-// RoleSpec finds users by role
-type RoleSpec struct {
-	Role Role
-}
-
-// ByRole creates a role specification
-func ByRole(role Role) RoleSpec {
-	return RoleSpec{Role: role}
-}
-
-func (s RoleSpec) Apply(query any) any {
-	return s.ApplyGorm(common.AsGormDB(query))
-}
-
-func (s RoleSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where("role = ?", s.Role)
-}
-
 // ActiveAfterSpec finds users created after a date
 type ActiveAfterSpec struct {
 	After time.Time
@@ -119,46 +101,11 @@ func (s EmailContainsSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
 	return db.Where("email LIKE ?", "%"+s.Email+"%")
 }
 
-// AdminUsersSpec finds only admin users
-type AdminUsersSpec struct{}
-
-// AdminUsers returns all admin users
-func AdminUsers() AdminUsersSpec {
-	return AdminUsersSpec{}
-}
-
-func (s AdminUsersSpec) Apply(query any) any {
-	return s.ApplyGorm(common.AsGormDB(query))
-}
-
-func (s AdminUsersSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where("role = ?", RoleAdmin)
-}
-
-// RegularUsersSpec finds only regular users
-type RegularUsersSpec struct{}
-
-// RegularUsers returns all regular users
-func RegularUsers() RegularUsersSpec {
-	return RegularUsersSpec{}
-}
-
-func (s RegularUsersSpec) Apply(query any) any {
-	return s.ApplyGorm(common.AsGormDB(query))
-}
-
-func (s RegularUsersSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where("role = ?", RoleUser)
-}
-
 // Ensure all specs implement GormSpecification
 var (
 	_ common.GormSpecification = EmailSpec{}
-	_ common.GormSpecification = RoleSpec{}
 	_ common.GormSpecification = ActiveAfterSpec{}
 	_ common.GormSpecification = CreatedBeforeSpec{}
 	_ common.GormSpecification = NameContainsSpec{}
 	_ common.GormSpecification = EmailContainsSpec{}
-	_ common.GormSpecification = AdminUsersSpec{}
-	_ common.GormSpecification = RegularUsersSpec{}
 )

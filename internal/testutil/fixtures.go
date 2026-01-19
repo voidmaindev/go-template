@@ -190,7 +190,7 @@ func HashPassword(t *testing.T, password string) string {
 }
 
 // GenerateTestAccessToken generates an access token for testing.
-func GenerateTestAccessToken(t *testing.T, userID uint, email, role string) string {
+func GenerateTestAccessToken(t *testing.T, userID uint, email string) string {
 	t.Helper()
 	cfg := TestJWTConfig()
 	jwtCfg := &utils.JWTConfig{
@@ -199,7 +199,7 @@ func GenerateTestAccessToken(t *testing.T, userID uint, email, role string) stri
 		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 		Issuer:             cfg.Issuer,
 	}
-	token, err := utils.GenerateAccessToken(userID, email, role, jwtCfg)
+	token, err := utils.GenerateAccessToken(userID, email, jwtCfg)
 	if err != nil {
 		t.Fatalf("failed to generate access token: %v", err)
 	}
@@ -207,7 +207,7 @@ func GenerateTestAccessToken(t *testing.T, userID uint, email, role string) stri
 }
 
 // GenerateTestRefreshToken generates a refresh token for testing.
-func GenerateTestRefreshToken(t *testing.T, userID uint, email, role string) string {
+func GenerateTestRefreshToken(t *testing.T, userID uint, email string) string {
 	t.Helper()
 	cfg := TestJWTConfig()
 	jwtCfg := &utils.JWTConfig{
@@ -216,7 +216,7 @@ func GenerateTestRefreshToken(t *testing.T, userID uint, email, role string) str
 		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 		Issuer:             cfg.Issuer,
 	}
-	token, err := utils.GenerateRefreshToken(userID, email, role, jwtCfg)
+	token, err := utils.GenerateRefreshToken(userID, email, jwtCfg)
 	if err != nil {
 		t.Fatalf("failed to generate refresh token: %v", err)
 	}

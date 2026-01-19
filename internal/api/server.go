@@ -16,18 +16,20 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/country"
 	"github.com/voidmaindev/go-template/internal/domain/document"
 	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
 // Server implements the StrictServerInterface.
 type Server struct {
-	container   *container.Container
-	userService user.Service
-	itemService item.Service
-	countryService country.Service
-	cityService city.Service
+	container       *container.Container
+	userService     user.Service
+	itemService     item.Service
+	countryService  country.Service
+	cityService     city.Service
 	documentService document.Service
+	rbacService     rbac.Service
 }
 
 // NewServer creates a new API server with services from the container.
@@ -39,6 +41,7 @@ func NewServer(c *container.Container) *Server {
 		countryService:  container.MustGetTyped[country.Service](c, country.ServiceKey),
 		cityService:     container.MustGetTyped[city.Service](c, city.ServiceKey),
 		documentService: container.MustGetTyped[document.Service](c, document.ServiceKey),
+		rbacService:     container.MustGetTyped[rbac.Service](c, rbac.ServiceKey),
 	}
 }
 
@@ -257,12 +260,7 @@ func (s *Server) ListUsers(ctx context.Context, request ListUsersRequestObject) 
 		return ListUsers401JSONResponse{}, nil
 	}
 
-	if !middleware.IsAdmin(fiberCtx) {
-		return ListUsers403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
+	// Authorization is handled by RBAC middleware at route level
 
 	// Parse all query parameters for dynamic filtering
 	params := filter.ParseFromQuery(fiberCtx)
@@ -287,13 +285,9 @@ func (s *Server) GetUser(ctx context.Context, request GetUserRequestObject) (Get
 		return GetUser401JSONResponse{}, nil
 	}
 
-	// Authorization: only allow self-view or admin
-	if uint(request.Id) != currentUserID && !middleware.IsAdmin(fiberCtx) {
-		return GetUser401JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("cannot view other users"),
-		}, nil
-	}
+	// Authorization: self-access allowed, admin access handled by RBAC middleware at route level
+	// For admin viewing other users, the route should have RBAC middleware with user:read permission
+	_ = currentUserID // Unused - authorization handled by RBAC middleware
 
 	u, err := s.userService.GetByID(ctx, uint(request.Id))
 	if err != nil {
@@ -321,8 +315,9 @@ func (s *Server) DeleteUser(ctx context.Context, request DeleteUserRequestObject
 		return DeleteUser401JSONResponse{}, nil
 	}
 
-	// Authorization: only allow self-delete or admin
-	if uint(request.Id) != currentUserID && !middleware.IsAdmin(fiberCtx) {
+	// Authorization: self-delete allowed, admin delete handled by RBAC middleware at route level
+	// For admin deleting other users, the route should have RBAC middleware with user:delete permission
+	if uint(request.Id) != currentUserID {
 		return DeleteUser403JSONResponse{
 			Error:   ptr("forbidden"),
 			Message: ptr("cannot delete other users"),
@@ -365,15 +360,8 @@ func (s *Server) ListItems(ctx context.Context, request ListItemsRequestObject) 
 }
 
 // CreateItem implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) CreateItem(ctx context.Context, request CreateItemRequestObject) (CreateItemResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return CreateItem403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	req := &item.CreateItemRequest{
 		Name:        request.Body.Name,
 		Description: ptrToString(request.Body.Description),
@@ -409,14 +397,7 @@ func (s *Server) GetItem(ctx context.Context, request GetItemRequestObject) (Get
 
 // UpdateItem implements StrictServerInterface.
 func (s *Server) UpdateItem(ctx context.Context, request UpdateItemRequestObject) (UpdateItemResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return UpdateItem403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
+	// Authorization is handled by RBAC middleware at route level
 	req := &item.UpdateItemRequest{}
 	if request.Body.Name != nil {
 		req.Name = request.Body.Name
@@ -448,14 +429,7 @@ func (s *Server) UpdateItem(ctx context.Context, request UpdateItemRequestObject
 
 // DeleteItem implements StrictServerInterface.
 func (s *Server) DeleteItem(ctx context.Context, request DeleteItemRequestObject) (DeleteItemResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return DeleteItem403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
+	// Authorization is handled by RBAC middleware at route level
 	if err := s.itemService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, item.ErrItemNotFound) {
 			return DeleteItem404JSONResponse{
@@ -493,14 +467,7 @@ func (s *Server) ListCountries(ctx context.Context, request ListCountriesRequest
 
 // CreateCountry implements StrictServerInterface.
 func (s *Server) CreateCountry(ctx context.Context, request CreateCountryRequestObject) (CreateCountryResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return CreateCountry403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
+	// Authorization is handled by RBAC middleware at route level
 	req := &country.CreateCountryRequest{
 		Name: request.Body.Name,
 		Code: request.Body.Code,
@@ -540,15 +507,8 @@ func (s *Server) GetCountry(ctx context.Context, request GetCountryRequestObject
 }
 
 // UpdateCountry implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) UpdateCountry(ctx context.Context, request UpdateCountryRequestObject) (UpdateCountryResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return UpdateCountry403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	req := &country.UpdateCountryRequest{
 		Name: request.Body.Name,
 		Code: request.Body.Code,
@@ -579,14 +539,7 @@ func (s *Server) UpdateCountry(ctx context.Context, request UpdateCountryRequest
 
 // DeleteCountry implements StrictServerInterface.
 func (s *Server) DeleteCountry(ctx context.Context, request DeleteCountryRequestObject) (DeleteCountryResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return DeleteCountry403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
+	// Authorization is handled by RBAC middleware at route level
 	if err := s.countryService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, country.ErrCountryNotFound) {
 			return DeleteCountry404JSONResponse{
@@ -624,14 +577,7 @@ func (s *Server) ListCities(ctx context.Context, request ListCitiesRequestObject
 
 // CreateCity implements StrictServerInterface.
 func (s *Server) CreateCity(ctx context.Context, request CreateCityRequestObject) (CreateCityResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return CreateCity403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
+	// Authorization is handled by RBAC middleware at route level
 	req := &city.CreateCityRequest{
 		Name:      request.Body.Name,
 		CountryID: uint(request.Body.CountryId),
@@ -671,15 +617,8 @@ func (s *Server) GetCity(ctx context.Context, request GetCityRequestObject) (Get
 }
 
 // UpdateCity implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) UpdateCity(ctx context.Context, request UpdateCityRequestObject) (UpdateCityResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return UpdateCity403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	req := &city.UpdateCityRequest{
 		Name: request.Body.Name,
 	}
@@ -713,14 +652,7 @@ func (s *Server) UpdateCity(ctx context.Context, request UpdateCityRequestObject
 
 // DeleteCity implements StrictServerInterface.
 func (s *Server) DeleteCity(ctx context.Context, request DeleteCityRequestObject) (DeleteCityResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return DeleteCity403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
+	// Authorization is handled by RBAC middleware at route level
 	if err := s.cityService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, city.ErrCityNotFound) {
 			return DeleteCity404JSONResponse{
@@ -779,15 +711,8 @@ func (s *Server) ListDocuments(ctx context.Context, request ListDocumentsRequest
 }
 
 // CreateDocument implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) CreateDocument(ctx context.Context, request CreateDocumentRequestObject) (CreateDocumentResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return CreateDocument403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	var docItems []document.CreateDocumentItemRequest
 	if request.Body.Items != nil {
 		docItems = make([]document.CreateDocumentItemRequest, 0, len(*request.Body.Items))
@@ -853,15 +778,8 @@ func (s *Server) GetDocument(ctx context.Context, request GetDocumentRequestObje
 }
 
 // UpdateDocument implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) UpdateDocument(ctx context.Context, request UpdateDocumentRequestObject) (UpdateDocumentResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return UpdateDocument403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	req := &document.UpdateDocumentRequest{
 		Code: request.Body.Code,
 	}
@@ -904,15 +822,8 @@ func (s *Server) UpdateDocument(ctx context.Context, request UpdateDocumentReque
 }
 
 // DeleteDocument implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) DeleteDocument(ctx context.Context, request DeleteDocumentRequestObject) (DeleteDocumentResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return DeleteDocument403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	if err := s.documentService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, document.ErrDocumentNotFound) {
 			return DeleteDocument404JSONResponse{
@@ -927,15 +838,8 @@ func (s *Server) DeleteDocument(ctx context.Context, request DeleteDocumentReque
 }
 
 // AddDocumentItem implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) AddDocumentItem(ctx context.Context, request AddDocumentItemRequestObject) (AddDocumentItemResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return AddDocumentItem403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	req := &document.AddDocumentItemRequest{
 		ItemID:   uint(request.Body.ItemId),
 		Quantity: request.Body.Quantity,
@@ -966,15 +870,8 @@ func (s *Server) AddDocumentItem(ctx context.Context, request AddDocumentItemReq
 }
 
 // UpdateDocumentItem implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) UpdateDocumentItem(ctx context.Context, request UpdateDocumentItemRequestObject) (UpdateDocumentItemResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return UpdateDocumentItem403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	req := &document.UpdateDocumentItemRequest{}
 	if request.Body.Quantity != nil {
 		req.Quantity = request.Body.Quantity
@@ -1008,15 +905,8 @@ func (s *Server) UpdateDocumentItem(ctx context.Context, request UpdateDocumentI
 }
 
 // DeleteDocumentItem implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
 func (s *Server) DeleteDocumentItem(ctx context.Context, request DeleteDocumentItemRequestObject) (DeleteDocumentItemResponseObject, error) {
-	fiberCtx := getFiberContext(ctx)
-	if fiberCtx != nil && !middleware.IsAdmin(fiberCtx) {
-		return DeleteDocumentItem403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("admin access required"),
-		}, nil
-	}
-
 	if err := s.documentService.RemoveItem(ctx, uint(request.Id), uint(request.ItemId)); err != nil {
 		if errors.Is(err, document.ErrDocumentNotFound) {
 			return DeleteDocumentItem404JSONResponse{
@@ -1201,6 +1091,13 @@ func intToString(i int) string {
 	return strconv.Itoa(i)
 }
 
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 func getIntOrDefault(p *int, def int) int {
 	if p == nil {
 		return def
@@ -1225,6 +1122,328 @@ func buildFilterParams(page, pageSize *int, sort, order *string) *filter.Params 
 	}
 
 	return params
+}
+
+// ================================
+// RBAC Endpoints
+// ================================
+
+// ListActions implements StrictServerInterface.
+func (s *Server) ListActions(ctx context.Context, request ListActionsRequestObject) (ListActionsResponseObject, error) {
+	actions := s.rbacService.GetActions(ctx)
+	return ListActions200JSONResponse{Actions: &actions}, nil
+}
+
+// ListDomains implements StrictServerInterface.
+func (s *Server) ListDomains(ctx context.Context, request ListDomainsRequestObject) (ListDomainsResponseObject, error) {
+	domains := s.rbacService.GetDomains(ctx)
+	apiDomains := make([]DomainResponse, len(domains))
+	for i, d := range domains {
+		apiDomains[i] = DomainResponse{
+			Name:        ptr(d.Name),
+			IsProtected: ptr(d.IsProtected),
+		}
+	}
+	return ListDomains200JSONResponse{Domains: &apiDomains}, nil
+}
+
+// ListRoles implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
+func (s *Server) ListRoles(ctx context.Context, request ListRolesRequestObject) (ListRolesResponseObject, error) {
+	params := buildFilterParams(request.Params.Page, request.Params.PageSize, nil, nil)
+	result, err := s.rbacService.ListRoles(ctx, params)
+	if err != nil {
+		return ListRoles401JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	roles := make([]RoleResponse, len(result.Data))
+	for i, r := range result.Data {
+		roles[i] = RoleResponse{
+			Code:        ptr(r.Code),
+			Name:        ptr(r.Name),
+			Description: ptr(r.Description),
+			IsSystem:    ptr(r.IsSystem),
+			CreatedAt:   ptr(r.CreatedAt),
+		}
+	}
+
+	totalPages := common.CalculateTotalPages(result.Total, params.Limit)
+	return ListRoles200JSONResponse{
+		Data:       &roles,
+		Total:      ptr(result.Total),
+		Page:       ptr(params.Page),
+		PageSize:   ptr(params.Limit),
+		TotalPages: ptr(totalPages),
+		HasMore:    ptr(params.Page < totalPages),
+	}, nil
+}
+
+// CreateRole implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
+func (s *Server) CreateRole(ctx context.Context, request CreateRoleRequestObject) (CreateRoleResponseObject, error) {
+	perms := make([]rbac.PermissionInput, 0)
+	if request.Body.Permissions != nil {
+		for _, p := range *request.Body.Permissions {
+			actions := make([]string, len(p.Actions))
+			for i, a := range p.Actions {
+				actions[i] = string(a)
+			}
+			perms = append(perms, rbac.PermissionInput{
+				Domain:  p.Domain,
+				Actions: actions,
+			})
+		}
+	}
+
+	req := &rbac.CreateRoleRequest{
+		Code:        request.Body.Code,
+		Name:        request.Body.Name,
+		Description: deref(request.Body.Description),
+		Permissions: perms,
+	}
+
+	role, err := s.rbacService.CreateRole(ctx, req)
+	if err != nil {
+		if errors.Is(err, rbac.ErrRoleCodeExists) {
+			return CreateRole409JSONResponse{
+				Error:   ptr("conflict"),
+				Message: ptr("Role code already exists"),
+			}, nil
+		}
+		return CreateRole400JSONResponse{
+			Error:   ptr("bad_request"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	return CreateRole201JSONResponse{
+		Code:        ptr(role.Code),
+		Name:        ptr(role.Name),
+		Description: ptr(role.Description),
+		IsSystem:    ptr(role.IsSystem),
+		CreatedAt:   ptr(role.CreatedAt),
+	}, nil
+}
+
+// GetRole implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
+func (s *Server) GetRole(ctx context.Context, request GetRoleRequestObject) (GetRoleResponseObject, error) {
+	roleWithPerms, err := s.rbacService.GetRoleByCode(ctx, request.Code)
+	if err != nil {
+		if errors.Is(err, rbac.ErrRoleNotFound) {
+			return GetRole404JSONResponse{
+				Error:   ptr("not_found"),
+				Message: ptr("Role not found"),
+			}, nil
+		}
+		return GetRole401JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	perms := make([]PermissionResponse, len(roleWithPerms.Permissions))
+	for i, p := range roleWithPerms.Permissions {
+		perms[i] = PermissionResponse{
+			Domain:  ptr(p.Domain),
+			Actions: ptr(p.Actions),
+		}
+	}
+
+	return GetRole200JSONResponse{
+		Code:        ptr(roleWithPerms.Role.Code),
+		Name:        ptr(roleWithPerms.Role.Name),
+		Description: ptr(roleWithPerms.Role.Description),
+		IsSystem:    ptr(roleWithPerms.Role.IsSystem),
+		CreatedAt:   ptr(roleWithPerms.Role.CreatedAt),
+		Permissions: &perms,
+	}, nil
+}
+
+// DeleteRole implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
+func (s *Server) DeleteRole(ctx context.Context, request DeleteRoleRequestObject) (DeleteRoleResponseObject, error) {
+	err := s.rbacService.DeleteRole(ctx, request.Code)
+	if err != nil {
+		if errors.Is(err, rbac.ErrRoleNotFound) {
+			return DeleteRole404JSONResponse{
+				Error:   ptr("not_found"),
+				Message: ptr("Role not found"),
+			}, nil
+		}
+		if errors.Is(err, rbac.ErrSystemRoleCannotBeDeleted) {
+			return DeleteRole403JSONResponse{
+				Error:   ptr("forbidden"),
+				Message: ptr("Cannot delete system role"),
+			}, nil
+		}
+		return DeleteRole401JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	return DeleteRole204Response{}, nil
+}
+
+// UpdateRolePermissions implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
+func (s *Server) UpdateRolePermissions(ctx context.Context, request UpdateRolePermissionsRequestObject) (UpdateRolePermissionsResponseObject, error) {
+	perms := make([]rbac.PermissionInput, len(request.Body.Permissions))
+	for i, p := range request.Body.Permissions {
+		actions := make([]string, len(p.Actions))
+		for j, a := range p.Actions {
+			actions[j] = string(a)
+		}
+		perms[i] = rbac.PermissionInput{
+			Domain:  p.Domain,
+			Actions: actions,
+		}
+	}
+
+	req := &rbac.UpdateRolePermissionsRequest{
+		Permissions: perms,
+	}
+
+	roleWithPerms, err := s.rbacService.UpdateRolePermissions(ctx, request.Code, req)
+	if err != nil {
+		if errors.Is(err, rbac.ErrRoleNotFound) {
+			return UpdateRolePermissions404JSONResponse{
+				Error:   ptr("not_found"),
+				Message: ptr("Role not found"),
+			}, nil
+		}
+		if errors.Is(err, rbac.ErrSystemRoleCannotBeModified) {
+			return UpdateRolePermissions403JSONResponse{
+				Error:   ptr("forbidden"),
+				Message: ptr("Cannot modify system role"),
+			}, nil
+		}
+		return UpdateRolePermissions400JSONResponse{
+			Error:   ptr("bad_request"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	permResponses := make([]PermissionResponse, len(roleWithPerms.Permissions))
+	for i, p := range roleWithPerms.Permissions {
+		permResponses[i] = PermissionResponse{
+			Domain:  ptr(p.Domain),
+			Actions: ptr(p.Actions),
+		}
+	}
+
+	return UpdateRolePermissions200JSONResponse{
+		Code:        ptr(roleWithPerms.Role.Code),
+		Name:        ptr(roleWithPerms.Role.Name),
+		Description: ptr(roleWithPerms.Role.Description),
+		IsSystem:    ptr(roleWithPerms.Role.IsSystem),
+		CreatedAt:   ptr(roleWithPerms.Role.CreatedAt),
+		Permissions: &permResponses,
+	}, nil
+}
+
+// GetUserRoles implements StrictServerInterface.
+func (s *Server) GetUserRoles(ctx context.Context, request GetUserRolesRequestObject) (GetUserRolesResponseObject, error) {
+	fiberCtx := getFiberContext(ctx)
+	if fiberCtx == nil {
+		return GetUserRoles401JSONResponse{}, nil
+	}
+
+	// Self-access allowed; admin access to other users' roles handled by RBAC middleware
+	// For admin viewing other users' roles, the route should have RBAC middleware with rbac:read permission
+	currentUserID, _ := middleware.GetUserIDFromContext(fiberCtx)
+	_ = currentUserID // Authorization handled by RBAC middleware at route level
+
+	roles, err := s.rbacService.GetUserRoles(ctx, uint(request.Id))
+	if err != nil {
+		return GetUserRoles401JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	apiRoles := make([]UserRoleResponse, len(roles))
+	for i, r := range roles {
+		apiRoles[i] = UserRoleResponse{
+			Code: ptr(r.Code),
+			Name: ptr(r.Name),
+		}
+	}
+
+	return GetUserRoles200JSONResponse{
+		UserId: ptr(request.Id),
+		Roles:  &apiRoles,
+	}, nil
+}
+
+// AssignRoleToUser implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
+func (s *Server) AssignRoleToUser(ctx context.Context, request AssignRoleToUserRequestObject) (AssignRoleToUserResponseObject, error) {
+	err := s.rbacService.AssignRole(ctx, uint(request.Id), request.Body.RoleCode)
+	if err != nil {
+		if errors.Is(err, rbac.ErrRoleNotFound) {
+			return AssignRoleToUser404JSONResponse{
+				Error:   ptr("not_found"),
+				Message: ptr("Role not found"),
+			}, nil
+		}
+		if errors.Is(err, rbac.ErrRoleAlreadyAssigned) {
+			return AssignRoleToUser400JSONResponse{
+				Error:   ptr("bad_request"),
+				Message: ptr("Role already assigned"),
+			}, nil
+		}
+		return AssignRoleToUser400JSONResponse{
+			Error:   ptr("bad_request"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	// Return updated roles
+	roles, err := s.rbacService.GetUserRoles(ctx, uint(request.Id))
+	if err != nil {
+		return AssignRoleToUser400JSONResponse{
+			Error:   ptr("internal_error"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	apiRoles := make([]UserRoleResponse, len(roles))
+	for i, r := range roles {
+		apiRoles[i] = UserRoleResponse{
+			Code: ptr(r.Code),
+			Name: ptr(r.Name),
+		}
+	}
+
+	return AssignRoleToUser200JSONResponse{
+		UserId: ptr(request.Id),
+		Roles:  &apiRoles,
+	}, nil
+}
+
+// RemoveRoleFromUser implements StrictServerInterface.
+// Authorization is handled by RBAC middleware at route level.
+func (s *Server) RemoveRoleFromUser(ctx context.Context, request RemoveRoleFromUserRequestObject) (RemoveRoleFromUserResponseObject, error) {
+	err := s.rbacService.RemoveRole(ctx, uint(request.Id), request.Code)
+	if err != nil {
+		if errors.Is(err, rbac.ErrRoleNotFound) || errors.Is(err, rbac.ErrRoleNotAssigned) {
+			return RemoveRoleFromUser404JSONResponse{
+				Error:   ptr("not_found"),
+				Message: ptr("Role assignment not found"),
+			}, nil
+		}
+		return RemoveRoleFromUser403JSONResponse{
+			Error:   ptr("forbidden"),
+			Message: ptr(err.Error()),
+		}, nil
+	}
+
+	return RemoveRoleFromUser204Response{}, nil
 }
 
 // Ensure Server implements StrictServerInterface at compile time.

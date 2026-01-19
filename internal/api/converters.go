@@ -31,16 +31,11 @@ func toTokenResponse(t *user.TokenResponse) TokenResponse {
 // ================================
 
 func toUserResponse(u *user.User) UserResponse {
-	role := User
-	if u.Role == "admin" {
-		role = Admin
-	}
 	email := openapi_types.Email(u.Email)
 	return UserResponse{
 		Id:        ptr(int64(u.ID)),
 		Email:     &email,
 		Name:      ptr(u.Name),
-		Role:      &role,
 		CreatedAt: ptr(u.CreatedAt),
 		UpdatedAt: ptr(u.UpdatedAt),
 	}
@@ -50,16 +45,11 @@ func toUserResponsePtr(u *user.UserResponse) *UserResponse {
 	if u == nil {
 		return nil
 	}
-	role := User
-	if u.Role == "admin" {
-		role = Admin
-	}
 	email := openapi_types.Email(u.Email)
 	return &UserResponse{
 		Id:        ptr(int64(u.ID)),
 		Email:     &email,
 		Name:      ptr(u.Name),
-		Role:      &role,
 		CreatedAt: ptr(u.CreatedAt),
 		UpdatedAt: ptr(u.UpdatedAt),
 	}

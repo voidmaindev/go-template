@@ -43,6 +43,12 @@ func (s *RBACSeeder) Run(db *gorm.DB, cfg *config.Config) error {
 			Description: "Full CRUD on non-protected domains, read-only on protected domains",
 			IsSystem:    true,
 		},
+		{
+			Code:        rbac.RoleCodeUser,
+			Name:        "User",
+			Description: "Read-only access to non-protected domains (default role for new users)",
+			IsSystem:    true,
+		},
 	}
 
 	for _, role := range systemRoles {

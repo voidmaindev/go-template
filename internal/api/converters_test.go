@@ -15,58 +15,30 @@ import (
 
 func TestToUserResponse(t *testing.T) {
 	now := time.Now()
-	tests := []struct {
-		name     string
-		user     *user.User
-		wantRole UserResponseRole
-	}{
-		{
-			name: "user role",
-			user: &user.User{
-				BaseModel: common.BaseModel{ID: 1, CreatedAt: now, UpdatedAt: now},
-				Email:     "test@example.com",
-				Name:      "Test User",
-				Role:      "user",
-			},
-			wantRole: User,
-		},
-		{
-			name: "admin role",
-			user: &user.User{
-				BaseModel: common.BaseModel{ID: 2, CreatedAt: now, UpdatedAt: now},
-				Email:     "admin@example.com",
-				Name:      "Admin User",
-				Role:      "admin",
-			},
-			wantRole: Admin,
-		},
+	u := &user.User{
+		BaseModel: common.BaseModel{ID: 1, CreatedAt: now, UpdatedAt: now},
+		Email:     "test@example.com",
+		Name:      "Test User",
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resp := toUserResponse(tt.user)
+	resp := toUserResponse(u)
 
-			if *resp.Id != int64(tt.user.ID) {
-				t.Errorf("ID = %d, want %d", *resp.Id, tt.user.ID)
-			}
-			if string(*resp.Email) != tt.user.Email {
-				t.Errorf("Email = %s, want %s", string(*resp.Email), tt.user.Email)
-			}
-			if *resp.Name != tt.user.Name {
-				t.Errorf("Name = %s, want %s", *resp.Name, tt.user.Name)
-			}
-			if *resp.Role != tt.wantRole {
-				t.Errorf("Role = %v, want %v", *resp.Role, tt.wantRole)
-			}
-		})
+	if *resp.Id != int64(u.ID) {
+		t.Errorf("ID = %d, want %d", *resp.Id, u.ID)
+	}
+	if string(*resp.Email) != u.Email {
+		t.Errorf("Email = %s, want %s", string(*resp.Email), u.Email)
+	}
+	if *resp.Name != u.Name {
+		t.Errorf("Name = %s, want %s", *resp.Name, u.Name)
 	}
 }
 
 func TestToUserListResponse(t *testing.T) {
 	now := time.Now()
 	users := []user.User{
-		{BaseModel: common.BaseModel{ID: 1, CreatedAt: now, UpdatedAt: now}, Email: "u1@test.com", Name: "User 1", Role: "user"},
-		{BaseModel: common.BaseModel{ID: 2, CreatedAt: now, UpdatedAt: now}, Email: "u2@test.com", Name: "User 2", Role: "admin"},
+		{BaseModel: common.BaseModel{ID: 1, CreatedAt: now, UpdatedAt: now}, Email: "u1@test.com", Name: "User 1"},
+		{BaseModel: common.BaseModel{ID: 2, CreatedAt: now, UpdatedAt: now}, Email: "u2@test.com", Name: "User 2"},
 	}
 
 	result := &common.FilteredResult[user.User]{

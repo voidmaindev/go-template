@@ -75,22 +75,21 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 		return nil, errors.Internal(domainName, err).WithOperation("Register")
 	}
 
-	// Create user with default role
+	// Create user
 	user := &User{
 		Email:    req.Email,
 		Password: hashedPassword,
 		Name:     req.Name,
-		Role:     RoleUser,
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("Register")
 	}
 
-	// Assign RBAC roles (default to full_reader if none specified)
+	// Assign RBAC roles (default to user if none specified)
 	roleCodes := req.RoleCodes
 	if len(roleCodes) == 0 {
-		roleCodes = []string{rbac.RoleCodeFullReader}
+		roleCodes = []string{rbac.RoleCodeUser}
 	}
 
 	for _, roleCode := range roleCodes {
@@ -316,7 +315,7 @@ func (s *service) generateTokenResponse(user *User) (*TokenResponse, error) {
 		Issuer:             s.jwtConfig.Issuer,
 	}
 
-	tokenPair, err := utils.GenerateTokenPair(user.ID, user.Email, string(user.Role), jwtConfig)
+	tokenPair, err := utils.GenerateTokenPair(user.ID, user.Email, jwtConfig)
 	if err != nil {
 		return nil, err
 	}

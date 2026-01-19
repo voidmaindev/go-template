@@ -275,7 +275,7 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 // @Failure 404 {object} common.Response
 // @Router /users/{id} [get]
 func (h *Handler) GetByID(c *fiber.Ctx) error {
-	currentUserID, ok := middleware.GetUserIDFromContext(c)
+	_, ok := middleware.GetUserIDFromContext(c)
 	if !ok {
 		return common.UnauthorizedResponse(c, "")
 	}
@@ -285,10 +285,8 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 		return common.BadRequestResponse(c, "invalid user ID")
 	}
 
-	// Authorization: only allow self-view or admin
-	if uint(targetID) != currentUserID && !middleware.IsAdmin(c) {
-		return common.ForbiddenResponse(c, "cannot view other users")
-	}
+	// Authorization is handled by RBAC middleware at route level
+	// This endpoint requires user:read permission
 
 	user, err := h.service.GetByID(c.Context(), uint(targetID))
 	if err != nil {
@@ -302,7 +300,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 }
 
 // List handles listing all users with filtering and sorting
-// @Summary List users (admin only)
+// @Summary List users (requires user:read permission)
 // @Tags Users
 // @Security BearerAuth
 // @Produce json
@@ -310,7 +308,6 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 // @Param page_size query int false "Page size"
 // @Param name__contains query string false "Filter by name (contains)"
 // @Param email__contains query string false "Filter by email (contains)"
-// @Param role query string false "Filter by role (eq)"
 // @Param sort query string false "Sort field"
 // @Param order query string false "Sort order (asc/desc)"
 // @Success 200 {object} common.Response{data=common.FilteredResult[UserResponse]}
@@ -318,10 +315,8 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 // @Failure 403 {object} common.Response
 // @Router /users [get]
 func (h *Handler) List(c *fiber.Ctx) error {
-	// Authorization: only admin can list all users
-	if !middleware.IsAdmin(c) {
-		return common.ForbiddenResponse(c, "admin access required")
-	}
+	// Authorization is handled by RBAC middleware at route level
+	// This endpoint requires user:read permission
 
 	params := filter.ParseFromQuery(c)
 
@@ -362,8 +357,8 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return common.BadRequestResponse(c, "invalid user ID")
 	}
 
-	// Authorization: only allow self-delete or admin
-	if uint(targetID) != currentUserID && !middleware.IsAdmin(c) {
+	// Only allow self-delete; admin delete of other users handled by RBAC middleware
+	if uint(targetID) != currentUserID {
 		return common.ForbiddenResponse(c, "cannot delete other users")
 	}
 

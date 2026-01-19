@@ -90,7 +90,7 @@ func generateTestRBACToken(userID uint, email string, cfg *config.JWTConfig) str
 		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 		Issuer:             cfg.Issuer,
 	}
-	token, _ := utils.GenerateAccessToken(userID, email, "user", jwtCfg)
+	token, _ := utils.GenerateAccessToken(userID, email, jwtCfg)
 	return token
 }
 

@@ -163,7 +163,6 @@ func (s *TestSuite) CreateTestUser(email, password, name string) *user.User {
 		Email:     email,
 		Password:  hashedPassword,
 		Name:      name,
-		Role:      user.RoleUser,
 	}
 
 	if err := s.DB.Create(u).Error; err != nil {
@@ -174,6 +173,8 @@ func (s *TestSuite) CreateTestUser(email, password, name string) *user.User {
 }
 
 // CreateTestAdmin creates a test admin user and returns it.
+// Note: The user is created in the database, but admin privileges
+// are managed via RBAC role assignment, not a field on the user.
 func (s *TestSuite) CreateTestAdmin(email, password, name string) *user.User {
 	s.T.Helper()
 
@@ -183,7 +184,6 @@ func (s *TestSuite) CreateTestAdmin(email, password, name string) *user.User {
 		Email:     email,
 		Password:  hashedPassword,
 		Name:      name,
-		Role:      user.RoleAdmin,
 	}
 
 	if err := s.DB.Create(u).Error; err != nil {

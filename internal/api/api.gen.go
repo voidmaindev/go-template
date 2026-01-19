@@ -44,10 +44,11 @@ const (
 	Unhealthy LivenessResponseStatus = "unhealthy"
 )
 
-// Defines values for UserResponseRole.
+// Defines values for PermissionInputActions.
 const (
-	Admin UserResponseRole = "admin"
-	User  UserResponseRole = "user"
+	Delete PermissionInputActions = "delete"
+	Read   PermissionInputActions = "read"
+	Write  PermissionInputActions = "write"
 )
 
 // Defines values for OrderParam.
@@ -85,6 +86,17 @@ const (
 	ListUsersParamsOrderAsc  ListUsersParamsOrder = "asc"
 	ListUsersParamsOrderDesc ListUsersParamsOrder = "desc"
 )
+
+// ActionsResponse defines model for ActionsResponse.
+type ActionsResponse struct {
+	Actions *[]string `json:"actions,omitempty"`
+}
+
+// AssignRoleRequest defines model for AssignRoleRequest.
+type AssignRoleRequest struct {
+	// RoleCode Role code to assign
+	RoleCode string `json:"role_code"`
+}
 
 // ChangePasswordRequest defines model for ChangePasswordRequest.
 type ChangePasswordRequest struct {
@@ -180,6 +192,21 @@ type CreateItemRequest struct {
 	Price int `json:"price"`
 }
 
+// CreateRoleRequest defines model for CreateRoleRequest.
+type CreateRoleRequest struct {
+	// Code Unique role identifier
+	Code string `json:"code"`
+
+	// Description Role description
+	Description *string `json:"description,omitempty"`
+
+	// Name Human-readable role name
+	Name string `json:"name"`
+
+	// Permissions Initial permissions to assign
+	Permissions *[]PermissionInput `json:"permissions,omitempty"`
+}
+
 // DocumentItemResponse defines model for DocumentItemResponse.
 type DocumentItemResponse struct {
 	DocumentId *int64        `json:"document_id,omitempty"`
@@ -218,6 +245,18 @@ type DocumentResponse struct {
 	// TotalAmount Total amount in cents
 	TotalAmount *int       `json:"total_amount,omitempty"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+}
+
+// DomainResponse defines model for DomainResponse.
+type DomainResponse struct {
+	// IsProtected Whether this domain requires special permissions
+	IsProtected *bool   `json:"is_protected,omitempty"`
+	Name        *string `json:"name,omitempty"`
+}
+
+// DomainsResponse defines model for DomainsResponse.
+type DomainsResponse struct {
+	Domains *[]DomainResponse `json:"domains,omitempty"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
@@ -278,6 +317,24 @@ type LoginRequest struct {
 	Password string              `json:"password"`
 }
 
+// PermissionInput defines model for PermissionInput.
+type PermissionInput struct {
+	// Actions Allowed actions on the domain
+	Actions []PermissionInputActions `json:"actions"`
+
+	// Domain Resource domain (e.g., items, countries)
+	Domain string `json:"domain"`
+}
+
+// PermissionInputActions defines model for PermissionInput.Actions.
+type PermissionInputActions string
+
+// PermissionResponse defines model for PermissionResponse.
+type PermissionResponse struct {
+	Actions *[]string `json:"actions,omitempty"`
+	Domain  *string   `json:"domain,omitempty"`
+}
+
 // RefreshTokenRequest defines model for RefreshTokenRequest.
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
@@ -288,6 +345,44 @@ type RegisterRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Name     string              `json:"name"`
 	Password string              `json:"password"`
+
+	// RoleCodes Optional RBAC roles to assign (defaults to full_reader)
+	RoleCodes *[]string `json:"role_codes,omitempty"`
+}
+
+// RoleListResponse defines model for RoleListResponse.
+type RoleListResponse struct {
+	Data       *[]RoleResponse `json:"data,omitempty"`
+	HasMore    *bool           `json:"has_more,omitempty"`
+	Page       *int            `json:"page,omitempty"`
+	PageSize   *int            `json:"page_size,omitempty"`
+	Total      *int64          `json:"total,omitempty"`
+	TotalPages *int            `json:"total_pages,omitempty"`
+}
+
+// RoleResponse defines model for RoleResponse.
+type RoleResponse struct {
+	Code        *string    `json:"code,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	Id          *int64     `json:"id,omitempty"`
+
+	// IsSystem Whether this is a built-in system role
+	IsSystem  *bool      `json:"is_system,omitempty"`
+	Name      *string    `json:"name,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// RoleWithPermissionsResponse defines model for RoleWithPermissionsResponse.
+type RoleWithPermissionsResponse struct {
+	Code        *string               `json:"code,omitempty"`
+	CreatedAt   *time.Time            `json:"created_at,omitempty"`
+	Description *string               `json:"description,omitempty"`
+	Id          *int64                `json:"id,omitempty"`
+	IsSystem    *bool                 `json:"is_system,omitempty"`
+	Name        *string               `json:"name,omitempty"`
+	Permissions *[]PermissionResponse `json:"permissions,omitempty"`
+	UpdatedAt   *time.Time            `json:"updated_at,omitempty"`
 }
 
 // TokenResponse defines model for TokenResponse.
@@ -330,6 +425,12 @@ type UpdateItemRequest struct {
 	Price       *int    `json:"price,omitempty"`
 }
 
+// UpdateRolePermissionsRequest defines model for UpdateRolePermissionsRequest.
+type UpdateRolePermissionsRequest struct {
+	// Permissions New permissions (replaces existing)
+	Permissions []PermissionInput `json:"permissions"`
+}
+
 // UpdateUserRequest defines model for UpdateUserRequest.
 type UpdateUserRequest struct {
 	Name *string `json:"name,omitempty"`
@@ -351,12 +452,20 @@ type UserResponse struct {
 	Email     *openapi_types.Email `json:"email,omitempty"`
 	Id        *int64               `json:"id,omitempty"`
 	Name      *string              `json:"name,omitempty"`
-	Role      *UserResponseRole    `json:"role,omitempty"`
 	UpdatedAt *time.Time           `json:"updated_at,omitempty"`
 }
 
-// UserResponseRole defines model for UserResponse.Role.
-type UserResponseRole string
+// UserRoleResponse defines model for UserRoleResponse.
+type UserRoleResponse struct {
+	Code *string `json:"code,omitempty"`
+	Name *string `json:"name,omitempty"`
+}
+
+// UserRolesResponse defines model for UserRolesResponse.
+type UserRolesResponse struct {
+	Roles  *[]UserRoleResponse `json:"roles,omitempty"`
+	UserId *int64              `json:"user_id,omitempty"`
+}
 
 // IdPathParam defines model for IdPathParam.
 type IdPathParam = int64
@@ -454,6 +563,15 @@ type ListItemsParams struct {
 // ListItemsParamsOrder defines parameters for ListItems.
 type ListItemsParamsOrder string
 
+// ListRolesParams defines parameters for ListRoles.
+type ListRolesParams struct {
+	// Page Page number
+	Page *PageParam `form:"page,omitempty" json:"page,omitempty"`
+
+	// PageSize Items per page
+	PageSize *PageSizeParam `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
 // ListUsersParams defines parameters for ListUsers.
 type ListUsersParams struct {
 	// Page Page number
@@ -510,6 +628,15 @@ type CreateItemJSONRequestBody = CreateItemRequest
 
 // UpdateItemJSONRequestBody defines body for UpdateItem for application/json ContentType.
 type UpdateItemJSONRequestBody = UpdateItemRequest
+
+// CreateRoleJSONRequestBody defines body for CreateRole for application/json ContentType.
+type CreateRoleJSONRequestBody = CreateRoleRequest
+
+// UpdateRolePermissionsJSONRequestBody defines body for UpdateRolePermissions for application/json ContentType.
+type UpdateRolePermissionsJSONRequestBody = UpdateRolePermissionsRequest
+
+// AssignRoleToUserJSONRequestBody defines body for AssignRoleToUser for application/json ContentType.
+type AssignRoleToUserJSONRequestBody = AssignRoleRequest
 
 // UpdateCurrentUserJSONRequestBody defines body for UpdateCurrentUser for application/json ContentType.
 type UpdateCurrentUserJSONRequestBody = UpdateUserRequest
@@ -612,6 +739,36 @@ type ServerInterface interface {
 	// Prometheus metrics
 	// (GET /metrics)
 	GetMetrics(c *fiber.Ctx) error
+	// List available actions
+	// (GET /rbac/actions)
+	ListActions(c *fiber.Ctx) error
+	// List available domains
+	// (GET /rbac/domains)
+	ListDomains(c *fiber.Ctx) error
+	// List all roles
+	// (GET /rbac/roles)
+	ListRoles(c *fiber.Ctx, params ListRolesParams) error
+	// Create a new role
+	// (POST /rbac/roles)
+	CreateRole(c *fiber.Ctx) error
+	// Delete role
+	// (DELETE /rbac/roles/{code})
+	DeleteRole(c *fiber.Ctx, code string) error
+	// Get role by code
+	// (GET /rbac/roles/{code})
+	GetRole(c *fiber.Ctx, code string) error
+	// Update role permissions
+	// (PUT /rbac/roles/{code}/permissions)
+	UpdateRolePermissions(c *fiber.Ctx, code string) error
+	// Get user's roles
+	// (GET /rbac/users/{id}/roles)
+	GetUserRoles(c *fiber.Ctx, id IdPathParam) error
+	// Assign role to user
+	// (POST /rbac/users/{id}/roles)
+	AssignRoleToUser(c *fiber.Ctx, id IdPathParam) error
+	// Remove role from user
+	// (DELETE /rbac/users/{id}/roles/{code})
+	RemoveRoleFromUser(c *fiber.Ctx, id IdPathParam, code string) error
 	// Readiness probe
 	// (GET /readyz)
 	ReadinessCheck(c *fiber.Ctx) error
@@ -1233,6 +1390,179 @@ func (siw *ServerInterfaceWrapper) GetMetrics(c *fiber.Ctx) error {
 	return siw.Handler.GetMetrics(c)
 }
 
+// ListActions operation middleware
+func (siw *ServerInterfaceWrapper) ListActions(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.ListActions(c)
+}
+
+// ListDomains operation middleware
+func (siw *ServerInterfaceWrapper) ListDomains(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.ListDomains(c)
+}
+
+// ListRoles operation middleware
+func (siw *ServerInterfaceWrapper) ListRoles(c *fiber.Ctx) error {
+
+	var err error
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRolesParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "page", query, &params.Page)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter page: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "page_size", query, &params.PageSize)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter page_size: %w", err).Error())
+	}
+
+	return siw.Handler.ListRoles(c, params)
+}
+
+// CreateRole operation middleware
+func (siw *ServerInterfaceWrapper) CreateRole(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.CreateRole(c)
+}
+
+// DeleteRole operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRole(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", c.Params("code"), &code, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter code: %w", err).Error())
+	}
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.DeleteRole(c, code)
+}
+
+// GetRole operation middleware
+func (siw *ServerInterfaceWrapper) GetRole(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", c.Params("code"), &code, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter code: %w", err).Error())
+	}
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.GetRole(c, code)
+}
+
+// UpdateRolePermissions operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRolePermissions(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", c.Params("code"), &code, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter code: %w", err).Error())
+	}
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.UpdateRolePermissions(c, code)
+}
+
+// GetUserRoles operation middleware
+func (siw *ServerInterfaceWrapper) GetUserRoles(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdPathParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.GetUserRoles(c, id)
+}
+
+// AssignRoleToUser operation middleware
+func (siw *ServerInterfaceWrapper) AssignRoleToUser(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdPathParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.AssignRoleToUser(c, id)
+}
+
+// RemoveRoleFromUser operation middleware
+func (siw *ServerInterfaceWrapper) RemoveRoleFromUser(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdPathParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", c.Params("code"), &code, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter code: %w", err).Error())
+	}
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.RemoveRoleFromUser(c, id, code)
+}
+
 // ReadinessCheck operation middleware
 func (siw *ServerInterfaceWrapper) ReadinessCheck(c *fiber.Ctx) error {
 
@@ -1428,6 +1758,26 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Put(options.BaseURL+"/items/:id", wrapper.UpdateItem)
 
 	router.Get(options.BaseURL+"/metrics", wrapper.GetMetrics)
+
+	router.Get(options.BaseURL+"/rbac/actions", wrapper.ListActions)
+
+	router.Get(options.BaseURL+"/rbac/domains", wrapper.ListDomains)
+
+	router.Get(options.BaseURL+"/rbac/roles", wrapper.ListRoles)
+
+	router.Post(options.BaseURL+"/rbac/roles", wrapper.CreateRole)
+
+	router.Delete(options.BaseURL+"/rbac/roles/:code", wrapper.DeleteRole)
+
+	router.Get(options.BaseURL+"/rbac/roles/:code", wrapper.GetRole)
+
+	router.Put(options.BaseURL+"/rbac/roles/:code/permissions", wrapper.UpdateRolePermissions)
+
+	router.Get(options.BaseURL+"/rbac/users/:id/roles", wrapper.GetUserRoles)
+
+	router.Post(options.BaseURL+"/rbac/users/:id/roles", wrapper.AssignRoleToUser)
+
+	router.Delete(options.BaseURL+"/rbac/users/:id/roles/:code", wrapper.RemoveRoleFromUser)
 
 	router.Get(options.BaseURL+"/readyz", wrapper.ReadinessCheck)
 
@@ -2620,6 +2970,445 @@ func (response GetMetrics200TextResponse) VisitGetMetricsResponse(ctx *fiber.Ctx
 	return err
 }
 
+type ListActionsRequestObject struct {
+}
+
+type ListActionsResponseObject interface {
+	VisitListActionsResponse(ctx *fiber.Ctx) error
+}
+
+type ListActions200JSONResponse ActionsResponse
+
+func (response ListActions200JSONResponse) VisitListActionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListActions401JSONResponse ErrorResponse
+
+func (response ListActions401JSONResponse) VisitListActionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListActions403JSONResponse ErrorResponse
+
+func (response ListActions403JSONResponse) VisitListActionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListDomainsRequestObject struct {
+}
+
+type ListDomainsResponseObject interface {
+	VisitListDomainsResponse(ctx *fiber.Ctx) error
+}
+
+type ListDomains200JSONResponse DomainsResponse
+
+func (response ListDomains200JSONResponse) VisitListDomainsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListDomains401JSONResponse ErrorResponse
+
+func (response ListDomains401JSONResponse) VisitListDomainsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListDomains403JSONResponse ErrorResponse
+
+func (response ListDomains403JSONResponse) VisitListDomainsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListRolesRequestObject struct {
+	Params ListRolesParams
+}
+
+type ListRolesResponseObject interface {
+	VisitListRolesResponse(ctx *fiber.Ctx) error
+}
+
+type ListRoles200JSONResponse RoleListResponse
+
+func (response ListRoles200JSONResponse) VisitListRolesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListRoles401JSONResponse ErrorResponse
+
+func (response ListRoles401JSONResponse) VisitListRolesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListRoles403JSONResponse ErrorResponse
+
+func (response ListRoles403JSONResponse) VisitListRolesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRoleRequestObject struct {
+	Body *CreateRoleJSONRequestBody
+}
+
+type CreateRoleResponseObject interface {
+	VisitCreateRoleResponse(ctx *fiber.Ctx) error
+}
+
+type CreateRole201JSONResponse RoleWithPermissionsResponse
+
+func (response CreateRole201JSONResponse) VisitCreateRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(201)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRole400JSONResponse ErrorResponse
+
+func (response CreateRole400JSONResponse) VisitCreateRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRole401JSONResponse ErrorResponse
+
+func (response CreateRole401JSONResponse) VisitCreateRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRole403JSONResponse ErrorResponse
+
+func (response CreateRole403JSONResponse) VisitCreateRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRole409JSONResponse ErrorResponse
+
+func (response CreateRole409JSONResponse) VisitCreateRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRoleRequestObject struct {
+	Code string `json:"code"`
+}
+
+type DeleteRoleResponseObject interface {
+	VisitDeleteRoleResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteRole204Response struct {
+}
+
+func (response DeleteRole204Response) VisitDeleteRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type DeleteRole401JSONResponse ErrorResponse
+
+func (response DeleteRole401JSONResponse) VisitDeleteRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRole403JSONResponse ErrorResponse
+
+func (response DeleteRole403JSONResponse) VisitDeleteRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRole404JSONResponse ErrorResponse
+
+func (response DeleteRole404JSONResponse) VisitDeleteRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetRoleRequestObject struct {
+	Code string `json:"code"`
+}
+
+type GetRoleResponseObject interface {
+	VisitGetRoleResponse(ctx *fiber.Ctx) error
+}
+
+type GetRole200JSONResponse RoleWithPermissionsResponse
+
+func (response GetRole200JSONResponse) VisitGetRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetRole401JSONResponse ErrorResponse
+
+func (response GetRole401JSONResponse) VisitGetRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetRole403JSONResponse ErrorResponse
+
+func (response GetRole403JSONResponse) VisitGetRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetRole404JSONResponse ErrorResponse
+
+func (response GetRole404JSONResponse) VisitGetRoleResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UpdateRolePermissionsRequestObject struct {
+	Code string `json:"code"`
+	Body *UpdateRolePermissionsJSONRequestBody
+}
+
+type UpdateRolePermissionsResponseObject interface {
+	VisitUpdateRolePermissionsResponse(ctx *fiber.Ctx) error
+}
+
+type UpdateRolePermissions200JSONResponse RoleWithPermissionsResponse
+
+func (response UpdateRolePermissions200JSONResponse) VisitUpdateRolePermissionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UpdateRolePermissions400JSONResponse ErrorResponse
+
+func (response UpdateRolePermissions400JSONResponse) VisitUpdateRolePermissionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type UpdateRolePermissions401JSONResponse ErrorResponse
+
+func (response UpdateRolePermissions401JSONResponse) VisitUpdateRolePermissionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type UpdateRolePermissions403JSONResponse ErrorResponse
+
+func (response UpdateRolePermissions403JSONResponse) VisitUpdateRolePermissionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type UpdateRolePermissions404JSONResponse ErrorResponse
+
+func (response UpdateRolePermissions404JSONResponse) VisitUpdateRolePermissionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetUserRolesRequestObject struct {
+	Id IdPathParam `json:"id"`
+}
+
+type GetUserRolesResponseObject interface {
+	VisitGetUserRolesResponse(ctx *fiber.Ctx) error
+}
+
+type GetUserRoles200JSONResponse UserRolesResponse
+
+func (response GetUserRoles200JSONResponse) VisitGetUserRolesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetUserRoles401JSONResponse ErrorResponse
+
+func (response GetUserRoles401JSONResponse) VisitGetUserRolesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetUserRoles403JSONResponse ErrorResponse
+
+func (response GetUserRoles403JSONResponse) VisitGetUserRolesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetUserRoles404JSONResponse ErrorResponse
+
+func (response GetUserRoles404JSONResponse) VisitGetUserRolesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type AssignRoleToUserRequestObject struct {
+	Id   IdPathParam `json:"id"`
+	Body *AssignRoleToUserJSONRequestBody
+}
+
+type AssignRoleToUserResponseObject interface {
+	VisitAssignRoleToUserResponse(ctx *fiber.Ctx) error
+}
+
+type AssignRoleToUser200JSONResponse UserRolesResponse
+
+func (response AssignRoleToUser200JSONResponse) VisitAssignRoleToUserResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type AssignRoleToUser400JSONResponse ErrorResponse
+
+func (response AssignRoleToUser400JSONResponse) VisitAssignRoleToUserResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type AssignRoleToUser401JSONResponse ErrorResponse
+
+func (response AssignRoleToUser401JSONResponse) VisitAssignRoleToUserResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type AssignRoleToUser403JSONResponse ErrorResponse
+
+func (response AssignRoleToUser403JSONResponse) VisitAssignRoleToUserResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type AssignRoleToUser404JSONResponse ErrorResponse
+
+func (response AssignRoleToUser404JSONResponse) VisitAssignRoleToUserResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type RemoveRoleFromUserRequestObject struct {
+	Id   IdPathParam `json:"id"`
+	Code string      `json:"code"`
+}
+
+type RemoveRoleFromUserResponseObject interface {
+	VisitRemoveRoleFromUserResponse(ctx *fiber.Ctx) error
+}
+
+type RemoveRoleFromUser204Response struct {
+}
+
+func (response RemoveRoleFromUser204Response) VisitRemoveRoleFromUserResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type RemoveRoleFromUser401JSONResponse ErrorResponse
+
+func (response RemoveRoleFromUser401JSONResponse) VisitRemoveRoleFromUserResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type RemoveRoleFromUser403JSONResponse ErrorResponse
+
+func (response RemoveRoleFromUser403JSONResponse) VisitRemoveRoleFromUserResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type RemoveRoleFromUser404JSONResponse ErrorResponse
+
+func (response RemoveRoleFromUser404JSONResponse) VisitRemoveRoleFromUserResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type ReadinessCheckRequestObject struct {
 }
 
@@ -2947,6 +3736,36 @@ type StrictServerInterface interface {
 	// Prometheus metrics
 	// (GET /metrics)
 	GetMetrics(ctx context.Context, request GetMetricsRequestObject) (GetMetricsResponseObject, error)
+	// List available actions
+	// (GET /rbac/actions)
+	ListActions(ctx context.Context, request ListActionsRequestObject) (ListActionsResponseObject, error)
+	// List available domains
+	// (GET /rbac/domains)
+	ListDomains(ctx context.Context, request ListDomainsRequestObject) (ListDomainsResponseObject, error)
+	// List all roles
+	// (GET /rbac/roles)
+	ListRoles(ctx context.Context, request ListRolesRequestObject) (ListRolesResponseObject, error)
+	// Create a new role
+	// (POST /rbac/roles)
+	CreateRole(ctx context.Context, request CreateRoleRequestObject) (CreateRoleResponseObject, error)
+	// Delete role
+	// (DELETE /rbac/roles/{code})
+	DeleteRole(ctx context.Context, request DeleteRoleRequestObject) (DeleteRoleResponseObject, error)
+	// Get role by code
+	// (GET /rbac/roles/{code})
+	GetRole(ctx context.Context, request GetRoleRequestObject) (GetRoleResponseObject, error)
+	// Update role permissions
+	// (PUT /rbac/roles/{code}/permissions)
+	UpdateRolePermissions(ctx context.Context, request UpdateRolePermissionsRequestObject) (UpdateRolePermissionsResponseObject, error)
+	// Get user's roles
+	// (GET /rbac/users/{id}/roles)
+	GetUserRoles(ctx context.Context, request GetUserRolesRequestObject) (GetUserRolesResponseObject, error)
+	// Assign role to user
+	// (POST /rbac/users/{id}/roles)
+	AssignRoleToUser(ctx context.Context, request AssignRoleToUserRequestObject) (AssignRoleToUserResponseObject, error)
+	// Remove role from user
+	// (DELETE /rbac/users/{id}/roles/{code})
+	RemoveRoleFromUser(ctx context.Context, request RemoveRoleFromUserRequestObject) (RemoveRoleFromUserResponseObject, error)
 	// Readiness probe
 	// (GET /readyz)
 	ReadinessCheck(ctx context.Context, request ReadinessCheckRequestObject) (ReadinessCheckResponseObject, error)
@@ -3879,6 +4698,289 @@ func (sh *strictHandler) GetMetrics(ctx *fiber.Ctx) error {
 	return nil
 }
 
+// ListActions operation middleware
+func (sh *strictHandler) ListActions(ctx *fiber.Ctx) error {
+	var request ListActionsRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListActions(ctx.UserContext(), request.(ListActionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListActions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListActionsResponseObject); ok {
+		if err := validResponse.VisitListActionsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListDomains operation middleware
+func (sh *strictHandler) ListDomains(ctx *fiber.Ctx) error {
+	var request ListDomainsRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDomains(ctx.UserContext(), request.(ListDomainsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDomains")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListDomainsResponseObject); ok {
+		if err := validResponse.VisitListDomainsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListRoles operation middleware
+func (sh *strictHandler) ListRoles(ctx *fiber.Ctx, params ListRolesParams) error {
+	var request ListRolesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRoles(ctx.UserContext(), request.(ListRolesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRoles")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListRolesResponseObject); ok {
+		if err := validResponse.VisitListRolesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateRole operation middleware
+func (sh *strictHandler) CreateRole(ctx *fiber.Ctx) error {
+	var request CreateRoleRequestObject
+
+	var body CreateRoleJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRole(ctx.UserContext(), request.(CreateRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRole")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateRoleResponseObject); ok {
+		if err := validResponse.VisitCreateRoleResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteRole operation middleware
+func (sh *strictHandler) DeleteRole(ctx *fiber.Ctx, code string) error {
+	var request DeleteRoleRequestObject
+
+	request.Code = code
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRole(ctx.UserContext(), request.(DeleteRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRole")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteRoleResponseObject); ok {
+		if err := validResponse.VisitDeleteRoleResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetRole operation middleware
+func (sh *strictHandler) GetRole(ctx *fiber.Ctx, code string) error {
+	var request GetRoleRequestObject
+
+	request.Code = code
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRole(ctx.UserContext(), request.(GetRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRole")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetRoleResponseObject); ok {
+		if err := validResponse.VisitGetRoleResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateRolePermissions operation middleware
+func (sh *strictHandler) UpdateRolePermissions(ctx *fiber.Ctx, code string) error {
+	var request UpdateRolePermissionsRequestObject
+
+	request.Code = code
+
+	var body UpdateRolePermissionsJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateRolePermissions(ctx.UserContext(), request.(UpdateRolePermissionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateRolePermissions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UpdateRolePermissionsResponseObject); ok {
+		if err := validResponse.VisitUpdateRolePermissionsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetUserRoles operation middleware
+func (sh *strictHandler) GetUserRoles(ctx *fiber.Ctx, id IdPathParam) error {
+	var request GetUserRolesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUserRoles(ctx.UserContext(), request.(GetUserRolesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUserRoles")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetUserRolesResponseObject); ok {
+		if err := validResponse.VisitGetUserRolesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AssignRoleToUser operation middleware
+func (sh *strictHandler) AssignRoleToUser(ctx *fiber.Ctx, id IdPathParam) error {
+	var request AssignRoleToUserRequestObject
+
+	request.Id = id
+
+	var body AssignRoleToUserJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.AssignRoleToUser(ctx.UserContext(), request.(AssignRoleToUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AssignRoleToUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(AssignRoleToUserResponseObject); ok {
+		if err := validResponse.VisitAssignRoleToUserResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RemoveRoleFromUser operation middleware
+func (sh *strictHandler) RemoveRoleFromUser(ctx *fiber.Ctx, id IdPathParam, code string) error {
+	var request RemoveRoleFromUserRequestObject
+
+	request.Id = id
+	request.Code = code
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveRoleFromUser(ctx.UserContext(), request.(RemoveRoleFromUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveRoleFromUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(RemoveRoleFromUserResponseObject); ok {
+		if err := validResponse.VisitRemoveRoleFromUserResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ReadinessCheck operation middleware
 func (sh *strictHandler) ReadinessCheck(ctx *fiber.Ctx) error {
 	var request ReadinessCheckRequestObject
@@ -4075,96 +5177,116 @@ func (sh *strictHandler) GetUser(ctx *fiber.Ctx, id IdPathParam) error {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+x9fXPbtrL3V8EwmTlJR7Iov+Q58Yzm1I3T1H3SHo9j99x7o1wZJlcSWgpUANCOkvi7",
-	"31kAJEGKlCjbsuNG/aOxSLwsF79d7P4Agl+8IJ5MYw5cSW//izelgk5AgdC/jsJjqsbHeA1/hiADwaaK",
-	"xdzb905AxokIgBwdei2P4aUpVWOv5XE6AW/fY6HX8gR8TJiA0NtXIoGWJ4MxTCi2NozFhCosx9WLXa/l",
-	"qdkUzE8YgfCur1vev0UIoqb/d7FQJMYCafcfExCzvP/0Xt5lCEOaRNgnNuW1PODJxNt/71H9S1/8kAki",
-	"lWB8pOU4piOoEQNvEZ5MLmrlmNIRVIvRbXkTxtkEhehWKgBbf8c+13V+pGAiyRQEsZ3U9T+Q7HOdEH7L",
-	"m9BPVgrfXyoTKr5Gnp8ZRCFRMZE4OBezGonwbkGYssav05sahq/GlKP+pbyKRXgCHxOQSqNVxFMQioEu",
-	"FiRCAFeDqS1Y0XDL43BVKDBh/C3wkRp7+/+sGvkcv+/nOyg1l0MnvvgTAoX9vRpD8NcJSK3qssQhKMoi",
-	"6QiaVwQhYlH5CBFVwIMZ3oNPdDKN8HZ3a3tndyK91nx5qahKdCcp3MdAIzXGAUl4/ncII0FDCCtMoOUp",
-	"NgGp6GRaMN2QKmjjLa9Kd/PKYGr2lkl1AnIacwkVGqFKA4IhsPGPpwKG3r73pJP7qY6FRgeby5rK+6NC",
-	"0Bn+HlM5mMQCHC1exHEElONdbTH5nQzhLcdgKm+rWNGokQezZQfYoKxqrE5J9QoK4oQrMVuqGlPM1Y6t",
-	"OWBhQ9kDAVRBOKCq6Zi3vMaNG09Qge5kGq7Ya6USzcPeJdjmNfo3wVvpwSogF8K8q99pR6AUCGJxRXSx",
-	"Ckg8ahhp2Y1F1s06q5pVjciluUaXKhjth3r50hGsFdEM4IR+Sue6nZY78+0gBnEwcWD/9/1B+39o+/OH",
-	"LzvXT6sGZ8UHCGGB6IdxkEyAKwxkauVH+2yu36lgAdip3YQxflWxjwnliqlZoWR1wOM+ViqL00Da5fKn",
-	"rB8hplZxzHY850YmtP0MEOZzuK80tNT1NfOBtWM25w3LoZNxDulzlkWtV91CYBQ80pfGSHUwUorl8TJh",
-	"nAQ6H2othFA13uuhUFRb7ZyU6qUxGpoXVDBZNsIF4Wyd5qJEjMMgm66Kun3LOBB9z1XwAvNdMjSLLbrJ",
-	"xJcOyB0GCbmh/92ihLknq/Rhq0bsd+T3bhJi3MBXrmJocmXMlE2vjBszaHSCk/28fZxqyzJ3F5vJ3URG",
-	"rzE9rQdDffY6ASmLGM/vCePoLSKKD3jG2ccEiC1CWAhcsSEDQYYxBqFCQESxLKE8JCFcJKMRNttykuS9",
-	"PR/+uev7bdh+edHe7Ya7bfr/ui/au7svXuzt7e76vu9XZtBJEICUhYx7SCMJrTkLrtLVLzrFXmA5Ywj+",
-	"0n/RMGT4DDQ6LpRYaFMOw1DV+03S/1xl+f3bUwKIPX2nwFxsj3f8SXevkrq4BCHt5O5SHf6W3wylaFN3",
-	"6N6XmejjdO2LA5Ib+dYlcdnt07ubRwl34/7eskvgIGW93pqZXTNbq5QgHjFeGxnDhLKoaDY0nDD+o/7/",
-	"VhBPvFb+8KZ0xUC6TGne0sFFd3tnd++Ft4wwTdtdyJCewFCAHJ/Gf0H98whTaKCw1PLks1i8utcRkwrE",
-	"KhpMJIgf7c/GKkwhnDfzazzm5DAGr5CDbzdWf3q1u71TbOKfK4+HFa9KQXY86uBN9YxYOx4I6ykTIFfy",
-	"G8tGuaWHYJmXPpOQRyaVtnOmfcB90Tp13d8Ba7MCN1MjRSMC5u4plSXSfGtESb3Ea+YnlhAQNUIZC6gR",
-	"Ku10oe+pbFuCuMNgqmimf5dgqvBUdxJMZRPR8rnm9nGViCNwYxbtb1smdqhcF7yLcAqTFAgSwdTsHYLD",
-	"6OonoALEQYIA/eJd6F8/p+3/+p9TrxRn4jVipiViJhC7iKyRo6vnwoyVmpp1ZsaHsXG3XNFAOVO/J5Pp",
-	"NBaqNOXbNeyD4yPyzhSYC3m9YxGHSYA/2gJoOCNvYnJBg7+Ah0TBZBpRBeSKqTHRQidqjNlsoPPXFhmy",
-	"SAEqq6Vz2SkdMa5vbfV5nz95Qn5OC+DvgygiEZOKAA+nMeNKEis4OfyT8lHclmoWQd4quWSU6BV5km/3",
-	"2CIHfEaGev0+oJxcpBUgJInEWmoMZBhHUXyFv+SMK/ppHwU4Pz/v83/pqr1LGiVACv89Ia8/JjRiakae",
-	"2U0HBG2Cqlg8TysOBumlvIkn5N0UAjZkQVbedoZKeJJqH0Lyb3tb4q2v2U/ylRzmw0K+ktdmIMnXPv/a",
-	"zv5z/iz8wlLkHD6eY018BJk9wHPylZz/C5HQ+wlExPg5iYW9MhjAx+yqaWOksI032vgFUWPKdX3t5QeD",
-	"kep1fd9PC0e68FsN41LJSPX2nJIjBXPtxoIAyqqr5e4Ge4Hetr+92/a7bb+bdwbF3gr1s26h9/Lly5dp",
-	"JW0qjEus+cr+TWRyYSycPAuohDbjErhkil1Crq3BIK3b43CVticVFUoO0B6wyXf6pzGPhW059Xq/580B",
-	"D/PGXvNwcVPa2AeDrFLvxxFeQWNPG9QDSY64MbNnQTyZ0LYENB4FoWnGpHuDAeM9GmDrrSnwkPFR1ogc",
-	"8CSKdEuS4J+6XggRpENki/SUSMCtFqtC1Vjl1a30Tqm8trGSk5QWKzgN84PEnGjaDEICOnQzHkBakw+x",
-	"q1iZ+s9iDiSCS4hICDB97ti+DZa3SkP8BsSE8pmxZdtjwHAuJBezbN0YK2EbTM220oYwcOsdvj4rORLb",
-	"Rhq9mWaYmv1DFlahC17ihPIRlDzmdBrNyCSJFJtmjlGiMtDHSToB6wiHsSBC10d3yUDmz/yEHKIP13f3",
-	"iQ54iDU3wjhBS8OHqjXAfuL72y/c+1F6v7vd3ulq8YnhMwqdXIC6AuDkadfXs8PTru/3ee5LQDsT07xj",
-	"v3jRdxRD3sVCWX2YQZSxUD393Kay3j7XozKwytf77agMDKxzV1hbFadEpyr+NHVdMY6zyS2XBAOuntVQ",
-	"Fs31tv0UBnrLXbdFtn2rk3QDXNZwmxzamQYv75Nu+ZJucp90fbzxm9n9VrzhWwFPcJjfsglLtYUTfz7V",
-	"UoHjo4BEWATCLVNB/yIYW2DAgubDJGE8iJLQAETYGJGMgYYgDLK+kl/0r/LE5UxXpclK+4j/amOfWsa2",
-	"/j96ivShLGEuCcWp23SOML9iPIyvyHwLJ+hTuPFcJPuRt2Pr281wi9qRoCU54+wTychicjUG00KuNtQG",
-	"KGmc1n/wvqvSli6NahegEsElOd/dfklO45j8hu7FZjryPA2P7AVyKmjgBEl6TSJTfDYchJLzfOHh3DH9",
-	"bBFBG5q7xKAnFAniEgSJ4pFMezZMPzHQJb+BEiyQOAcZtGCp/59cgOCgQLYxKaKKXUQaBVhxKuILkLq7",
-	"YxFPQI0hkWRi20Gs0UvKInoRgQVM2vYCyFSD5s3rU9Ix3X7WIYBlNI0MpI2ARb3T6ZTQiF3Cv4hTUUe1",
-	"nw1CaMgKFVHMEHD6Ax6gs7e8ZqEBc81EEJMLxiFMdaBXQ8gzDJevqEC9p1p67jZglYItVKgKMrX0MQ+I",
-	"WAA2IbPh+29HmEAkIrLJgNzvdOIpcLOneSsWo46tJDtYVq93KM2/vYnJaRrDHxwfec4yhV2buG552Bad",
-	"Mm/f29nyt3Y06abGOrHpYLzfieIR06zANJYV63kHeU4ABLMwDQpjACa9kZ7uRWhEHoXevqGEvWwZ7ac4",
-	"nKWZDZg1QzqdRjbN6PwpDSuR78JdlK0X6ObrIrGIEYe+YC0L29r2/Tvru0hF6s5LewtQOGJX6YZJhAOw",
-	"63fvTIDiYmeFAEf8kkYsxAhAr0vSSJq0NplMqJg5Y6PoSGJirfPaD1gmg0OcqHo82B4QDannTZPcORBg",
-	"Q9XDMae2EYQkTpSju2h279o746iCWLDPEBbYAG//fZEHeP/h+kNJq+Zh69RqGeV6vb4BRThcFYgDG/3a",
-	"ujV6dpct1mRzVSsj35rp6QKpqnD4HsjyioNVtD2rxzI5VI8ZszRUDxqzNY1QjRzjnAOdgLhOusjq1Pns",
-	"dB1qbRAqLnM1gk/3/uBzhspLFQ5hhR/y7w9LfxgPi6Nl9q9oAV7eoyPUUIoMZQifmFRyDspGVQ72qpFs",
-	"8myUaAQ1bs/yihAaXiMepsm5jm5zuhAxLU22qONcy7vpjIKEM04nLLDFM6JOZ9M0ZRS3yDswEbwjhQ6x",
-	"bTXDJurWf/ghZelsXr7/ww+YpFUTSG3yypG573G46nuYohhWAavVkBMjQ044TTBuWQT8Ycvh8/c9W7bv",
-	"FVocsLC3V1V/ZqQ5OiR7/YoJmkllauigMH/f7n01evIinfw1tOtWo8L5q2MNKuTvdTUo7LyZh1Py2iag",
-	"uVeGqsK/AnwfU/iCggcpFlIrtuD4cN1qMv0EmljXCzQk5tHs+Rzg8pcY1jTJzL8lcc/TTHFb6fwI4f2U",
-	"nftGZpUHwyd2vnN/nR9kwFzNNCzGA4PaOdPIp7jOFxZeGxuJQFXsCTvU142dXMzQKy+0FlPcWstq7tl9",
-	"XbrCKe5WWDIKZZcAvl9cYNe799e1VjqPFRnGCV/RYztgqvbYtdFWYIZav/BrcDgHvTeg1oE7/379rNXq",
-	"g4P5kSAqw0aKiaowIKkAldnq09iv5Xve7gBfdx9DzG/Ju2emoxG27W6XTQyxmSuWW7ZjoLUhTJpvrpqo",
-	"Z3nq48jVE84UhDpXLkre98yt+aQ9hN7Zu4O8ik2q8QY5e3dQl1hnCt3k1rThkQaN0+tMt48tw3ZAkZlh",
-	"dq1pnm1R2CTVtmd0rDXbLu4ev++Eu3wYRoXnTDfkbNLuR5h2ZwiuspfCzNX5YgsfhddNWGfLMeOEQolM",
-	"N3jmHdaRpT/NcrMqefaKs8cymW57BNla540NcfqAOVu6/fBmwZ1D3TqbGZfGeY3ZKitdc8KqzjjunrOy",
-	"om1oq0cF2CKwaiOher+dDfsyCms9SPQfInj5Hrms28HMhcoco1WMuReRWs3dX+Flym+Z2rpBwP4gmN9w",
-	"XJuJ5SY019KUIXttY0WyK3/d4xslu4I4dMmuo9//OCdtclgUu+8d/f6HobnMOyrthS9oLXs/RBNj5fdN",
-	"dJPuezT6DbU3+U6XXCZ9aE62b8UWMS24Bw3lb5T4WL9wyhCKuAM9+wZKZeqW9beh45YbauV5ZAuyttye",
-	"HhkfFzqoSJ1FjpSGfFzaiLEu8x5QA24u7Wet5Fz5GIN7ZufmT6GbH8K0zIafe4z8XJijuMqACrNtU8oh",
-	"M6jGnINjS+smHTK4bliH+w0OM8XfjnZYAtgFvEOYj7whHhx/X8tBrAuZ/sP46O+Qhrgt7grQKRMRpWBj",
-	"ARGxilMsHmH0DVMRNwpPHgj6GzZiM+HchI5YOULqZIdW1byQG4Y288CCRMW5b1joFQ7C0D1j7Zt0CwvO",
-	"dX+YzKV40GrFW384BDQMN45h4xiaOgY04LLprugdOl/wn6PF6dQJTOJLMF0NRTxp6CeKKdXtXUWrcl+E",
-	"kf+WmyIaZWzaRIXWxSZbu3cbiYUB4A1tpRbDtwuidXsrxNDfvhWsO0RfeS72H2Yu3oTpG09zF+G6bmvB",
-	"rGzOCKpdQKw+Syg7DKjyUKGtPj+x50oZiglCYk7zI/HQLCU6hxltVax0mVOf9HcYvDUaZOkzEhWD8g7E",
-	"pT4APztzCXGxd4eQbC5DfsZ98QSDyiFyRtz0UBjuz7XjnR+mRaLi+VXpmDuju+37hA3TQ61SBaCy9PlW",
-	"5uyOhHOznHwmgagxMyulTj/naUfH2M85CWI+ZKNEpAe0VqyDmvJrx8fcNwmqPEbFg981Rm4gBzoPo5cw",
-	"PSPYXTN0R7YOKln6vsLOAsMiP45XaK5YOAJ1TtrkKJe675nL5ddnlp0GuWfX853zJcnTrt9+uucv25jg",
-	"bjygQ3yaXyk3pzFu79ZsA9ASb7YALDedue/VLFj+N4B/ZEv/zCIhNWGDjIZL/svTh/ybgWtd339AhqxR",
-	"NL5Z03+Ea/qlyDe1jGxua7qOr62k8Rr+HXHSjdigzdr9/eZoR7fIyxwwVbrr2iiLmZFe8pLAOmDn36+T",
-	"/Q4X5W8DqAwb5cV4JwRYwCE29Wr5V3m+4QX4B2T1NmzeZqa4W8N2DLQmfLGHctcm5wvO73boG5ezSYsx",
-	"7h7+reATPoGYUFUmcJxSMhB0ion+UubmDSh7hPty2gb77kwjykrDkn+27wn55fXbYzJWajpID9M3H8u2",
-	"2+p/OT09zo7Z7/Mn5PS/j19Xltfb+0H0ecXNL/iccdjre29en/a91pSqca/vdeiUdS67JpTsey3DcPb6",
-	"+Ch975rsbmsFlL/VVPVlo/JYMe5qvkTezJevI3DMkfJNqD5ROnJ+Ja7PHK6qYnN8P1GCDocs2Opzzc9J",
-	"ElJFL6iEFjmBkEnzCaZYjUGUeeBahjCTrylFmJ2h/w1wyAdN1HX/tHIlYYiiPSt8aiBjnZ/PHZxbwEwd",
-	"CBOpg4WVWERdpxCVPChvaD8JlBGHP+q1Dj4zXzRqkzMtrj1MR98huorLOrpfVvo1HnOn3jiWoJlGIp3v",
-	"NGEh04CII+hpXWAlM6cZDaFqmrCLpqNgRY5R19pwjA1C0PJnHBdwjMYcNixOU3oTTT2xQEz9iwGm4146",
-	"5tuLtR5GT1rO5z9C3eQ/tOcasggqX7o334Q4k/Yk+TViZ+GrpPbTFPpc8sdDTeuX1l3R50dvcXa68pDZ",
-	"d8JLo7aufNP9Huw955vLEKOPvN/kmytDNn3rejFqXZ/Tcb8mXgnmV2O9EFgP5vyz4aVlF13xOL+9lqWX",
-	"Qierw7mUx9h2SKCbvX/sZZ8MsiOYKffxYNDixYFFPf4aLl7oj6lUs8amhPWV616v0G7pu1yv+DkWFywM",
-	"gd87CaV1frvlitrJuzbYSsxAL1muWAfq7nmO/Q6XK24DqAwb5eWKzLXp1sRlCoayO7uEKJ7qLY2mVOFr",
-	"g/udThQHNBrHUu3v+L5v6TmNE9vTgi8C6oAl+wTps/T7SS2iPyqo/4kT1Uo/ivXc+Wo5PiwmoxWamlBO",
-	"R6BFzhrPa57ZVLByZffVydkhyazGqXVkN6nUHSJXW/GVc9hs5VcTSjXJM8tomHbTL3VK59lfpacc1r5c",
-	"Xm5TNxkxDtm+FdvUoXP0Rrm1X6q2njp1Ld90/eH6/wIAAP//18BiH32fAAA=",
+	"H4sIAAAAAAAC/+x9+3Pbtvbnv4JhOnOTjmTJj3RvPOO5deI0dTft9Tjx7e5GWRkijyTckgADgHaUxP/7",
+	"d/AgCVIkRdmSbDfqD41F4nF48DlPvL56PotiRoFK4R1+9WLMcQQSuP51GpxhOT1Tz9TPAITPSSwJo96h",
+	"dw6CJdwHdHridTyiHsVYTr2OR3EE3qFHAq/jcfiUEA6Bdyh5Ah1P+FOIsGptzHiEpSpH5U8HXseTsxjM",
+	"T5gA925uOt6/eQC8pv93jEvEVIG0+08J8Fnef/ou7zKAMU5C1adqyut4QJPIO/zgYf1LP/yYESIkJ3Si",
+	"6TjDE6ghQ71CNIlGtXTEeALVZOx2vIhQEikidisZoFp/R77UdX4qIRIoBo5sJ3X9DwX5UkdEv+NF+LOl",
+	"ot9fSJNifA09vxAIAyQZEmpwRrMaitTbAjFljt+kLzUMj33VvDgHETMqQOOUsxi4JKALYFNA/QmfcRSH",
+	"oAaVA1YIvOZEgh7dECSo8SWKaxXdZl+LOccz/a32ARv9F3ypShwLQSb0nIVwDp8SEHKeGs5CGPosgAqZ",
+	"YSEg9UrxCOumFApTmr1xEoZDRbcG0zwOc2n64HTzsYLOV1NMFWaFuGY8qKXVTzgHKoexLVjJFQrXhQIR",
+	"oW+BTuTUO/znIirnOig1V007+H+dg9DwLFMcgMQkdIcvrwicM175CSGWQP1ZASHe7s7e/kEk5jnd8YTE",
+	"MjGAsipiCjiUUwXihOZ/BzDhOICgQm10PEkiEBJHcUHdBVhCV72qHOF5ZhA5e0uErEd/gKUWogzWP3AY",
+	"e4fek16u23tWnHqquaypOcR3vCkWw4hxcLg4YiwETNVbrWXyN5lW6DhKpvK1ZBKHrbS+LTtUDYqqxuqY",
+	"VM8gnyVU8tlC1phiLndszSEJWtLuc8ASgiGWbce847Vu3GjPCnQncbBkr5VMNB+7SrDNc/RvgrfSh1VA",
+	"rkr973dDkBI4srjSpqAKEo8aRpp2I5F1VmdZsaohuWRrdKmC0H6spy8dwVoSzQBG+HNq6/Y7ruXbVxhU",
+	"g6kG9v9/OO7+P9z98vHr/s0PVYOz5AfUGXVN+gnzkwioVM5fLf1KPtvzN+bEB2vajevXryr2KcFUEjkr",
+	"lKx2Et3PSmlxGki7XPyV9SNE5DKK2Y7n3MgEtp+hgvkc7isFLVV97XRg7ZhV+ZsF18koh/Q7y6TWs64R",
+	"GAWN9LU1Uh2MlOIf9RgRinwdQ3YaIVSN90VQaPS2qzXtBSWfEkDKR0YkACrJmGifOvf+fEalYiYERDJe",
+	"NdAlVlW48u4jt+1XmCLVLrKdoFEiEWUS2SCkQUMUe/k1iTDtqogAj0L7PZZrTm+2k9e1XxIDj4gQaZBU",
+	"CiIpkQSHyClUCE9awfwsq3xK46Q1uPW3VI18UWBqvZFUIlrrgfYFJUSLPrpAnK3TnpSQUBhmjkpxTN4S",
+	"qmJEiUNXtBoU9wKhbNblbVyedEBW6B7mKv7v5h/OfVml9Vo2VluRxbuNc3kLK7mMoImlMVMWvTJuzKDh",
+	"SLl58/LxXkuWedssJqvxiU9YhAmtRwMRw5gzCb6EYJ7aP6cgp8CRnBKBAt0UsrpUIBGDX9LernEY41BA",
+	"p0J0UnuTmxHD/yW+RzQpZl1giWEtMKhVKu4154zXk1CfDIpAiKLiyN9x42dYMat2KkwRx69AY6ZiOs4h",
+	"xKoswjRAAYySyUQ169rq58/78M+Dfr8Ley9G3YPd4KCL/9fuT92Dg59+ev784KDf7/crE1KJ74Mopjhr",
+	"xraKV7/qjFWDOpqC/5fJpQYBUd+Aw7NCiUZF5STsqnq/TTYtZ1n+/u4ZNiXQ+k0B+XvT/X60+7wyE3gF",
+	"XFgH0M0c9nf67URFKaoV2sxFeu9x2stmL+9WBmtBmHP3bMntXa/V2JS35AooiAYl3E7s2slaJQVsonR2",
+	"TWAGESZhUWxwEBH6s/7/js8ir5N/vCldFbo4Ew95S8ej3b39g+c/LZwlSdttnHAoBy9NE0zF0T4OQ3YN",
+	"AbIFEKNITsEaaVfxl6aj3FmodHBq56sWTFN1rLVtmKK1TsNT2JnsdJDuuWOTkATEs4KFqncDXL5mX5iy",
+	"ppmvt5q7W2KqzuXBrTyacxhzENP37C+ohzQ3hYZSlVqczisW/1jZ64QICXwZIUoE8J/tz9ZSNO/t/cam",
+	"FJ0w8ApZzb3WEpg+3d3bLzbxz4omsrnKChH6d2zcDXT+8viVznA46Qf01M5T62fO9OizonC5E6fLzfA2",
+	"KouGBMU5C2GFdt3kuP5udr3wVbWpu5bz351VOAJ5X+eAld5WXrXGWxgibvWluFtAK4ZiJmz6qCGSIwJh",
+	"NEpIKLuEIlNF49+Ftlk10yZ8+yUJQ3Rey7vVOB1qQP8kcpprdvF9j+/qB6qUq10y+9qkQ1YDAWsi6+25",
+	"4nitiVTQjgkHsdQgLzK8HW0VF3HpQkCeL6j8tgvNoU3NXdZ1v4KpySUmIGuoaDXLuPp5wwXUPLTZwHqK",
+	"1zwJt2CWrYYopb4LqrtuXJvmi/6A68Jc0VMOcYh9EAg+EyEJnTxb16yRS9fH2q80cl7zaSlrG53eSg4K",
+	"4Ct0+IrK6O/i8BW+aiWJnCwCWhzkPJQVMJoJq/V8l/QimqhqcNh08LUcgheELcost1XL80TfdDwBfsKJ",
+	"nL1TnRriXgLmwI8TJbpfvZH+9Uva+G9/vvdKTqF6ljuCyoGwq4u1TOnqOTVTKWOzAJnQMTNjRSX2pRON",
+	"eyKJY8ZlKQq3i5uPz07RO1Ngzj/1zjgLEp3x0JP6M/SGoRH2/wIaIAlRHGIJ6JrIKdJEJ3IKVBJfzyp0",
+	"0JiEEtQId/QMQ4wnhOpXOwM6oE+eoF/SAur3cRiikAiJgAYxI1QKZAlHJ//FdMK6Qs5CyFtFVwQjvVQb",
+	"5fsAdtAxnaGxXtjtY4pGaQUIUCJULTkFNGZhyK7VLzGjEn8+VARcXl4O6L901aMrHCaACv89Qa8/JTgk",
+	"cpZF+UihEUvGn6UVh8P0Ud7EE/QuBp+MiZ+Vt50pJjxJuQ8B+rd9LdSrb9lP9A2d5MOCvqHXZiDRtwH9",
+	"1s3+c/4s/FKl0CV8ulQ11SeI7AOeoW/o8l8KCUcvgYeEXiLG7ZPhED5lT00bE6naeKPVoooKMdX1tZUf",
+	"DifyaLff76eFQ134rYZxqWQoj547JScS5tplHIGiVVfLFbHqBY72+nsH3f5ut7+bdwbF3gr1s27h6MWL",
+	"Fy/SSlpUCBWq5iv7NxLJyKgl9NTHArqECqCCSHIFObeGw7TuEYXrtD0hMZdiqORBNflO/zTi0diWU+/o",
+	"j7w5oEHe2GsaNDelhX04zCod/TxRT5Swpw3qgUSn1IjZU59FEe4KUMIjITDNmCT8cEjoEfZV650YaEDo",
+	"JGtEDGkShrolgdSfup5J/5ohskWOVIzpVmOyUJXJvLql3imV1zZScp5OVhaUhvmBGEV6MhMCBNp1NxpA",
+	"WJEPmF7OZOo/ZRRQCFcQogAgfubIvg2WdkpD/AZ4hOnMyLLt0SfKCqHRLFscqyqpNoic7aQNKcN5dPL6",
+	"oqRIbBup926aIXL2D1FYalvQEueYTqCkMeM4nKEoCSWJM8WYJfUFjsAqwjHjiOv6Sl0SEPk3P0EnSofr",
+	"t4cm1Y6suCFCkZI09VG1AjhI+v29n9z3Yfp+d6+7v6vJR2aWqdDJCOQ1AEU/7Pa1dfhht98f0FyXgFYm",
+	"pnlHftXDvsMY9I5xaflhBlEwLo/0d5vKel/VERa+Zb7eiIWFb2Cdq8LaqsokOlXVT1PXJeMsM245JcoV",
+	"PbIcyvzco71+CgO9F2u3g/b6lifpzqis4S46sZZGPT5Eu+VHuslDtNtXL34326KKL/qWwHM1zG9JRFJu",
+	"KcOfm1rM1fhIQKEqAsGOqaB/IeVbKIdFiQ8RiFA/TAIDEG69KTTVvp1B1jf0q/5VNlyOuSoZK60j/k9X",
+	"9alp7Or/K02RfpRdxiAQtnNYxMD8mtCAXaP5Fs6VTqFGc6HsR96OrW93/DS1I0BTckHJZ5RN4aPrKZgW",
+	"crYpboAURmn9qd67LO3o0ortHGTCqUCXB3sv0HvG0O9KvdgYUFym7pF9gN5z7DtOkl4pkjE+Gw6E0WW+",
+	"HOTSEf1saYcWNHfhhzYoAvgVcBSyiUh7NusvkIEu+h0kJ75QNsigRZX638kIOAUJoqucbSzJKNQoUBVj",
+	"zkYgdHdnnEUgp5AIFNl2FNbwFSYhHoVgAZO23QCZatC8ef0e9Uy3X7QLYOeZDQ2oqwCr+I7jGOGQXMG/",
+	"kFNRe7VfDEJwQAoVFZkBKPMH1FfK3s42Fxowz4wHEY0IhSDlgV6jgp4qd/kac8X3lEvP3AYsU1QLFayC",
+	"jC0DFQeExAcbCln3/fdTFUAkPLTBgDjs9VgM1GSOdxif9Gwl0VNl9SoUqUOyNwy9T33447NTz1k8YleM",
+	"3HQ81RaOiXfo7e/0d/b1bJOc6sCmp/z9XsgmZh4zZqJi6dpxHhMAUuGVBoURABPeCE/3wjUiTwPv0EzU",
+	"e9nippcsmKWRDZjlcTiOQxtm9P4rTFYq357ZFAUWFgHcFBM2yuPQD6xkqbb2+v2V9V1MRevOS8toFXHI",
+	"rp0aJ6EagIP+7soIKC5BqyDglF7hkATKA9CrxXAoTFibRBHmM2dsJJ4I7/CDHl/voyqTwYHZJQmVeLA9",
+	"KDSkmjcNcudAoBqqHo45tk0gQCyRDu/C2ca5d0EVCxgnXyAoZAO8ww/FPMCHjzcfS1w1H1vHVjujUM/X",
+	"NyARhetC4sB6v7ZuDZ/dlQRrkrmqxQoPTfR0gZRVavjuSfKKg1WUPcvHcnKoHjNmtUY9aMx+FYQ1coxy",
+	"9nUA4irpYlanTmenS0PWBqHiypNW8NndHHwuFPNShkNQoYf6m8PSf4yGVaNlVhVrAl5sUBFqKIUmZahn",
+	"WcQclA2rHOxVI9nE2YqiCdSoPZtXhMDkNdg4Dc61d5unCxWmhYkWtZ9r8246okDBjOKI+LZ4lqjT0TRO",
+	"M4o76B0YD96hQrvYtprJJurWf/wxzdLZuPzwxx9VkFadQOqiVw7NA4/C9cBTIYrJKqhqNcmJiUlOOE0Q",
+	"mq+VQ7ac+v6BZ8sOvEKLQxIcPa+qPzPUnJ6g54MKA02ENDW0U5gfxPKhGj15kV5+PslNp1Xh/EyRFhXy",
+	"Az9aFHaObFEmeW0GaO5chCr3rwDfx+S+KML9FAupFFtwfLzptDE/vk6s68W2iNFw9mwOcPlO7TUZmfmt",
+	"4Bs2M8UdVPMjpN6n2bkHYlXuDZ+q8/3NdX6cAXM50bAY9w1q50QjN3G9ryS4MTKiF1LPScuJfm7kZDRT",
+	"WrlRWkxxKy3LqWf3HK0KpXhQIcmKKDsF8P3iQnV9sLmuNdMpk2jMErqkxnbAVK2xa70t3wy1PtXI4HAO",
+	"em9ArgN3/c3qWcvVewfzI0FUho0UE1VuQFIBKrMIqrVey9c8rgBfq/ch5pdkbjjT0QrbduHQ1ofY2orF",
+	"ku0IaK0Lk8abywbqWZz6OGL1hBIJgY6Vi5QPPPNqPmgP4Oji3XFexQbV+lTFi3fHdYF1xtBtbI1bntvW",
+	"OrzOePvYImwHFJkYZs/axtkWhW1CbXsQ4Vqj7eLugU0H3OUT/yo0Z7ogZxt2P8KwO0NwlbwULFfvqy18",
+	"Gty0yTrbHLMyKNicajImvtNhXbL05SwXq5JmrziUOqPprmdTr9VubBOn9xizpcsPb+fcOalbZzHjQj+v",
+	"dbbKUtc+YVUnHKvPWVnStmmrRwXYIrBqPaF6vZ0N+6IU1nqQ2L8P5+V7zGXdDWYuVOYyWkWfuymp1V79",
+	"FTbTPuTU1i0c9nvB/DbHtTUst0lzLQwZsm0bSya78u0eDzTZ5bPATXad/vGfS9RFJ0WyB97pH/8xaS6z",
+	"R6XbuEFr0f4QnRgr7zfRTbr7aPQOtTf5SpecJn2UYbZuxRYxLbhnauY7SvqqfuFATUXiPhzZHSiVoVvW",
+	"3zYdt1hQK4/ebYjacnl6ZPm4wEFFqixypLTMx6WNGOky+4Ba5ObSftaanCsfY7Hh7Nz8gcvzQ5iW2ebn",
+	"HmN+LshRXCVABWvbNuWQCVTrnIMjS+tOOmRw3WYdNuscZoy/W9phAWAb8g5BPvIm8eDo+9ocxLqQ2b8f",
+	"Hf0dpiHuirsCdMqJiJKz0ZCIWEYpFo+wesCpiFu5J/cE/W02YmtwbpOOWNpD6mWHIdVsyA0CG3mogkiy",
+	"XDc0aoXjIHDP2HuQaqHh8qr7iVyKx99X7PpTQ4CDYKsYtoqhrWJQAlwW3SW1Q++r+ue0OZw6h4hdgelq",
+	"zFnUUk8UQ6q7q4pO5boIQ/8dF0W0iti0iHLNi220tnEZYdwA8JayUovhuznRur0lfOiHLwXrdtGXtsX9",
+	"+7HFWzd9q2lW4a7rthqssjkjqHYCsfosoewwoMpDhXYG9NyeK2VSTBAgc5ofYmMzlegcZrRTMdNlTn3S",
+	"t2N5axTI0uVeFYPyDviVvpYoO3NJ4eL5CiHZnob85qHiCQaVQ+SMuOmhMNxfasc7P0wLhcXzq9Ixd0Z3",
+	"r99HZJweapUyQN/PoCqbszsSSs108oUAc3/DmHHk9HOZdnSm+rlEPqNjMkl4ekBrxTyoKb92fMzdFFWl",
+	"MSo+fNUYuQUdSnkYvgTpwcbunKE7snVQycL3JVYWmCzy49hCc02CCchL1EWnOdUDzzwub59ZdBrkczuf",
+	"75wviX7Y7Xd/eN5ftDDBXXiAx+prfsPUnMa4d1CzDODUXtC0XQLQ4tq/ttP/BvCPbOo/u6rLirBBRssp",
+	"/8XhQ34x+lrn9+8xQ9bKG9/O6T/COf2S55tKRmbb2s7jaylpPYe/opx0q2zQdu5+szHa6R3iMgdMleq6",
+	"1ssiZqQXbBJYB+z6m1Wy3+Gk/F0AlWGjPBnvuAANOcS2Wi2/lekBT8DfY1Zvm83bWorVCrYjoDXuiz2U",
+	"uzY4bzi/20nfuDmbtBih7uHfEj6rL+ARluUEjlNK+BzHKtBfmLl5A9Ie4b44baP67sWhvZs4H5b8Jqcn",
+	"6NfXb8/QVMp4mB6mP9Rr7e2y+l/fvz/Ljtkf0Cfo/f89e11ZXi/vBz6gFS+/qu9kwdHAe/P6/cDrxFhO",
+	"jwZeD8ekd7VrXMmB1zEZzqOB+pSBd4MO9jQDyhdMVd1sVB4rQl3Ol5I38+XrEjh8hP2ec010rYeBwzA/",
+	"Bj+7kluNcn5vnL1X2E5ZzWckjm0/a9S0tos2oXz61d+VuvuF8REJAqCoi6z9E8iYdn077vLJhTlQOFA7",
+	"f3n8ygWauUd8GaDx4i3ryyLuxHa41hk73UW7vSOGmi3iVoS4IBveOsRlt+4tkaDWtxnrq9LtrSv2RuIq",
+	"gOlL/zaaZF1nCDZ373oDmA1nt1C+G5RTqM1DuN35SImQzFxsbuYmWHrhP6FEEhy6l8nWJG7Pza3o60vc",
+	"mnss7yVx23SlesUAq+LbPO7DlK0N3wpgoMACqLwaYMkssxFWbgSt0VT1vqo+22SccUH4R+YSPvTU2Cpr",
+	"v3xMVXw5gjQLXJeQtjqgZMVqOOJ1qg9/CqBxcVc5ymmVwtadfpcp7AUCgRhPh9ewBzkjv/FUhh6muyW9",
+	"q6WjIefNDTRMzttcK0fopHB7+miGiBQpaOfyDA8D9f17tXYPJaH+0EzNIxGeTBCsAWhpX3quW3j4tXoS",
+	"4BziEPugnVRXqswpglZeqyYC1AedFfzOzYvYumYRSt92TxMKS0q6U2w7zfDArXnEAjKePVprbicm9EcV",
+	"Y886vZQI4Ha/z+JsTZ6bMZk/CJBkCKd3cs2Z+AsB/HY5mo3Ne2ckLrqk7B9im3SplBx2TQ0ANi0o+uq4",
+	"O1juxB3V1hmgY418a4Ib4G/KKWi9ZxemwMObm8+JvCdT2kr8tEZMNc69m06FeT32aWqiSNlWM9yP2dTa",
+	"IB2a2+6XNbKdSnbpqslFprNF9shuMrTKQ28zrFEfpqRC/i+cRXdXIJ1av199qdm0uvHU0ne5V/ZBC04+",
+	"o3vHfbQ5wBukSN+o32anEy/duL/UViejpSVDAvgVIMnxeEz8nQHV25MECrDEIyygg84hIKKjt8MwOQVe",
+	"3gZXu0Eqo6/tDqnztMID2EJ33IZdm99VV7lfSpH21B2VfNPds7l7gwuYqVuDo7X4knPUuk5hUea9bpuC",
+	"CJPQ2Tf1s97qSWc7PosuURddaHLtXUL6DdJV3E1XQmIuxVAVOvqNTalTb8oE6I1WyBQyLalCbTZOmUb8",
+	"JbdP6Vrb7VPtHOi2iwYM1LcbVJZZH5BYIKa6wwDTUR29CBq1hzZI+b34EKRxZ8zZmISVUyOvEs6BSuv1",
+	"rTf4ajol25DhRPePYtedPo/fJX1+9JoX3i89ZPa4+9KorSsJbobt/sL1Rb7kNse9NGTTA+WbUevqnF6M",
+	"hbhmPKidQHo11Xuc68GcNjC3MElXPMtfr2VxUqGT5eFcmmKx7SBfN7t57J3SK4W+bAQz5j4eDFq8OLCo",
+	"x1/LfZmqcM2GOFNiRYnRRckGrZa+73Usjyo778Cn0njXOluJGegFOzHXgboN29jvcCfmKqZ75nZiZqpN",
+	"t8avqtdInMAVhCzWaTFTyut4CQ+9Q28qZXzY64XMx+GUCXm43+/37c4jjRPb09w0Um6StcNiE1oCPeUw",
+	"IUIC76CQTQjV/7BEdhCHMQcxfZanZvXHzqd2NaciTPEENMlZ43nNCxsKVqVluy+xgAAd+z4IgV4xKjkL",
+	"nfbyVnQub74RvbXu1fnFCcpEz+n61B7iUXfJXm3FV85lvF+rLq0u1URPbcrDtMshNM8dBr5Kb4GsPXy/",
+	"3KZuMiQUsnM9bFMnztUk5dZ+rTqay6lrE1I3H2/+JwAA//+JzFudts4AAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
