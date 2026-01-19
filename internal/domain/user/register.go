@@ -1,19 +1,18 @@
 package user
 
 import (
-	"github.com/casbin/casbin/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
-// Component keys for this domain
-const (
-	RepositoryKey = "user.repository"
-	ServiceKey    = "user.service"
-	HandlerKey    = "user.handler"
-	TokenStoreKey = "user.tokenStore"
+// Component keys for this domain (typed for compile-time safety)
+var (
+	RepositoryKey = container.Key[Repository]("user.repository")
+	ServiceKey    = container.Key[Service]("user.service")
+	HandlerKey    = container.Key[*Handler]("user.handler")
+	TokenStoreKey = container.Key[*TokenStore]("user.tokenStore")
 )
 
 // domain implements container.Domain interface
@@ -40,30 +39,30 @@ func (d *domain) Models() []any {
 func (d *domain) Register(c *container.Container) {
 	// Initialize token store (uses Redis)
 	tokenStore := NewTokenStore(c.Redis)
-	c.Set(TokenStoreKey, tokenStore)
+	TokenStoreKey.Set(c, tokenStore)
 
 	// Initialize repository
 	repo := NewRepository(c.DB)
-	c.Set(RepositoryKey, repo)
+	RepositoryKey.Set(c, repo)
 
 	// Get RBAC service (must be registered before user domain)
-	rbacSvc := container.MustGetTyped[rbac.Service](c, rbac.ServiceKey)
+	rbacSvc := rbac.ServiceKey.MustGet(c)
 
 	// Initialize service
 	service := NewService(repo, tokenStore, &c.Config.JWT, c.Config.App.IsProduction(), rbacSvc)
-	c.Set(ServiceKey, service)
+	ServiceKey.Set(c, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(HandlerKey, handler)
+	HandlerKey.Set(c, handler)
 }
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := container.MustGetTyped[*Handler](c, HandlerKey)
-	tokenStore := container.MustGetTyped[*TokenStore](c, TokenStoreKey)
-	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
-	rateLimiter := container.MustGetTyped[*middleware.RateLimiterFactory](c, middleware.RateLimiterFactoryKey)
+	handler := HandlerKey.MustGet(c)
+	tokenStore := TokenStoreKey.MustGet(c)
+	enforcer := rbac.EnforcerKey.MustGet(c)
+	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
 	// Auth routes (public) - with strict rate limiting to prevent brute force

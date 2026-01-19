@@ -6,11 +6,12 @@ import (
 	"github.com/casbin/casbin/v3"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/container"
 	"gorm.io/gorm"
 )
 
-// EnforcerKey is the key used to store the enforcer in the container
-const EnforcerKey = "rbac.enforcer"
+// EnforcerKey is the typed key used to store the enforcer in the container
+var EnforcerKey = container.Key[*casbin.Enforcer]("rbac.enforcer")
 
 // NewEnforcer creates a new Casbin enforcer with GORM adapter
 func NewEnforcer(db *gorm.DB, cfg *config.RBACConfig) (*casbin.Enforcer, error) {

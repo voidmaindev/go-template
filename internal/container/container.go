@@ -70,7 +70,7 @@ func (c *Container) Get(key string) any {
 func (c *Container) MustGet(key string) any {
 	comp, ok := c.components[key]
 	if !ok {
-		panic("component not found: " + key)
+		panic(fmt.Sprintf("component not found: %s (ensure domain is registered before dependent domains)", key))
 	}
 	return comp
 }
@@ -81,7 +81,7 @@ func (c *Container) MustGet(key string) any {
 func MustGetTyped[T any](c *Container, key string) T {
 	comp, ok := c.components[key]
 	if !ok {
-		panic("component not found: " + key)
+		panic(fmt.Sprintf("component not found: %s (ensure domain is registered before dependent domains)", key))
 	}
 	typed, ok := comp.(T)
 	if !ok {

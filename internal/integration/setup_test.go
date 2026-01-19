@@ -105,52 +105,52 @@ func (s *TestSuite) CleanupTables() {
 
 // UserService returns the user service from the container.
 func (s *TestSuite) UserService() user.Service {
-	return container.MustGetTyped[user.Service](s.Container, user.ServiceKey)
+	return user.ServiceKey.MustGet(s.Container)
 }
 
 // UserRepository returns the user repository from the container.
 func (s *TestSuite) UserRepository() user.Repository {
-	return container.MustGetTyped[user.Repository](s.Container, user.RepositoryKey)
+	return user.RepositoryKey.MustGet(s.Container)
 }
 
 // ItemService returns the item service from the container.
 func (s *TestSuite) ItemService() item.Service {
-	return container.MustGetTyped[item.Service](s.Container, item.ServiceKey)
+	return item.ServiceKey.MustGet(s.Container)
 }
 
 // ItemRepository returns the item repository from the container.
 func (s *TestSuite) ItemRepository() item.Repository {
-	return container.MustGetTyped[item.Repository](s.Container, item.RepositoryKey)
+	return item.RepositoryKey.MustGet(s.Container)
 }
 
 // CountryService returns the country service from the container.
 func (s *TestSuite) CountryService() country.Service {
-	return container.MustGetTyped[country.Service](s.Container, country.ServiceKey)
+	return country.ServiceKey.MustGet(s.Container)
 }
 
 // CountryRepository returns the country repository from the container.
 func (s *TestSuite) CountryRepository() country.Repository {
-	return container.MustGetTyped[country.Repository](s.Container, country.RepositoryKey)
+	return country.RepositoryKey.MustGet(s.Container)
 }
 
 // CityService returns the city service from the container.
 func (s *TestSuite) CityService() city.Service {
-	return container.MustGetTyped[city.Service](s.Container, city.ServiceKey)
+	return city.ServiceKey.MustGet(s.Container)
 }
 
 // CityRepository returns the city repository from the container.
 func (s *TestSuite) CityRepository() city.Repository {
-	return container.MustGetTyped[city.Repository](s.Container, city.RepositoryKey)
+	return city.RepositoryKey.MustGet(s.Container)
 }
 
 // DocumentService returns the document service from the container.
 func (s *TestSuite) DocumentService() document.Service {
-	return container.MustGetTyped[document.Service](s.Container, document.ServiceKey)
+	return document.ServiceKey.MustGet(s.Container)
 }
 
 // DocumentRepository returns the document repository from the container.
 func (s *TestSuite) DocumentRepository() document.Repository {
-	return container.MustGetTyped[document.Repository](s.Container, document.RepositoryKey)
+	return document.RepositoryKey.MustGet(s.Container)
 }
 
 // CreateTestUser creates a test user and returns it.

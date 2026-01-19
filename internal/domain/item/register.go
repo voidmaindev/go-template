@@ -1,7 +1,6 @@
 package item
 
 import (
-	"github.com/casbin/casbin/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
@@ -9,11 +8,11 @@ import (
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
-// Component keys for this domain
-const (
-	RepositoryKey = "item.repository"
-	ServiceKey    = "item.service"
-	HandlerKey    = "item.handler"
+// Component keys for this domain (typed for compile-time safety)
+var (
+	RepositoryKey = container.Key[Repository]("item.repository")
+	ServiceKey    = container.Key[Service]("item.service")
+	HandlerKey    = container.Key[*Handler]("item.handler")
 )
 
 // domain implements container.Domain interface
@@ -40,23 +39,23 @@ func (d *domain) Models() []any {
 func (d *domain) Register(c *container.Container) {
 	// Initialize repository
 	repo := NewRepository(c.DB)
-	c.Set(RepositoryKey, repo)
+	RepositoryKey.Set(c, repo)
 
 	// Initialize service
 	service := NewService(repo)
-	c.Set(ServiceKey, service)
+	ServiceKey.Set(c, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(HandlerKey, handler)
+	HandlerKey.Set(c, handler)
 }
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := container.MustGetTyped[*Handler](c, HandlerKey)
-	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
-	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
-	rateLimiter := container.MustGetTyped[*middleware.RateLimiterFactory](c, middleware.RateLimiterFactoryKey)
+	handler := HandlerKey.MustGet(c)
+	tokenStore := user.TokenStoreKey.MustGet(c)
+	enforcer := rbac.EnforcerKey.MustGet(c)
+	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
 	items := api.Group("/items", middleware.JWTMiddleware(jwtConfig, tokenStore))

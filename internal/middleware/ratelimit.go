@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/redis"
 )
 
@@ -33,8 +34,8 @@ const (
 	TierGlobal    = "global"     // Fallback catch-all
 )
 
-// RateLimiterFactoryKey is the container key for the rate limiter factory
-const RateLimiterFactoryKey = "middleware.rateLimiterFactory"
+// RateLimiterFactoryKey is the typed container key for the rate limiter factory
+var RateLimiterFactoryKey = container.Key[*RateLimiterFactory]("middleware.rateLimiterFactory")
 
 // userIDKey is the key used to store user ID in Fiber locals (set by JWT middleware)
 const userIDKey = "user_id"

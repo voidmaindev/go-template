@@ -1,7 +1,6 @@
 package document
 
 import (
-	"github.com/casbin/casbin/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/city"
@@ -11,12 +10,12 @@ import (
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
-// Component keys for this domain
-const (
-	RepositoryKey     = "document.repository"
-	ItemRepositoryKey = "document.itemRepository"
-	ServiceKey        = "document.service"
-	HandlerKey        = "document.handler"
+// Component keys for this domain (typed for compile-time safety)
+var (
+	RepositoryKey     = container.Key[Repository]("document.repository")
+	ItemRepositoryKey = container.Key[ItemRepository]("document.itemRepository")
+	ServiceKey        = container.Key[Service]("document.service")
+	HandlerKey        = container.Key[*Handler]("document.handler")
 )
 
 // domain implements container.Domain interface
@@ -44,29 +43,29 @@ func (d *domain) Models() []any {
 func (d *domain) Register(c *container.Container) {
 	// Initialize repositories
 	repo := NewRepository(c.DB)
-	c.Set(RepositoryKey, repo)
+	RepositoryKey.Set(c, repo)
 
 	itemRepo := NewItemRepository(c.DB)
-	c.Set(ItemRepositoryKey, itemRepo)
+	ItemRepositoryKey.Set(c, itemRepo)
 
 	// Get cross-domain dependencies
-	cityRepo := container.MustGetTyped[city.Repository](c, city.RepositoryKey)
-	productRepo := container.MustGetTyped[item.Repository](c, item.RepositoryKey)
+	cityRepo := city.RepositoryKey.MustGet(c)
+	productRepo := item.RepositoryKey.MustGet(c)
 
 	// Initialize service with cross-domain dependencies
 	service := NewService(repo, itemRepo, cityRepo, productRepo)
-	c.Set(ServiceKey, service)
+	ServiceKey.Set(c, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(HandlerKey, handler)
+	HandlerKey.Set(c, handler)
 }
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := container.MustGetTyped[*Handler](c, HandlerKey)
-	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
-	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
+	handler := HandlerKey.MustGet(c)
+	tokenStore := user.TokenStoreKey.MustGet(c)
+	enforcer := rbac.EnforcerKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
 	documents := api.Group("/documents", middleware.JWTMiddleware(jwtConfig, tokenStore))

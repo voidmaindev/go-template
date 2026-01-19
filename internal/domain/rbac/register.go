@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/casbin/casbin/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/middleware"
@@ -15,11 +14,11 @@ const (
 	userTokenStoreKey = "user.tokenStore"
 )
 
-// Component keys for this domain
-const (
-	RepositoryKey = "rbac.repository"
-	ServiceKey    = "rbac.service"
-	HandlerKey    = "rbac.handler"
+// Component keys for this domain (typed for compile-time safety)
+var (
+	RepositoryKey = container.Key[Repository]("rbac.repository")
+	ServiceKey    = container.Key[Service]("rbac.service")
+	HandlerKey    = container.Key[*Handler]("rbac.handler")
 )
 
 // domain implements container.Domain interface
@@ -46,7 +45,7 @@ func (d *domain) Models() []any {
 func (d *domain) Register(c *container.Container) {
 	// Initialize repository
 	repo := NewRepository(c.DB)
-	c.Set(RepositoryKey, repo)
+	RepositoryKey.Set(c, repo)
 
 	// Initialize Casbin enforcer
 	enforcer, err := NewEnforcer(c.DB, &c.Config.RBAC)
@@ -54,15 +53,15 @@ func (d *domain) Register(c *container.Container) {
 		slog.Error("failed to create RBAC enforcer", "error", err)
 		panic(err)
 	}
-	c.Set(EnforcerKey, enforcer)
+	EnforcerKey.Set(c, enforcer)
 
 	// Initialize service with container as domain provider
 	service := NewService(repo, enforcer, c)
-	c.Set(ServiceKey, service)
+	ServiceKey.Set(c, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(HandlerKey, handler)
+	HandlerKey.Set(c, handler)
 
 	// Sync global roles on startup
 	if err := service.SyncGlobalRoles(context.Background()); err != nil {
@@ -72,10 +71,10 @@ func (d *domain) Register(c *container.Container) {
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := container.MustGetTyped[*Handler](c, HandlerKey)
-	tokenStore := container.MustGetTyped[middleware.TokenBlacklist](c, userTokenStoreKey)
-	enforcer := container.MustGetTyped[*casbin.Enforcer](c, EnforcerKey)
-	rateLimiter := container.MustGetTyped[*middleware.RateLimiterFactory](c, middleware.RateLimiterFactoryKey)
+	handler := HandlerKey.MustGet(c)
+	tokenStore := container.MustGetAs[middleware.TokenBlacklist](c, userTokenStoreKey)
+	enforcer := EnforcerKey.MustGet(c)
+	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
 	// All RBAC routes require authentication and admin-tier rate limiting

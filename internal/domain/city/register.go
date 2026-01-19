@@ -1,7 +1,6 @@
 package city
 
 import (
-	"github.com/casbin/casbin/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/country"
@@ -10,11 +9,11 @@ import (
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
-// Component keys for this domain
-const (
-	RepositoryKey = "city.repository"
-	ServiceKey    = "city.service"
-	HandlerKey    = "city.handler"
+// Component keys for this domain (typed for compile-time safety)
+var (
+	RepositoryKey = container.Key[Repository]("city.repository")
+	ServiceKey    = container.Key[Service]("city.service")
+	HandlerKey    = container.Key[*Handler]("city.handler")
 )
 
 // domain implements container.Domain interface
@@ -41,25 +40,25 @@ func (d *domain) Models() []any {
 func (d *domain) Register(c *container.Container) {
 	// Initialize repository
 	repo := NewRepository(c.DB)
-	c.Set(RepositoryKey, repo)
+	RepositoryKey.Set(c, repo)
 
 	// Get country repository (cross-domain dependency)
-	countryRepo := container.MustGetTyped[country.Repository](c, country.RepositoryKey)
+	countryRepo := country.RepositoryKey.MustGet(c)
 
 	// Initialize service with cross-domain dependency
 	service := NewService(repo, countryRepo)
-	c.Set(ServiceKey, service)
+	ServiceKey.Set(c, service)
 
 	// Initialize handler
 	handler := NewHandler(service)
-	c.Set(HandlerKey, handler)
+	HandlerKey.Set(c, handler)
 }
 
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-	handler := container.MustGetTyped[*Handler](c, HandlerKey)
-	tokenStore := container.MustGetTyped[*user.TokenStore](c, user.TokenStoreKey)
-	enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
+	handler := HandlerKey.MustGet(c)
+	tokenStore := user.TokenStoreKey.MustGet(c)
+	enforcer := rbac.EnforcerKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
 	cities := api.Group("/cities", middleware.JWTMiddleware(jwtConfig, tokenStore))

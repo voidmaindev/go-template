@@ -37,12 +37,12 @@ type Server struct {
 func NewServer(c *container.Container) *Server {
 	return &Server{
 		container:       c,
-		userService:     container.MustGetTyped[user.Service](c, user.ServiceKey),
-		itemService:     container.MustGetTyped[item.Service](c, item.ServiceKey),
-		countryService:  container.MustGetTyped[country.Service](c, country.ServiceKey),
-		cityService:     container.MustGetTyped[city.Service](c, city.ServiceKey),
-		documentService: container.MustGetTyped[document.Service](c, document.ServiceKey),
-		rbacService:     container.MustGetTyped[rbac.Service](c, rbac.ServiceKey),
+		userService:     user.ServiceKey.MustGet(c),
+		itemService:     item.ServiceKey.MustGet(c),
+		countryService:  country.ServiceKey.MustGet(c),
+		cityService:     city.ServiceKey.MustGet(c),
+		documentService: document.ServiceKey.MustGet(c),
+		rbacService:     rbac.ServiceKey.MustGet(c),
 	}
 }
 

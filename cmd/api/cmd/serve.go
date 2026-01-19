@@ -97,7 +97,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Initialize rate limiter factory (Redis-based distributed rate limiting)
 	rateLimiterFactory := middleware.NewRateLimiterFactory(redisClient, &cfg.RateLimit)
-	c.Set(middleware.RateLimiterFactoryKey, rateLimiterFactory)
+	middleware.RateLimiterFactoryKey.Set(c, rateLimiterFactory)
 	if cfg.RateLimit.Enabled {
 		slog.Info("Distributed rate limiting enabled",
 			"auth_limit", cfg.RateLimit.AuthLimit,
