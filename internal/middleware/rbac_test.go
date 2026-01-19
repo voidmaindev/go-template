@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/casbin/casbin/v2"
-	"github.com/casbin/casbin/v2/model"
+	"github.com/casbin/casbin/v3"
+	"github.com/casbin/casbin/v3/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/pkg/utils"
