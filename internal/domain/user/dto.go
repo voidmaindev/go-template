@@ -6,16 +6,16 @@ import (
 
 // RegisterRequest represents the registration request
 type RegisterRequest struct {
-	Email     string   `json:"email" validate:"required,email"`
-	Password  string   `json:"password" validate:"required,password"`
+	Email     string   `json:"email" validate:"required,email,max=255"`
+	Password  string   `json:"password" validate:"required,password,max=128"`
 	Name      string   `json:"name" validate:"required,min=2,max=100"`
 	RoleCodes []string `json:"role_codes" validate:"omitempty,dive,min=1"`
 }
 
 // LoginRequest represents the login request
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email" validate:"required,email,max=255"`
+	Password string `json:"password" validate:"required,max=128"`
 }
 
 // RefreshTokenRequest represents the refresh token request
@@ -30,8 +30,8 @@ type LogoutRequest struct {
 
 // ChangePasswordRequest represents the change password request
 type ChangePasswordRequest struct {
-	CurrentPassword string `json:"current_password" validate:"required"`
-	NewPassword     string `json:"new_password" validate:"required,password"`
+	CurrentPassword string `json:"current_password" validate:"required,max=128"`
+	NewPassword     string `json:"new_password" validate:"required,password,max=128"`
 }
 
 // UpdateUserRequest represents the update user request

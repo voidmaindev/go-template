@@ -229,6 +229,8 @@ func runServe(cmd *cobra.Command, args []string) {
 		slog.Info("Server shutdown completed gracefully")
 	case <-shutdownCtx.Done():
 		slog.Warn("Server shutdown timed out, forcing exit")
+		// Force kill entire process including orphaned goroutines
+		os.Exit(1)
 	}
 
 	if err := redisClient.Close(); err != nil {

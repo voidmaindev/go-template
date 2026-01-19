@@ -95,7 +95,8 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	users.Post("/:id/roles", middleware.RequirePermission(enforcer, "rbac", ActionModify), handler.AssignRole)
 	users.Delete("/:id/roles/:code", middleware.RequirePermission(enforcer, "rbac", ActionModify), handler.RemoveRole)
 
-	// Discovery endpoints (any authenticated user)
-	rbacGroup.Get("/domains", handler.GetDomains)
-	rbacGroup.Get("/actions", handler.GetActions)
+	// Discovery endpoints (require rbac:read permission to prevent structure exposure)
+	discovery := rbacGroup.Group("", middleware.RequirePermission(enforcer, "rbac", ActionRead))
+	discovery.Get("/domains", handler.GetDomains)
+	discovery.Get("/actions", handler.GetActions)
 }

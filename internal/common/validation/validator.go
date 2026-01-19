@@ -97,10 +97,10 @@ func (v *Validator) RegisterValidation(tag string, fn validator.Func) error {
 
 // registerCustomValidators registers custom validation rules
 func registerCustomValidators(v *validator.Validate) {
-	// Password validation: at least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+	// Password validation: 8-128 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
 	_ = v.RegisterValidation("password", func(fl validator.FieldLevel) bool {
 		password := fl.Field().String()
-		if len(password) < 8 {
+		if len(password) < 8 || len(password) > 128 {
 			return false
 		}
 

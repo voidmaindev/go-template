@@ -159,7 +159,7 @@ func (s *service) ListRoles(ctx context.Context, params *filter.Params) (*common
 	return common.NewFilteredResult(roles, total, params), nil
 }
 
-// UpdateRolePermissions updates the permissions of a role
+// UpdateRolePermissions updates the permissions of a role atomically
 func (s *service) UpdateRolePermissions(ctx context.Context, code string, req *UpdateRolePermissionsRequest) (*RoleWithPermissions, error) {
 	role, err := s.repo.FindByCode(ctx, code)
 	if err != nil {
@@ -174,7 +174,7 @@ func (s *service) UpdateRolePermissions(ctx context.Context, code string, req *U
 		return nil, ErrSystemRoleCannotBeModified
 	}
 
-	// Validate domains and actions
+	// Validate domains and actions before any modifications
 	validDomains := s.getValidDomains()
 	for _, perm := range req.Permissions {
 		if !s.isValidDomain(perm.Domain, validDomains) {
@@ -187,20 +187,62 @@ func (s *service) UpdateRolePermissions(ctx context.Context, code string, req *U
 		}
 	}
 
-	// Remove all existing policies for this role
-	s.enforcer.RemoveFilteredPolicy(0, code)
+	// Track existing policies for rollback
+	existingPolicies, _ := s.enforcer.GetFilteredPolicy(0, code)
 
-	// Add new policies
-	for _, perm := range req.Permissions {
-		for _, action := range perm.Actions {
-			if _, err := s.enforcer.AddPolicy(code, perm.Domain, action); err != nil {
-				slog.Error("failed to add policy", "role", code, "domain", perm.Domain, "action", action, "error", err)
+	// Track added policies for rollback if needed
+	var addedPolicies [][]string
+	var updateErr error
+
+	// Use transaction wrapper for atomicity
+	err = s.repo.Transaction(ctx, func(txRepo common.Repository[Role]) error {
+		// Remove all existing policies for this role
+		if _, err := s.enforcer.RemoveFilteredPolicy(0, code); err != nil {
+			return err
+		}
+
+		// Add new policies
+		for _, perm := range req.Permissions {
+			for _, action := range perm.Actions {
+				added, err := s.enforcer.AddPolicy(code, perm.Domain, action)
+				if err != nil {
+					slog.Error("failed to add policy", "role", code, "domain", perm.Domain, "action", action, "error", err)
+					return err
+				}
+				if added {
+					addedPolicies = append(addedPolicies, []string{code, perm.Domain, action})
+				}
 			}
 		}
+
+		// Save policies - if this fails, we need to rollback
+		if err := s.enforcer.SavePolicy(); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		// Rollback: remove any policies we added and restore the original policies
+		for _, policy := range addedPolicies {
+			s.enforcer.RemovePolicy(policy[0], policy[1], policy[2])
+		}
+		// Restore original policies
+		for _, policy := range existingPolicies {
+			if len(policy) >= 3 {
+				s.enforcer.AddPolicy(policy[0], policy[1], policy[2])
+			}
+		}
+		// Try to save the restored state (best effort)
+		if saveErr := s.enforcer.SavePolicy(); saveErr != nil {
+			slog.Error("failed to save restored policies during rollback", "error", saveErr)
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("UpdateRolePermissions")
 	}
 
-	if err := s.enforcer.SavePolicy(); err != nil {
-		return nil, errors.Internal(domainName, err).WithOperation("UpdateRolePermissions.SavePolicy")
+	if updateErr != nil {
+		return nil, errors.Internal(domainName, updateErr).WithOperation("UpdateRolePermissions")
 	}
 
 	permissions := s.getRolePermissions(code)
