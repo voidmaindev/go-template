@@ -90,21 +90,43 @@ func (s *service) CreateRole(ctx context.Context, req *CreateRoleRequest) (*Role
 		IsSystem:    false,
 	}
 
-	if err := s.repo.Create(ctx, role); err != nil {
-		return nil, errors.Internal(domainName, err).WithOperation("CreateRole")
-	}
+	// Track added policies for rollback if needed
+	var addedPolicies [][]string
 
-	// Add policies to Casbin
-	for _, perm := range req.Permissions {
-		for _, action := range perm.Actions {
-			if _, err := s.enforcer.AddPolicy(req.Code, perm.Domain, action); err != nil {
-				slog.Error("failed to add policy", "role", req.Code, "domain", perm.Domain, "action", action, "error", err)
+	// Use transaction for atomicity
+	err = s.repo.Transaction(ctx, func(txRepo common.Repository[Role]) error {
+		// Create role within transaction
+		if err := txRepo.Create(ctx, role); err != nil {
+			return err
+		}
+
+		// Add policies to Casbin (in-memory)
+		for _, perm := range req.Permissions {
+			for _, action := range perm.Actions {
+				added, err := s.enforcer.AddPolicy(req.Code, perm.Domain, action)
+				if err != nil {
+					slog.Error("failed to add policy", "role", req.Code, "domain", perm.Domain, "action", action, "error", err)
+					return err
+				}
+				if added {
+					addedPolicies = append(addedPolicies, []string{req.Code, perm.Domain, action})
+				}
 			}
 		}
-	}
 
-	if err := s.enforcer.SavePolicy(); err != nil {
-		return nil, errors.Internal(domainName, err).WithOperation("CreateRole.SavePolicy")
+		// Save policies - if this fails, transaction rolls back
+		if err := s.enforcer.SavePolicy(); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		// Rollback: remove any policies we added to Casbin's in-memory state
+		for _, policy := range addedPolicies {
+			s.enforcer.RemovePolicy(policy[0], policy[1], policy[2])
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("CreateRole")
 	}
 
 	return role, nil

@@ -43,9 +43,15 @@ func JWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist) fiber.Handle
 				}
 			}
 
-			// Validate token claims
-			user := c.Locals("user").(*jwt.Token)
-			claims := user.Claims.(jwt.MapClaims)
+			// Validate token claims with safe type assertions
+			user, ok := c.Locals("user").(*jwt.Token)
+			if !ok || user == nil {
+				return common.UnauthorizedResponse(c, "invalid token")
+			}
+			claims, ok := user.Claims.(jwt.MapClaims)
+			if !ok {
+				return common.UnauthorizedResponse(c, "invalid token claims")
+			}
 
 			// Validate token type is access token
 			tokenType, ok := claims["token_type"].(string)

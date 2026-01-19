@@ -75,28 +75,38 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 		return nil, errors.Internal(domainName, err).WithOperation("Register")
 	}
 
-	// Create user
+	// Prepare role codes (default to user if none specified)
+	roleCodes := req.RoleCodes
+	if len(roleCodes) == 0 {
+		roleCodes = []string{rbac.RoleCodeUser}
+	}
+
+	// Create user and assign roles atomically
 	user := &User{
 		Email:    req.Email,
 		Password: hashedPassword,
 		Name:     req.Name,
 	}
 
-	if err := s.repo.Create(ctx, user); err != nil {
-		return nil, errors.Internal(domainName, err).WithOperation("Register")
-	}
-
-	// Assign RBAC roles (default to user if none specified)
-	roleCodes := req.RoleCodes
-	if len(roleCodes) == 0 {
-		roleCodes = []string{rbac.RoleCodeUser}
-	}
-
-	for _, roleCode := range roleCodes {
-		if err := s.rbacSvc.AssignRole(ctx, user.ID, roleCode); err != nil {
-			// Log warning but don't fail registration
-			slog.Warn("failed to assign role during registration", "role", roleCode, "userID", user.ID, "error", err)
+	err = s.repo.Transaction(ctx, func(txRepo common.Repository[User]) error {
+		// Create user within transaction
+		if err := txRepo.Create(ctx, user); err != nil {
+			return err
 		}
+
+		// Assign RBAC roles - if any fails, the transaction will be rolled back
+		for _, roleCode := range roleCodes {
+			if err := s.rbacSvc.AssignRole(ctx, user.ID, roleCode); err != nil {
+				slog.Error("failed to assign role during registration, rolling back user creation",
+					"role", roleCode, "userID", user.ID, "error", err)
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Internal(domainName, err).WithOperation("Register")
 	}
 
 	// Record metric
