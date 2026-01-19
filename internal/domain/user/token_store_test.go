@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+// redisClientInterface defines the methods used by TokenStore for testing
+type redisClientInterface interface {
+	SetWithExpiry(ctx context.Context, key string, value any, expiry time.Duration) error
+	GetString(ctx context.Context, key string) (string, error)
+	Exists(ctx context.Context, key string) (bool, error)
+	DeleteKey(ctx context.Context, key string) error
+	GetTTL(ctx context.Context, key string) (time.Duration, error)
+}
+
 // mockRedisClient implements a mock Redis client for testing
 type mockRedisClient struct {
 	mu      sync.RWMutex
@@ -98,12 +107,38 @@ func (m *mockRedisClient) GetTTL(ctx context.Context, key string) (time.Duration
 	return ttl, nil
 }
 
-// Helper to create a TokenStore with mock Redis
-func newTestTokenStore(mock *mockRedisClient) *TokenStore {
-	// We need to wrap our mock in a way that TokenStore can use
-	// Since TokenStore expects *redis.Client, we'll need to test via integration
-	// or restructure. For now, we'll test the logic directly.
-	return nil
+// testTokenStore wraps the mock for testing TokenStore logic
+type testTokenStore struct {
+	client redisClientInterface
+}
+
+// newTestTokenStore creates a testable TokenStore with mock Redis
+func newTestTokenStore(mock *mockRedisClient) *testTokenStore {
+	return &testTokenStore{client: mock}
+}
+
+// Blacklist adds a token to the blacklist with an expiry time
+func (s *testTokenStore) Blacklist(ctx context.Context, token string, expiry time.Duration) error {
+	key := TokenBlacklistPrefix + token
+	return s.client.SetWithExpiry(ctx, key, "1", expiry)
+}
+
+// IsBlacklisted checks if a token is blacklisted
+func (s *testTokenStore) IsBlacklisted(ctx context.Context, token string) (bool, error) {
+	key := TokenBlacklistPrefix + token
+	return s.client.Exists(ctx, key)
+}
+
+// Remove removes a token from the blacklist
+func (s *testTokenStore) Remove(ctx context.Context, token string) error {
+	key := TokenBlacklistPrefix + token
+	return s.client.DeleteKey(ctx, key)
+}
+
+// GetTTL returns the remaining TTL of a blacklisted token
+func (s *testTokenStore) GetTTL(ctx context.Context, token string) (time.Duration, error) {
+	key := TokenBlacklistPrefix + token
+	return s.client.GetTTL(ctx, key)
 }
 
 func TestTokenStore_Blacklist(t *testing.T) {

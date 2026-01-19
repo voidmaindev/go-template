@@ -148,7 +148,7 @@ func (s *service) Logout(ctx context.Context, accessToken, refreshToken string) 
 		accessExpiry = s.jwtConfig.AccessTokenExpiry
 	}
 	if err := s.tokenStore.Blacklist(ctx, accessToken, accessExpiry); err != nil {
-		return err
+		return errors.Internal(domainName, err).WithOperation("Logout.BlacklistAccessToken")
 	}
 
 	// Blacklist refresh token if provided (prevents token reuse attack)

@@ -21,8 +21,16 @@ func SetupCustomRecovery(app *fiber.App, isDevelopment bool) {
 	app.Use(func(c *fiber.Ctx) error {
 		defer func() {
 			if r := recover(); r != nil {
-				// Log the panic
-				slog.Error("Panic recovered", "panic", r)
+				// Log the panic with request context for tracing
+				reqID := GetRequestID(c)
+				userID, _ := GetUserIDFromContext(c)
+				slog.Error("Panic recovered",
+					"panic", r,
+					"request_id", reqID,
+					"user_id", userID,
+					"path", c.Path(),
+					"method", c.Method(),
+				)
 
 				if isDevelopment {
 					// In development, log the stack trace

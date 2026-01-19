@@ -88,7 +88,7 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	// Use transaction
 	err = s.repo.Transaction(ctx, func(txRepo common.Repository[Document]) error {
 		if err := txRepo.Create(ctx, doc); err != nil {
-			return err
+			return errors.Internal(domainName, err).WithOperation("Create.Document")
 		}
 
 		// Create items
@@ -101,14 +101,17 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 				Price:      itemReq.Price,
 			}
 			if err := s.itemRepo.Create(ctx, docItem); err != nil {
-				return err
+				return errors.Internal(domainName, err).WithOperation("Create.DocumentItem")
 			}
 			totalAmount += docItem.GetLineTotal()
 		}
 
 		// Update total amount
 		doc.TotalAmount = totalAmount
-		return s.repo.UpdateTotalAmount(ctx, doc.ID, totalAmount)
+		if err := s.repo.UpdateTotalAmount(ctx, doc.ID, totalAmount); err != nil {
+			return errors.Internal(domainName, err).WithOperation("Create.UpdateTotalAmount")
+		}
+		return nil
 	})
 
 	if err != nil {

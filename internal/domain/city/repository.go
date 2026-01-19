@@ -117,7 +117,7 @@ func (r *repository) FindByIDWithCountry(ctx context.Context, id uint) (*City, e
 	err := r.DB().WithContext(ctx).Preload("Country").First(&city, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, common.ErrNotFound
+			return nil, ErrCityNotFound
 		}
 		return nil, err
 	}
