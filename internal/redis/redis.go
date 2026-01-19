@@ -160,7 +160,7 @@ func (c *Client) RateLimitCheck(ctx context.Context, key string, limit int, wind
 	// Lua script for atomic sliding window rate limiting
 	// 1. Remove old entries outside the window
 	// 2. Count current entries
-	// 3. If under limit, add new entry
+	// 3. If under limit, add new entry with unique member
 	// 4. Set expiry on the key
 	script := redis.NewScript(`
 		local key = KEYS[1]
@@ -177,8 +177,9 @@ func (c *Client) RateLimitCheck(ctx context.Context, key string, limit int, wind
 
 		-- Check if under limit
 		if count < limit then
-			-- Add new entry with current timestamp as both score and member
-			redis.call('ZADD', key, now, now)
+			-- Add new entry with unique member to prevent same-millisecond collision
+			local member = now .. ":" .. math.random(1000000)
+			redis.call('ZADD', key, now, member)
 			-- Set expiry to window duration
 			redis.call('PEXPIRE', key, window_ms)
 			return {1, limit - count - 1}

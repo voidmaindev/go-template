@@ -67,6 +67,11 @@ func JWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist) fiber.Handle
 				}
 			}
 
+			// Store user_id in context for rate limiting and other middleware
+			if userIDFloat, ok := claims["user_id"].(float64); ok {
+				c.Locals("user_id", uint(userIDFloat))
+			}
+
 			return c.Next()
 		},
 	})

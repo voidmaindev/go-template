@@ -81,6 +81,11 @@ func applyRelationFilter(db *gorm.DB, config Config, f FilterParam, joinedRelati
 		return db // Not a valid relation
 	}
 
+	// Validate that the field is allowed for this relation (SQL injection protection)
+	if !config.IsRelationFieldAllowed(relationName, fieldName) {
+		return db // Skip disallowed relation fields
+	}
+
 	// Build join table name (pluralize relation name)
 	joinTable := pluralize(strings.ToLower(relationConfig.Relation))
 
@@ -140,6 +145,11 @@ func applySort(db *gorm.DB, config Config, s SortParam) *gorm.DB {
 		relationConfig, ok := config.Fields[relationName]
 		if !ok || relationConfig.Relation == "" {
 			return db
+		}
+
+		// Validate that the field is allowed for this relation (SQL injection protection)
+		if !config.IsRelationFieldAllowed(relationName, fieldName) {
+			return db // Skip disallowed relation fields
 		}
 
 		joinTable := pluralize(strings.ToLower(relationConfig.Relation))

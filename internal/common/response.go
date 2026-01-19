@@ -62,7 +62,7 @@ func ErrorResponse(c *fiber.Ctx, statusCode int, message string) error {
 
 // getRequestID extracts the request ID from the Fiber context.
 func getRequestID(c *fiber.Ctx) string {
-	if id := c.Locals("requestid"); id != nil {
+	if id := c.Locals("request_id"); id != nil {
 		if str, ok := id.(string); ok {
 			return str
 		}

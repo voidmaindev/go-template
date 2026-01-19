@@ -39,8 +39,9 @@ type FieldConfig struct {
 
 // Config holds all filterable/sortable fields for an entity
 type Config struct {
-	TableName string
-	Fields    map[string]FieldConfig
+	TableName             string
+	Fields                map[string]FieldConfig
+	AllowedRelationFields map[string][]string // Maps relation name to allowed field names
 }
 
 // Filterable interface - implement on models to enable filtering
@@ -61,6 +62,25 @@ func (o Operator) IsValid() bool {
 	switch o {
 	case OpEq, OpGt, OpLt, OpGte, OpLte, OpContains, OpStartsWith, OpEndsWith, OpIn, OpIsNull, OpIsNotNull:
 		return true
+	}
+	return false
+}
+
+// IsRelationFieldAllowed checks if a field is allowed for a given relation.
+// Returns true if AllowedRelationFields is not configured (backward compatibility)
+// or if the field is in the allowed list.
+func (c Config) IsRelationFieldAllowed(relationName, fieldName string) bool {
+	if c.AllowedRelationFields == nil {
+		return false // Strict by default - must explicitly allow relation fields
+	}
+	allowedFields, ok := c.AllowedRelationFields[relationName]
+	if !ok {
+		return false // Relation not configured
+	}
+	for _, allowed := range allowedFields {
+		if allowed == fieldName {
+			return true
+		}
 	}
 	return false
 }

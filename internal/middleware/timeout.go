@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/gofiber/fiber/v2/middleware/timeout"
 )
 
 // TimeoutConfig holds timeout middleware configuration.
@@ -28,64 +28,24 @@ func DefaultTimeoutConfig() TimeoutConfig {
 	}
 }
 
-// TimeoutMiddleware creates a middleware that enforces request timeouts.
-// It wraps the request context with a timeout and returns 408 Request Timeout
-// if the handler doesn't complete in time.
-func TimeoutMiddleware(timeout time.Duration) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		// Create a context with timeout
-		ctx, cancel := context.WithTimeout(c.Context(), timeout)
-		defer cancel()
-
-		// Set the timeout context
-		c.SetUserContext(ctx)
-
-		// Create a channel for the handler result
-		done := make(chan error, 1)
-
-		// Run the handler in a goroutine
-		go func() {
-			done <- c.Next()
-		}()
-
-		// Wait for either completion or timeout
-		select {
-		case err := <-done:
-			return err
-		case <-ctx.Done():
-			if ctx.Err() == context.DeadlineExceeded {
-				return common.ErrorResponse(c, fiber.StatusRequestTimeout, "request timeout")
-			}
-			return common.ErrorResponse(c, fiber.StatusServiceUnavailable, "request cancelled")
-		}
-	}
+// TimeoutMiddleware creates a middleware that enforces request timeouts
+// using Fiber's official timeout middleware pattern.
+// Returns 408 Request Timeout when the handler exceeds the timeout.
+func TimeoutMiddleware(t time.Duration) fiber.Handler {
+	return timeout.NewWithContext(func(c *fiber.Ctx) error {
+		return c.Next()
+	}, t)
 }
 
 // TimeoutMiddlewareWithConfig creates a timeout middleware using the provided configuration.
 // It selects the appropriate timeout based on the request path and method.
 func TimeoutMiddlewareWithConfig(cfg TimeoutConfig) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		timeout := selectTimeout(c, cfg)
-
-		ctx, cancel := context.WithTimeout(c.Context(), timeout)
-		defer cancel()
-
-		c.SetUserContext(ctx)
-
-		done := make(chan error, 1)
-		go func() {
-			done <- c.Next()
-		}()
-
-		select {
-		case err := <-done:
-			return err
-		case <-ctx.Done():
-			if ctx.Err() == context.DeadlineExceeded {
-				return common.ErrorResponse(c, fiber.StatusRequestTimeout, "request timeout")
-			}
-			return common.ErrorResponse(c, fiber.StatusServiceUnavailable, "request cancelled")
-		}
+		t := selectTimeout(c, cfg)
+		handler := timeout.NewWithContext(func(c *fiber.Ctx) error {
+			return c.Next()
+		}, t)
+		return handler(c)
 	}
 }
 
