@@ -17,13 +17,19 @@ func AsGormDB(query any) *gorm.DB {
 	return db
 }
 
-// Specification defines a query specification interface
+// Specification defines a generic query specification interface.
+// This interface exists for potential future extensibility to non-GORM databases.
+//
+// NOTE: All implementations in this codebase MUST implement GormSpecification.
+// The Apply(any) method is implemented by delegating to ApplyGorm.
 type Specification interface {
 	// Apply applies the specification to a query
 	Apply(query any) any
 }
 
-// GormSpecification is a specification that works with GORM
+// GormSpecification is the primary specification interface for this codebase.
+// All domain specifications MUST implement this interface.
+// The generic Specification interface is embedded for potential future extensibility.
 type GormSpecification interface {
 	Specification
 	// ApplyGorm applies the specification to a GORM query

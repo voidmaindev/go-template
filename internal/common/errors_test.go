@@ -3,9 +3,12 @@ package common
 import (
 	"errors"
 	"testing"
+
+	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 )
 
 func TestAppError_Error(t *testing.T) {
+	baseErr := errors.New("base error")
 	tests := []struct {
 		name     string
 		appErr   *AppError
@@ -14,7 +17,7 @@ func TestAppError_Error(t *testing.T) {
 		{
 			name: "with message",
 			appErr: &AppError{
-				Err:     ErrNotFound,
+				Err:     baseErr,
 				Message: "user not found",
 			},
 			expected: "user not found",
@@ -22,9 +25,9 @@ func TestAppError_Error(t *testing.T) {
 		{
 			name: "without message, with err",
 			appErr: &AppError{
-				Err: ErrNotFound,
+				Err: baseErr,
 			},
-			expected: "resource not found",
+			expected: "base error",
 		},
 		{
 			name:     "without message and err",
@@ -43,7 +46,7 @@ func TestAppError_Error(t *testing.T) {
 }
 
 func TestAppError_Unwrap(t *testing.T) {
-	originalErr := ErrNotFound
+	originalErr := errors.New("original error")
 	appErr := &AppError{
 		Err:     originalErr,
 		Message: "custom message",
@@ -56,10 +59,11 @@ func TestAppError_Unwrap(t *testing.T) {
 }
 
 func TestNewAppError(t *testing.T) {
-	err := NewAppError(ErrNotFound, "user not found")
+	baseErr := errors.New("test error")
+	err := NewAppError(baseErr, "user not found")
 
-	if err.Err != ErrNotFound {
-		t.Errorf("Err = %v, want %v", err.Err, ErrNotFound)
+	if err.Err != baseErr {
+		t.Errorf("Err = %v, want %v", err.Err, baseErr)
 	}
 	if err.Message != "user not found" {
 		t.Errorf("Message = %q, want %q", err.Message, "user not found")
@@ -67,10 +71,11 @@ func TestNewAppError(t *testing.T) {
 }
 
 func TestNewAppErrorWithCode(t *testing.T) {
-	err := NewAppErrorWithCode(ErrNotFound, "user not found", "USER_NOT_FOUND")
+	baseErr := errors.New("test error")
+	err := NewAppErrorWithCode(baseErr, "user not found", "USER_NOT_FOUND")
 
-	if err.Err != ErrNotFound {
-		t.Errorf("Err = %v, want %v", err.Err, ErrNotFound)
+	if err.Err != baseErr {
+		t.Errorf("Err = %v, want %v", err.Err, baseErr)
 	}
 	if err.Message != "user not found" {
 		t.Errorf("Message = %q, want %q", err.Message, "user not found")
@@ -82,10 +87,11 @@ func TestNewAppErrorWithCode(t *testing.T) {
 
 func TestNewAppErrorWithDetails(t *testing.T) {
 	details := map[string]string{"field": "email"}
-	err := NewAppErrorWithDetails(ErrValidation, "validation failed", details)
+	baseErr := errors.New("validation error")
+	err := NewAppErrorWithDetails(baseErr, "validation failed", details)
 
-	if err.Err != ErrValidation {
-		t.Errorf("Err = %v, want %v", err.Err, ErrValidation)
+	if err.Err != baseErr {
+		t.Errorf("Err = %v, want %v", err.Err, baseErr)
 	}
 	if err.Details == nil {
 		t.Error("Details should not be nil")
@@ -93,6 +99,7 @@ func TestNewAppErrorWithDetails(t *testing.T) {
 }
 
 func TestWrapError(t *testing.T) {
+	baseErr := errors.New("base error")
 	tests := []struct {
 		name     string
 		err      error
@@ -102,7 +109,7 @@ func TestWrapError(t *testing.T) {
 	}{
 		{
 			name:     "wrap non-nil error",
-			err:      ErrNotFound,
+			err:      baseErr,
 			message:  "failed to get user",
 			wantNil:  false,
 			contains: "failed to get user",
@@ -141,9 +148,9 @@ func TestIsNotFoundError(t *testing.T) {
 		err      error
 		expected bool
 	}{
-		{"ErrNotFound", ErrNotFound, true},
-		{"wrapped ErrNotFound", WrapError(ErrNotFound, "user"), true},
-		{"ErrUnauthorized", ErrUnauthorized, false},
+		{"DomainError NotFound", commonerrors.NotFound("test", "resource"), true},
+		{"wrapped DomainError NotFound", WrapError(commonerrors.NotFound("test", "resource"), "context"), true},
+		{"DomainError Unauthorized", commonerrors.Unauthorized("test"), false},
 		{"nil error", nil, false},
 		{"random error", errors.New("random"), false},
 	}
@@ -163,9 +170,9 @@ func TestIsUnauthorizedError(t *testing.T) {
 		err      error
 		expected bool
 	}{
-		{"ErrUnauthorized", ErrUnauthorized, true},
-		{"wrapped ErrUnauthorized", WrapError(ErrUnauthorized, "no token"), true},
-		{"ErrNotFound", ErrNotFound, false},
+		{"DomainError Unauthorized", commonerrors.Unauthorized("test"), true},
+		{"wrapped DomainError Unauthorized", WrapError(commonerrors.Unauthorized("test"), "context"), true},
+		{"DomainError NotFound", commonerrors.NotFound("test", "resource"), false},
 		{"nil error", nil, false},
 	}
 
@@ -184,9 +191,9 @@ func TestIsForbiddenError(t *testing.T) {
 		err      error
 		expected bool
 	}{
-		{"ErrForbidden", ErrForbidden, true},
-		{"wrapped ErrForbidden", WrapError(ErrForbidden, "access denied"), true},
-		{"ErrUnauthorized", ErrUnauthorized, false},
+		{"DomainError Forbidden", commonerrors.Forbidden("test"), true},
+		{"wrapped DomainError Forbidden", WrapError(commonerrors.Forbidden("test"), "context"), true},
+		{"DomainError Unauthorized", commonerrors.Unauthorized("test"), false},
 		{"nil error", nil, false},
 	}
 
@@ -205,9 +212,9 @@ func TestIsValidationError(t *testing.T) {
 		err      error
 		expected bool
 	}{
-		{"ErrValidation", ErrValidation, true},
-		{"wrapped ErrValidation", WrapError(ErrValidation, "invalid email"), true},
-		{"ErrBadRequest", ErrBadRequest, false},
+		{"DomainError Validation", commonerrors.Validation("test", "message"), true},
+		{"wrapped DomainError Validation", WrapError(commonerrors.Validation("test", "invalid email"), "context"), true},
+		{"DomainError NotFound", commonerrors.NotFound("test", "resource"), false},
 		{"nil error", nil, false},
 	}
 
@@ -226,11 +233,11 @@ func TestIsConflictError(t *testing.T) {
 		err      error
 		expected bool
 	}{
-		{"ErrConflict", ErrConflict, true},
-		{"ErrAlreadyExists", ErrAlreadyExists, true},
-		{"wrapped ErrConflict", WrapError(ErrConflict, "duplicate"), true},
-		{"wrapped ErrAlreadyExists", WrapError(ErrAlreadyExists, "email exists"), true},
-		{"ErrNotFound", ErrNotFound, false},
+		{"DomainError Conflict", commonerrors.Conflict("test", "resource"), true},
+		{"DomainError AlreadyExists", commonerrors.AlreadyExists("test", "resource", "email"), true},
+		{"wrapped DomainError Conflict", WrapError(commonerrors.Conflict("test", "duplicate"), "context"), true},
+		{"wrapped DomainError AlreadyExists", WrapError(commonerrors.AlreadyExists("test", "user", "email"), "context"), true},
+		{"DomainError NotFound", commonerrors.NotFound("test", "resource"), false},
 		{"nil error", nil, false},
 	}
 
@@ -244,38 +251,17 @@ func TestIsConflictError(t *testing.T) {
 }
 
 func TestErrorsIs_Integration(t *testing.T) {
-	// Test that standard errors.Is works with our error types
-	appErr := NewAppError(ErrNotFound, "user 123 not found")
+	// Test that standard errors.Is works with DomainError
+	domainErr := commonerrors.NotFound("test", "user 123")
 
-	if !errors.Is(appErr, ErrNotFound) {
-		t.Error("errors.Is should work with AppError")
-	}
-}
-
-func TestCommonErrors_AreDefined(t *testing.T) {
-	// Ensure all common errors are properly defined
-	commonErrors := []error{
-		ErrNotFound,
-		ErrAlreadyExists,
-		ErrInvalidInput,
-		ErrUnauthorized,
-		ErrForbidden,
-		ErrInternalServer,
-		ErrBadRequest,
-		ErrConflict,
-		ErrValidation,
-		ErrInvalidCredentials,
-		ErrTokenExpired,
-		ErrTokenInvalid,
-		ErrTokenBlacklisted,
+	// DomainErrors should be identifiable by type checking
+	if !commonerrors.IsNotFound(domainErr) {
+		t.Error("IsNotFound should identify domain error")
 	}
 
-	for _, err := range commonErrors {
-		if err == nil {
-			t.Error("Common error should not be nil")
-		}
-		if err.Error() == "" {
-			t.Error("Common error message should not be empty")
-		}
+	// Test wrapping
+	wrapped := WrapError(domainErr, "context")
+	if !commonerrors.IsNotFound(wrapped) {
+		t.Error("IsNotFound should work with wrapped domain error")
 	}
 }

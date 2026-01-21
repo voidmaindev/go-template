@@ -134,7 +134,7 @@ Generated files:
 │   │   ├── pagination.go            # Pagination utilities
 │   │   ├── response.go              # HTTP response helpers (with request_id)
 │   │   ├── handler_helpers.go       # Generic handler utilities (ParseAndValidate, ParseID)
-│   │   └── errors.go                # Legacy errors (deprecated, use errors/)
+│   │   └── errors.go                # AppError type and error bridge functions
 │   └── domain/
 │       ├── user/                    # User domain with auth
 │       │   ├── errors.go            # Domain-specific errors

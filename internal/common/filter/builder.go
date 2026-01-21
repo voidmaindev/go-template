@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jinzhu/inflection"
 	"gorm.io/gorm"
 )
 
@@ -183,20 +184,12 @@ func isOperatorAllowed(config FieldConfig, op Operator) bool {
 	return false
 }
 
-// pluralize adds 's' to the end of a word (simple pluralization)
-// For more complex cases, consider using a proper inflection library
+// pluralize converts a singular word to its plural form.
+// Uses jinzhu/inflection for proper English inflection rules
+// including irregular plurals (person->people, child->children).
 func pluralize(word string) string {
 	if word == "" {
 		return word
 	}
-	// Handle common cases
-	switch {
-	case strings.HasSuffix(word, "y"):
-		return word[:len(word)-1] + "ies"
-	case strings.HasSuffix(word, "s"), strings.HasSuffix(word, "x"),
-		strings.HasSuffix(word, "ch"), strings.HasSuffix(word, "sh"):
-		return word + "es"
-	default:
-		return word + "s"
-	}
+	return inflection.Plural(word)
 }

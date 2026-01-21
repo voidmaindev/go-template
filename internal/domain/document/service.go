@@ -11,6 +11,18 @@ import (
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
+// CityReader is the minimal interface for city lookups.
+// Defines only the methods used by the document service.
+type CityReader interface {
+	FindByID(ctx context.Context, id uint) (*city.City, error)
+}
+
+// ItemReader is the minimal interface for item lookups.
+// Defines only the methods used by the document service.
+type ItemReader interface {
+	FindByID(ctx context.Context, id uint) (*item.Item, error)
+}
+
 // Service defines the document service interface
 type Service interface {
 	// Document operations
@@ -30,14 +42,14 @@ type Service interface {
 
 // service implements the Service interface
 type service struct {
-	repo         Repository
-	itemRepo     ItemRepository
-	cityRepo     city.Repository
-	productRepo  item.Repository
+	repo        Repository
+	itemRepo    ItemRepository
+	cityRepo    CityReader
+	productRepo ItemReader
 }
 
 // NewService creates a new document service
-func NewService(repo Repository, itemRepo ItemRepository, cityRepo city.Repository, productRepo item.Repository) Service {
+func NewService(repo Repository, itemRepo ItemRepository, cityRepo CityReader, productRepo ItemReader) Service {
 	return &service{
 		repo:        repo,
 		itemRepo:    itemRepo,

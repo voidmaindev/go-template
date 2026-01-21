@@ -21,7 +21,12 @@ func TestPluralize(t *testing.T) {
 		{"regular word 4", "document", "documents"},
 		{"empty string", "", ""},
 		{"single letter", "a", "as"},
-		{"word with y in middle", "day", "daies"}, // Simple implementation limitation
+		{"word with y after vowel", "day", "days"},
+		// Irregular plurals now correctly handled by inflection library
+		{"irregular person", "person", "people"},
+		{"irregular child", "child", "children"},
+		{"irregular man", "man", "men"},
+		{"irregular woman", "woman", "women"},
 	}
 
 	for _, tt := range tests {
