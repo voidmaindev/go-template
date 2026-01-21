@@ -3,6 +3,7 @@ package health
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"sync"
 	"time"
@@ -158,11 +159,29 @@ func (h *HealthChecker) RegisterCustom(name string, check CheckFunc) {
 }
 
 // MemoryCheck returns a check function for memory usage.
-func MemoryCheck(maxUsagePercent float64) CheckFunc {
+// Note: This is a simplified check that monitors Go heap allocation.
+// For comprehensive system memory monitoring, consider using cgroups metrics
+// or platform-specific APIs.
+//
+// Usage:
+//
+//	checker.Register("memory", MemoryCheck(80.0)) // Alert at 80% heap usage
+func MemoryCheck(maxHeapMB float64) CheckFunc {
 	return func(ctx context.Context) error {
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
-		// This is a simplified check - in production you'd compare against system memory
+
+		// Convert to MB for readability
+		heapAllocMB := float64(m.HeapAlloc) / 1024 / 1024
+
+		// If max is set to 0 or negative, skip the check (monitoring only)
+		if maxHeapMB <= 0 {
+			return nil
+		}
+
+		if heapAllocMB > maxHeapMB {
+			return fmt.Errorf("heap allocation %.2f MB exceeds threshold %.2f MB", heapAllocMB, maxHeapMB)
+		}
 		return nil
 	}
 }

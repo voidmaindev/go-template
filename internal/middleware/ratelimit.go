@@ -37,8 +37,11 @@ const (
 // RateLimiterFactoryKey is the typed container key for the rate limiter factory
 var RateLimiterFactoryKey = container.Key[*RateLimiterFactory]("middleware.rateLimiterFactory")
 
-// userIDKey is the key used to store user ID in Fiber locals (set by JWT middleware)
-const userIDKey = "user_id"
+// contextKey is a typed key for context/locals values to avoid collisions
+type contextKey string
+
+// UserIDKey is the typed key for storing user ID in Fiber locals (set by JWT middleware)
+const UserIDKey contextKey = "user_id"
 
 // RateLimiterFactory creates rate limiters with shared Redis connection and config
 type RateLimiterFactory struct {
@@ -137,7 +140,7 @@ func (f *RateLimiterFactory) generateKey(c *fiber.Ctx, tier string) string {
 	}
 
 	// For authenticated endpoints, include user ID if available
-	userID := c.Locals(userIDKey)
+	userID := c.Locals(UserIDKey)
 	if userID != nil {
 		if uid, ok := userID.(uint); ok && uid > 0 {
 			return "ratelimit:" + tier + ":" + strconv.FormatUint(uint64(uid), 10) + ":" + ip

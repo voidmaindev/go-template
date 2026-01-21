@@ -228,7 +228,7 @@ func TestRateLimiterFactory_GenerateKey_Authenticated(t *testing.T) {
 
 	// Simulate authenticated user
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals(userIDKey, uint(123))
+		c.Locals(UserIDKey, uint(123))
 		return c.Next()
 	})
 	app.Use(func(c *fiber.Ctx) error {

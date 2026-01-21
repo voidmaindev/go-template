@@ -37,7 +37,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		if errors.Is(err, ErrCountryNotFound) {
 			return common.BadRequestResponse(c, "country not found")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.CreatedResponse(c, city.ToResponse())
@@ -55,7 +55,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 		if errors.Is(err, ErrCityNotFound) {
 			return common.NotFoundResponse(c, "city")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, city.ToResponse())
@@ -85,7 +85,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		if errors.Is(err, ErrCountryNotFound) {
 			return common.BadRequestResponse(c, "country not found")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, city.ToResponse())
@@ -102,7 +102,7 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		if errors.Is(err, ErrCityNotFound) {
 			return common.NotFoundResponse(c, "city")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.DeletedResponse(c)
@@ -114,7 +114,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 	result, err := h.service.ListFiltered(c.Context(), params)
 	if err != nil {
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	responses := make([]CityResponse, len(result.Data))
@@ -139,7 +139,7 @@ func (h *Handler) ListByCountry(c *fiber.Ctx) error {
 		if errors.Is(err, ErrCountryNotFound) {
 			return common.NotFoundResponse(c, "country")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	responses := make([]CityResponse, len(result.Data))

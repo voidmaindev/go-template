@@ -7,21 +7,42 @@ import (
 	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 )
 
-// Common application errors
+// Legacy application errors.
+// Deprecated: Use the typed DomainError system from internal/common/errors package instead.
+// These are kept for backward compatibility. New code should use:
+//   - errors.NotFound(domain, resource) instead of ErrNotFound
+//   - errors.AlreadyExists(domain, resource) instead of ErrAlreadyExists
+//   - errors.Validation(domain, message) instead of ErrValidation
+//   - errors.Unauthorized(domain, message) instead of ErrUnauthorized
+//   - errors.Forbidden(domain, message) instead of ErrForbidden
+//   - errors.Internal(domain, err) instead of ErrInternalServer
 var (
-	ErrNotFound          = errors.New("resource not found")
-	ErrAlreadyExists     = errors.New("resource already exists")
-	ErrInvalidInput      = errors.New("invalid input")
-	ErrUnauthorized      = errors.New("unauthorized")
-	ErrForbidden         = errors.New("forbidden")
-	ErrInternalServer    = errors.New("internal server error")
-	ErrBadRequest        = errors.New("bad request")
-	ErrConflict          = errors.New("conflict")
-	ErrValidation        = errors.New("validation error")
+	// Deprecated: Use errors.NotFound() instead
+	ErrNotFound = errors.New("resource not found")
+	// Deprecated: Use errors.AlreadyExists() instead
+	ErrAlreadyExists = errors.New("resource already exists")
+	// Deprecated: Use errors.Validation() instead
+	ErrInvalidInput = errors.New("invalid input")
+	// Deprecated: Use errors.Unauthorized() instead
+	ErrUnauthorized = errors.New("unauthorized")
+	// Deprecated: Use errors.Forbidden() instead
+	ErrForbidden = errors.New("forbidden")
+	// Deprecated: Use errors.Internal() instead
+	ErrInternalServer = errors.New("internal server error")
+	// Deprecated: Use errors.Validation() instead
+	ErrBadRequest = errors.New("bad request")
+	// Deprecated: Use errors.Conflict() instead
+	ErrConflict = errors.New("conflict")
+	// Deprecated: Use errors.Validation() instead
+	ErrValidation = errors.New("validation error")
+	// Deprecated: Use errors.Unauthorized() with appropriate message instead
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrTokenExpired      = errors.New("token expired")
-	ErrTokenInvalid      = errors.New("invalid token")
-	ErrTokenBlacklisted  = errors.New("token has been revoked")
+	// Deprecated: Use errors.Unauthorized() with appropriate message instead
+	ErrTokenExpired = errors.New("token expired")
+	// Deprecated: Use errors.Unauthorized() with appropriate message instead
+	ErrTokenInvalid = errors.New("invalid token")
+	// Deprecated: Use errors.Unauthorized() with appropriate message instead
+	ErrTokenBlacklisted = errors.New("token has been revoked")
 )
 
 // AppError represents an application error with additional context

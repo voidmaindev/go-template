@@ -66,19 +66,21 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := HandlerKey.MustGet(c)
 	tokenStore := user.TokenStoreKey.MustGet(c)
 	enforcer := rbac.EnforcerKey.MustGet(c)
+	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
 	documents := api.Group("/documents", middleware.JWTMiddleware(jwtConfig, tokenStore))
 
-	// Document operations
-	documents.Get("/", middleware.RequirePermission(enforcer, "document", rbac.ActionRead), handler.List)
-	documents.Get("/:id", middleware.RequirePermission(enforcer, "document", rbac.ActionRead), handler.GetByID)
-	documents.Post("/", middleware.RequirePermission(enforcer, "document", rbac.ActionWrite), handler.Create)
-	documents.Put("/:id", middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.Update)
-	documents.Delete("/:id", middleware.RequirePermission(enforcer, "document", rbac.ActionDelete), handler.Delete)
+	// Document operations - GET endpoints (api_read tier)
+	documents.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "document", rbac.ActionRead), handler.List)
+	documents.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "document", rbac.ActionRead), handler.GetByID)
+	// Document operations - Write endpoints (api_write tier)
+	documents.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "document", rbac.ActionWrite), handler.Create)
+	documents.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.Update)
+	documents.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "document", rbac.ActionDelete), handler.Delete)
 
-	// Document items
-	documents.Post("/:id/items", middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.AddItem)
-	documents.Put("/:id/items/:itemId", middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.UpdateItem)
-	documents.Delete("/:id/items/:itemId", middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.RemoveItem)
+	// Document items (api_write tier - all are mutations)
+	documents.Post("/:id/items", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.AddItem)
+	documents.Put("/:id/items/:itemId", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.UpdateItem)
+	documents.Delete("/:id/items/:itemId", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "document", rbac.ActionModify), handler.RemoveItem)
 }

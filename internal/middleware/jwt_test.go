@@ -305,7 +305,7 @@ func TestOptionalJWTMiddleware_WithToken(t *testing.T) {
 	app := fiber.New()
 	app.Use(OptionalJWTMiddleware(cfg))
 	app.Get("/optional", func(c *fiber.Ctx) error {
-		userID := c.Locals("user_id")
+		userID := c.Locals(UserIDKey)
 		if userID == nil {
 			return c.JSON(fiber.Map{"authenticated": false})
 		}
@@ -334,7 +334,7 @@ func TestOptionalJWTMiddleware_WithoutToken(t *testing.T) {
 	app := fiber.New()
 	app.Use(OptionalJWTMiddleware(cfg))
 	app.Get("/optional", func(c *fiber.Ctx) error {
-		userID := c.Locals("user_id")
+		userID := c.Locals(UserIDKey)
 		if userID == nil {
 			return c.JSON(fiber.Map{"authenticated": false})
 		}
@@ -361,7 +361,7 @@ func TestOptionalJWTMiddleware_InvalidToken(t *testing.T) {
 	app := fiber.New()
 	app.Use(OptionalJWTMiddleware(cfg))
 	app.Get("/optional", func(c *fiber.Ctx) error {
-		userID := c.Locals("user_id")
+		userID := c.Locals(UserIDKey)
 		if userID == nil {
 			return c.JSON(fiber.Map{"authenticated": false})
 		}

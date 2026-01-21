@@ -219,7 +219,9 @@ func NewPaginatedResult[T any](data []T, total int64, pagination *Pagination) *P
 	}
 }
 
-// FilteredResult wraps filtered data with metadata
+// FilteredResult wraps filtered data with metadata.
+// Deprecated: Use PaginatedResult instead. This type is kept for backward compatibility
+// and is structurally identical to PaginatedResult.
 type FilteredResult[T any] struct {
 	Data       []T   `json:"data"`
 	Total      int64 `json:"total"`

@@ -1,6 +1,10 @@
 package validation
 
-import "context"
+import (
+	"context"
+	"strconv"
+	"strings"
+)
 
 // Builder allows composing validations
 type Builder struct {
@@ -107,7 +111,7 @@ func (b *Builder) Required(field string, value any) *Builder {
 // MinLength validates minimum string length
 func (b *Builder) MinLength(field, value string, min int) *Builder {
 	if len(value) < min {
-		b.result.AddError(field, "TOO_SHORT", "must be at least "+itoa(min)+" characters")
+		b.result.AddError(field, "TOO_SHORT", "must be at least "+strconv.Itoa(min)+" characters")
 	}
 	return b
 }
@@ -115,7 +119,7 @@ func (b *Builder) MinLength(field, value string, min int) *Builder {
 // MaxLength validates maximum string length
 func (b *Builder) MaxLength(field, value string, max int) *Builder {
 	if len(value) > max {
-		b.result.AddError(field, "TOO_LONG", "must be at most "+itoa(max)+" characters")
+		b.result.AddError(field, "TOO_LONG", "must be at most "+strconv.Itoa(max)+" characters")
 	}
 	return b
 }
@@ -123,7 +127,7 @@ func (b *Builder) MaxLength(field, value string, max int) *Builder {
 // Range validates numeric range
 func (b *Builder) Range(field string, value, min, max int) *Builder {
 	if value < min || value > max {
-		b.result.AddError(field, "OUT_OF_RANGE", "must be between "+itoa(min)+" and "+itoa(max))
+		b.result.AddError(field, "OUT_OF_RANGE", "must be between "+strconv.Itoa(min)+" and "+strconv.Itoa(max))
 	}
 	return b
 }
@@ -135,7 +139,7 @@ func (b *Builder) OneOf(field, value string, allowed []string) *Builder {
 			return b
 		}
 	}
-	b.result.AddError(field, "INVALID_CHOICE", "must be one of: "+joinStrings(allowed, ", "))
+	b.result.AddError(field, "INVALID_CHOICE", "must be one of: "+strings.Join(allowed, ", "))
 	return b
 }
 
@@ -175,37 +179,3 @@ func (b *Builder) Errors() []FieldError {
 	return b.result.Errors()
 }
 
-// itoa converts int to string without importing strconv
-func itoa(i int) string {
-	if i == 0 {
-		return "0"
-	}
-
-	var s string
-	negative := i < 0
-	if negative {
-		i = -i
-	}
-
-	for i > 0 {
-		s = string(rune('0'+i%10)) + s
-		i /= 10
-	}
-
-	if negative {
-		s = "-" + s
-	}
-	return s
-}
-
-// joinStrings joins strings with separator
-func joinStrings(strs []string, sep string) string {
-	if len(strs) == 0 {
-		return ""
-	}
-	result := strs[0]
-	for i := 1; i < len(strs); i++ {
-		result += sep + strs[i]
-	}
-	return result
-}

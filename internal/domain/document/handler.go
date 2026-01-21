@@ -42,7 +42,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		case errors.Is(err, ErrItemNotFound):
 			return common.BadRequestResponse(c, "one or more items not found")
 		default:
-			return common.InternalServerErrorResponse(c)
+			return common.HandleError(c, err)
 		}
 	}
 
@@ -61,7 +61,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 		if errors.Is(err, ErrDocumentNotFound) {
 			return common.NotFoundResponse(c, "document")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, doc.ToResponse())
@@ -93,7 +93,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		case errors.Is(err, ErrCityNotFound):
 			return common.BadRequestResponse(c, "city not found")
 		default:
-			return common.InternalServerErrorResponse(c)
+			return common.HandleError(c, err)
 		}
 	}
 
@@ -111,7 +111,7 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		if errors.Is(err, ErrDocumentNotFound) {
 			return common.NotFoundResponse(c, "document")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.DeletedResponse(c)
@@ -123,7 +123,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 	result, err := h.service.ListFiltered(c.Context(), params)
 	if err != nil {
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	responses := make([]DocumentResponse, len(result.Data))
@@ -158,7 +158,7 @@ func (h *Handler) AddItem(c *fiber.Ctx) error {
 		case errors.Is(err, ErrItemNotFound):
 			return common.BadRequestResponse(c, "item not found")
 		default:
-			return common.InternalServerErrorResponse(c)
+			return common.HandleError(c, err)
 		}
 	}
 
@@ -194,7 +194,7 @@ func (h *Handler) UpdateItem(c *fiber.Ctx) error {
 		case errors.Is(err, ErrDocumentItemNotFound):
 			return common.NotFoundResponse(c, "document item")
 		default:
-			return common.InternalServerErrorResponse(c)
+			return common.HandleError(c, err)
 		}
 	}
 
@@ -220,7 +220,7 @@ func (h *Handler) RemoveItem(c *fiber.Ctx) error {
 		case errors.Is(err, ErrDocumentItemNotFound):
 			return common.NotFoundResponse(c, "document item")
 		default:
-			return common.InternalServerErrorResponse(c)
+			return common.HandleError(c, err)
 		}
 	}
 

@@ -59,16 +59,19 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := HandlerKey.MustGet(c)
 	tokenStore := user.TokenStoreKey.MustGet(c)
 	enforcer := rbac.EnforcerKey.MustGet(c)
+	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
 	cities := api.Group("/cities", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	cities.Get("/", middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.List)
-	cities.Get("/:id", middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.GetByID)
-	cities.Post("/", middleware.RequirePermission(enforcer, "city", rbac.ActionWrite), handler.Create)
-	cities.Put("/:id", middleware.RequirePermission(enforcer, "city", rbac.ActionModify), handler.Update)
-	cities.Delete("/:id", middleware.RequirePermission(enforcer, "city", rbac.ActionDelete), handler.Delete)
+	// GET endpoints - api_read tier (200 req/min)
+	cities.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.List)
+	cities.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.GetByID)
+	// Write endpoints - api_write tier (60 req/min)
+	cities.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionWrite), handler.Create)
+	cities.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionModify), handler.Update)
+	cities.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionDelete), handler.Delete)
 
 	// Nested route for cities by country (uses city read permission)
 	countries := api.Group("/countries", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	countries.Get("/:countryId/cities", middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.ListByCountry)
+	countries.Get("/:countryId/cities", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.ListByCountry)
 }

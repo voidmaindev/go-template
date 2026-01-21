@@ -55,12 +55,15 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := HandlerKey.MustGet(c)
 	tokenStore := user.TokenStoreKey.MustGet(c)
 	enforcer := rbac.EnforcerKey.MustGet(c)
+	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
 	countries := api.Group("/countries", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	countries.Get("/", middleware.RequirePermission(enforcer, "country", rbac.ActionRead), handler.List)
-	countries.Get("/:id", middleware.RequirePermission(enforcer, "country", rbac.ActionRead), handler.GetByID)
-	countries.Post("/", middleware.RequirePermission(enforcer, "country", rbac.ActionWrite), handler.Create)
-	countries.Put("/:id", middleware.RequirePermission(enforcer, "country", rbac.ActionModify), handler.Update)
-	countries.Delete("/:id", middleware.RequirePermission(enforcer, "country", rbac.ActionDelete), handler.Delete)
+	// GET endpoints - api_read tier (200 req/min)
+	countries.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "country", rbac.ActionRead), handler.List)
+	countries.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "country", rbac.ActionRead), handler.GetByID)
+	// Write endpoints - api_write tier (60 req/min)
+	countries.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "country", rbac.ActionWrite), handler.Create)
+	countries.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "country", rbac.ActionModify), handler.Update)
+	countries.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "country", rbac.ActionDelete), handler.Delete)
 }

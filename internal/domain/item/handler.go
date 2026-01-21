@@ -34,7 +34,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 	item, err := h.service.Create(c.Context(), &req)
 	if err != nil {
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.CreatedResponse(c, item.ToResponse())
@@ -52,7 +52,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 		if errors.Is(err, ErrItemNotFound) {
 			return common.NotFoundResponse(c, "item")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, item.ToResponse())
@@ -79,7 +79,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		if errors.Is(err, ErrItemNotFound) {
 			return common.NotFoundResponse(c, "item")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, item.ToResponse())
@@ -96,7 +96,7 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		if errors.Is(err, ErrItemNotFound) {
 			return common.NotFoundResponse(c, "item")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.DeletedResponse(c)
@@ -108,7 +108,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 	result, err := h.service.ListFiltered(c.Context(), params)
 	if err != nil {
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	// Convert to response DTOs

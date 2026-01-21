@@ -69,7 +69,7 @@ func JWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist) fiber.Handle
 
 			// Store user_id in context for rate limiting and other middleware
 			if userIDFloat, ok := claims["user_id"].(float64); ok {
-				c.Locals("user_id", uint(userIDFloat))
+				c.Locals(UserIDKey, uint(userIDFloat))
 			}
 
 			return c.Next()
@@ -92,7 +92,7 @@ func OptionalJWTMiddleware(cfg *config.JWTConfig) fiber.Handler {
 		}
 
 		// Store claims in context
-		c.Locals("user_id", claims.UserID)
+		c.Locals(UserIDKey, claims.UserID)
 		c.Locals("email", claims.Email)
 		c.Locals("claims", claims)
 

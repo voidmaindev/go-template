@@ -388,6 +388,34 @@ func (s TrueSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
 }
 
 // ================================
+// Common Field Specifications
+// ================================
+
+// ByName creates a specification for exact name match.
+// This is a convenience wrapper around ByField for the common "name" field.
+func ByName(name string) FieldSpec {
+	return ByField("name", name)
+}
+
+// ByNameContains creates a specification for name containing a substring.
+// This is a convenience wrapper around ByFieldContains for the common "name" field.
+func ByNameContains(name string) FieldContainsSpec {
+	return ByFieldContains("name", name)
+}
+
+// ByCode creates a specification for exact code match.
+// This is a convenience wrapper around ByField for the common "code" field.
+func ByCode(code string) FieldSpec {
+	return ByField("code", code)
+}
+
+// ByEmail creates a specification for exact email match.
+// This is a convenience wrapper around ByField for the common "email" field.
+func ByEmail(email string) FieldSpec {
+	return ByField("email", email)
+}
+
+// ================================
 // Helper to apply specification
 // ================================
 
