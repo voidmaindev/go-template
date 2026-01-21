@@ -39,6 +39,9 @@ func (Document) FilterConfig() filter.Config {
 			"updated_at":    {DBColumn: "updated_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
 			"city":          {Relation: "City", RelationFK: "city_id"},
 		},
+		AllowedRelationFields: map[string][]string{
+			"city": {"id", "name", "country_id"}, // Whitelist: only these fields can be filtered/sorted
+		},
 	}
 }
 
@@ -79,6 +82,9 @@ func (DocumentItem) FilterConfig() filter.Config {
 			"created_at":  {DBColumn: "created_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
 			"updated_at":  {DBColumn: "updated_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
 			"item":        {Relation: "Item", RelationFK: "item_id"},
+		},
+		AllowedRelationFields: map[string][]string{
+			"item": {"id", "name", "code", "price"}, // Whitelist: only these fields can be filtered/sorted
 		},
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // AsGormDB safely asserts query to *gorm.DB with a descriptive panic message.
@@ -67,7 +68,8 @@ func (s FieldSpec) Apply(query any) any {
 }
 
 func (s FieldSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field+" = ?", s.Value)
+	// Use GORM's map-based Where which properly handles column names (SQL-injection safe)
+	return db.Where(map[string]any{s.Field: s.Value})
 }
 
 // FieldContainsSpec finds by field containing value
@@ -86,7 +88,11 @@ func (s FieldContainsSpec) Apply(query any) any {
 }
 
 func (s FieldContainsSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field+" LIKE ?", "%"+s.Value+"%")
+	// Use clause builder for LIKE operations (SQL-injection safe)
+	return db.Where(clause.Like{
+		Column: clause.Column{Name: s.Field},
+		Value:  "%" + s.Value + "%",
+	})
 }
 
 // FieldInSpec finds by field in list
@@ -105,7 +111,9 @@ func (s FieldInSpec) Apply(query any) any {
 }
 
 func (s FieldInSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field+" IN ?", s.Values)
+	// Use clause.Eq with IN expression (SQL-injection safe)
+	// GORM's map-based Where with slice values creates IN clause
+	return db.Where(map[string]any{s.Field: s.Values})
 }
 
 // ================================
@@ -210,7 +218,11 @@ func (s FieldGTSpec) Apply(query any) any {
 }
 
 func (s FieldGTSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field+" > ?", s.Value)
+	// Use clause.Gt for safe greater than operations (SQL-injection safe)
+	return db.Where(clause.Gt{
+		Column: clause.Column{Name: s.Field},
+		Value:  s.Value,
+	})
 }
 
 // FieldGTESpec finds by field greater than or equal
@@ -229,7 +241,11 @@ func (s FieldGTESpec) Apply(query any) any {
 }
 
 func (s FieldGTESpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field+" >= ?", s.Value)
+	// Use clause.Gte for safe greater than or equal operations (SQL-injection safe)
+	return db.Where(clause.Gte{
+		Column: clause.Column{Name: s.Field},
+		Value:  s.Value,
+	})
 }
 
 // FieldLTSpec finds by field less than value
@@ -248,7 +264,11 @@ func (s FieldLTSpec) Apply(query any) any {
 }
 
 func (s FieldLTSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field+" < ?", s.Value)
+	// Use clause.Lt for safe less than operations (SQL-injection safe)
+	return db.Where(clause.Lt{
+		Column: clause.Column{Name: s.Field},
+		Value:  s.Value,
+	})
 }
 
 // FieldLTESpec finds by field less than or equal
@@ -267,7 +287,11 @@ func (s FieldLTESpec) Apply(query any) any {
 }
 
 func (s FieldLTESpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field+" <= ?", s.Value)
+	// Use clause.Lte for safe less than or equal operations (SQL-injection safe)
+	return db.Where(clause.Lte{
+		Column: clause.Column{Name: s.Field},
+		Value:  s.Value,
+	})
 }
 
 // FieldBetweenSpec finds by field between two values
@@ -287,7 +311,12 @@ func (s FieldBetweenSpec) Apply(query any) any {
 }
 
 func (s FieldBetweenSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field+" BETWEEN ? AND ?", s.Min, s.Max)
+	// Use clause expressions for safe BETWEEN operations (SQL-injection safe)
+	col := clause.Column{Name: s.Field}
+	return db.Where(clause.And(
+		clause.Gte{Column: col, Value: s.Min},
+		clause.Lte{Column: col, Value: s.Max},
+	))
 }
 
 // ================================
@@ -309,7 +338,11 @@ func (s FieldNullSpec) Apply(query any) any {
 }
 
 func (s FieldNullSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field + " IS NULL")
+	// Use clause.Eq with nil for safe IS NULL operations (SQL-injection safe)
+	return db.Where(clause.Eq{
+		Column: clause.Column{Name: s.Field},
+		Value:  nil,
+	})
 }
 
 // FieldNotNullSpec finds by field not being null
@@ -327,7 +360,11 @@ func (s FieldNotNullSpec) Apply(query any) any {
 }
 
 func (s FieldNotNullSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
-	return db.Where(s.Field + " IS NOT NULL")
+	// Use clause.Neq with nil for safe IS NOT NULL operations (SQL-injection safe)
+	return db.Where(clause.Neq{
+		Column: clause.Column{Name: s.Field},
+		Value:  nil,
+	})
 }
 
 // ================================

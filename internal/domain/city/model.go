@@ -31,5 +31,8 @@ func (City) FilterConfig() filter.Config {
 			"updated_at": {DBColumn: "updated_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
 			"country":    {Relation: "Country", RelationFK: "country_id"},
 		},
+		AllowedRelationFields: map[string][]string{
+			"country": {"id", "name", "code"}, // Whitelist: only these fields can be filtered/sorted
+		},
 	}
 }
