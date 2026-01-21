@@ -11,16 +11,17 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	App       AppConfig       `mapstructure:"app"`
-	Server    ServerConfig    `mapstructure:"server"`
-	Database  DatabaseConfig  `mapstructure:"database"`
-	Redis     RedisConfig     `mapstructure:"redis"`
-	JWT       JWTConfig       `mapstructure:"jwt"`
-	CORS      CORSConfig      `mapstructure:"cors"`
-	Telemetry TelemetryConfig `mapstructure:"telemetry"`
-	Seed      SeedConfig      `mapstructure:"seed"`
-	RBAC      RBACConfig      `mapstructure:"rbac"`
-	RateLimit RateLimitConfig `mapstructure:"ratelimit"`
+	App        AppConfig        `mapstructure:"app"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Redis      RedisConfig      `mapstructure:"redis"`
+	JWT        JWTConfig        `mapstructure:"jwt"`
+	CORS       CORSConfig       `mapstructure:"cors"`
+	Telemetry  TelemetryConfig  `mapstructure:"telemetry"`
+	Seed       SeedConfig       `mapstructure:"seed"`
+	RBAC       RBACConfig       `mapstructure:"rbac"`
+	RateLimit  RateLimitConfig  `mapstructure:"ratelimit"`
+	Pagination PaginationConfig `mapstructure:"pagination"`
 }
 
 // AppConfig holds application-level configuration
@@ -111,6 +112,12 @@ type RateLimitConfig struct {
 	APIReadLimit   int  `mapstructure:"api_read_limit"`   // GET operations
 	GlobalLimit    int  `mapstructure:"global_limit"`     // Fallback catch-all
 	WindowSeconds  int  `mapstructure:"window_seconds"`   // Rate limit window in seconds
+}
+
+// PaginationConfig holds pagination defaults
+type PaginationConfig struct {
+	DefaultPageSize int `mapstructure:"default_page_size"` // Default items per page
+	MaxPageSize     int `mapstructure:"max_page_size"`     // Maximum allowed page size
 }
 
 // Load loads configuration from config file and environment variables
@@ -246,6 +253,10 @@ func setDefaults() {
 	viper.SetDefault("ratelimit.api_read_limit", 200)  // 200 requests/min for GET
 	viper.SetDefault("ratelimit.global_limit", 1000)   // 1000 requests/min fallback
 	viper.SetDefault("ratelimit.window_seconds", 60)   // 1 minute window
+
+	// Pagination defaults
+	viper.SetDefault("pagination.default_page_size", 10)  // Default items per page
+	viper.SetDefault("pagination.max_page_size", 100)     // Maximum allowed page size
 }
 
 // bindEnvVars binds environment variables to viper keys
@@ -320,6 +331,10 @@ func bindEnvVars() {
 	viper.BindEnv("ratelimit.api_read_limit", "RATELIMIT_API_READ_LIMIT")
 	viper.BindEnv("ratelimit.global_limit", "RATELIMIT_GLOBAL_LIMIT")
 	viper.BindEnv("ratelimit.window_seconds", "RATELIMIT_WINDOW_SECONDS")
+
+	// Pagination
+	viper.BindEnv("pagination.default_page_size", "PAGINATION_DEFAULT_PAGE_SIZE")
+	viper.BindEnv("pagination.max_page_size", "PAGINATION_MAX_PAGE_SIZE")
 }
 
 // DSN returns the PostgreSQL connection string

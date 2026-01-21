@@ -115,14 +115,21 @@ func extractToken(c *fiber.Ctx) string {
 	return parts[1]
 }
 
-// GetUserIDFromContext extracts the user ID from the Fiber context
-func GetUserIDFromContext(c *fiber.Ctx) (uint, bool) {
+// getClaimsFromToken is a helper that extracts MapClaims from the JWT token stored in context.
+// This avoids duplicating the same type assertion logic across multiple functions.
+func getClaimsFromToken(c *fiber.Ctx) (jwt.MapClaims, bool) {
 	user, ok := c.Locals("user").(*jwt.Token)
-	if !ok {
-		return 0, false
+	if !ok || user == nil {
+		return nil, false
 	}
 
 	claims, ok := user.Claims.(jwt.MapClaims)
+	return claims, ok
+}
+
+// GetUserIDFromContext extracts the user ID from the Fiber context
+func GetUserIDFromContext(c *fiber.Ctx) (uint, bool) {
+	claims, ok := getClaimsFromToken(c)
 	if !ok {
 		return 0, false
 	}
@@ -137,12 +144,7 @@ func GetUserIDFromContext(c *fiber.Ctx) (uint, bool) {
 
 // GetEmailFromContext extracts the email from the Fiber context
 func GetEmailFromContext(c *fiber.Ctx) (string, bool) {
-	user, ok := c.Locals("user").(*jwt.Token)
-	if !ok {
-		return "", false
-	}
-
-	claims, ok := user.Claims.(jwt.MapClaims)
+	claims, ok := getClaimsFromToken(c)
 	if !ok {
 		return "", false
 	}
@@ -153,13 +155,7 @@ func GetEmailFromContext(c *fiber.Ctx) (string, bool) {
 
 // GetClaimsFromContext extracts all claims from the Fiber context
 func GetClaimsFromContext(c *fiber.Ctx) (jwt.MapClaims, bool) {
-	user, ok := c.Locals("user").(*jwt.Token)
-	if !ok {
-		return nil, false
-	}
-
-	claims, ok := user.Claims.(jwt.MapClaims)
-	return claims, ok
+	return getClaimsFromToken(c)
 }
 
 // GetTokenFromContext extracts the raw token string from the Fiber context

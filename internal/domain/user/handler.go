@@ -53,7 +53,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		if errors.Is(err, ErrEmailExists) {
 			return common.ConflictResponse(c, "email already exists")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.CreatedResponse(c, response)
@@ -86,7 +86,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		if errors.Is(err, ErrInvalidCredentials) {
 			return common.UnauthorizedResponse(c, "invalid email or password")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, response)
@@ -111,7 +111,7 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	_ = c.BodyParser(&req) // Ignore error - refresh token is optional
 
 	if err := h.service.Logout(c.Context(), accessToken, req.RefreshToken); err != nil {
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponseWithMessage(c, "logged out successfully", nil)
@@ -147,7 +147,7 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 		if errors.Is(err, ErrTokenRefreshUnavailable) {
 			return common.ServiceUnavailableResponse(c, "token refresh temporarily unavailable")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, response)
@@ -172,7 +172,7 @@ func (h *Handler) GetMe(c *fiber.Ctx) error {
 		if errors.Is(err, ErrUserNotFound) {
 			return common.NotFoundResponse(c, "user")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, user.ToResponse())
@@ -210,7 +210,7 @@ func (h *Handler) UpdateMe(c *fiber.Ctx) error {
 		if errors.Is(err, ErrUserNotFound) {
 			return common.NotFoundResponse(c, "user")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, user.ToResponse())
@@ -260,7 +260,7 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 		case errors.Is(err, ErrSamePassword):
 			return common.BadRequestResponse(c, "new password must be different")
 		default:
-			return common.InternalServerErrorResponse(c)
+			return common.HandleError(c, err)
 		}
 	}
 
@@ -297,7 +297,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 		if errors.Is(err, ErrUserNotFound) {
 			return common.NotFoundResponse(c, "user")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, user.ToResponse())
@@ -326,7 +326,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 	result, err := h.service.ListFiltered(c.Context(), params)
 	if err != nil {
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	// Convert to response DTOs
@@ -370,7 +370,7 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		if errors.Is(err, ErrUserNotFound) {
 			return common.NotFoundResponse(c, "user")
 		}
-		return common.InternalServerErrorResponse(c)
+		return common.HandleError(c, err)
 	}
 
 	return common.DeletedResponse(c)

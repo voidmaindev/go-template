@@ -270,7 +270,7 @@ func (s *service) UpdateRolePermissions(ctx context.Context, code string, req *U
 	}, nil
 }
 
-// DeleteRole deletes a role
+// DeleteRole deletes a role atomically with rollback support
 func (s *service) DeleteRole(ctx context.Context, code string) error {
 	role, err := s.repo.FindByCode(ctx, code)
 	if err != nil {
@@ -285,18 +285,54 @@ func (s *service) DeleteRole(ctx context.Context, code string) error {
 		return ErrSystemRoleCannotBeDeleted
 	}
 
-	// Remove all policies for this role
-	s.enforcer.RemoveFilteredPolicy(0, code)
+	// Capture existing policies for rollback
+	existingPolicies, _ := s.enforcer.GetFilteredPolicy(0, code)
+	existingGroupings, _ := s.enforcer.GetFilteredGroupingPolicy(1, code)
 
-	// Remove all user-role assignments
-	s.enforcer.RemoveFilteredGroupingPolicy(1, code)
+	// Use transaction for atomicity
+	err = s.repo.Transaction(ctx, func(txRepo common.Repository[Role]) error {
+		// Remove all policies for this role
+		if _, err := s.enforcer.RemoveFilteredPolicy(0, code); err != nil {
+			return err
+		}
 
-	if err := s.enforcer.SavePolicy(); err != nil {
-		return errors.Internal(domainName, err).WithOperation("DeleteRole.SavePolicy")
-	}
+		// Remove all user-role assignments
+		if _, err := s.enforcer.RemoveFilteredGroupingPolicy(1, code); err != nil {
+			return err
+		}
 
-	// Delete role metadata
-	if err := s.repo.Delete(ctx, role.ID); err != nil {
+		// Save policy changes
+		if err := s.enforcer.SavePolicy(); err != nil {
+			return err
+		}
+
+		// Delete role metadata within transaction
+		if err := txRepo.Delete(ctx, role.ID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		// Rollback: restore policies and groupings
+		for _, policy := range existingPolicies {
+			if len(policy) >= 3 {
+				s.enforcer.AddPolicy(policy[0], policy[1], policy[2])
+			}
+		}
+		for _, grouping := range existingGroupings {
+			if len(grouping) >= 2 {
+				s.enforcer.AddGroupingPolicy(grouping[0], grouping[1])
+			}
+		}
+		// Best effort save of restored state
+		if saveErr := s.enforcer.SavePolicy(); saveErr != nil {
+			ctxInfo := ctxutil.Extract(ctx)
+			slog.Error("failed to save restored policies during rollback",
+				append(ctxInfo.ToLogArgs(), "error", saveErr)...,
+			)
+		}
 		return errors.Internal(domainName, err).WithOperation("DeleteRole")
 	}
 

@@ -492,8 +492,8 @@ Each filter is applied with AND logic, so all conditions must be satisfied.
 ```
 
 - Default page: 1
-- Default page_size: 10
-- Maximum page_size: 100
+- Default page_size: 10 (configurable via `PAGINATION_DEFAULT_PAGE_SIZE`)
+- Maximum page_size: 100 (configurable via `PAGINATION_MAX_PAGE_SIZE`)
 
 ### Combined Examples
 
@@ -1088,6 +1088,13 @@ Configuration can be set via environment variables or `config.yaml` file. Enviro
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CORS_ALLOWED_ORIGINS` | localhost:3000,localhost:5173 | Allowed CORS origins |
+
+### Pagination
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PAGINATION_DEFAULT_PAGE_SIZE` | 10 | Default items per page |
+| `PAGINATION_MAX_PAGE_SIZE` | 100 | Maximum allowed page size |
 
 ### Telemetry (OpenTelemetry)
 

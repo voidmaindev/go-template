@@ -91,3 +91,35 @@ func (s *TokenStore) GetTTL(ctx context.Context, token string) (time.Duration, e
 	key := s.getKey(token)
 	return s.redis.GetTTL(ctx, key)
 }
+
+// BlacklistAtomic adds a token to the blacklist atomically using SETNX.
+// Returns true if the token was newly blacklisted, false if it was already blacklisted.
+// This prevents race conditions in token refresh where the same refresh token
+// could be used multiple times before blacklisting completes.
+func (s *TokenStore) BlacklistAtomic(ctx context.Context, token string, expiry time.Duration) (bool, error) {
+	key := s.getKey(token)
+	return s.redis.SetNX(ctx, key, "1", expiry)
+}
+
+// BlacklistAtomicWithRetry adds a token to the blacklist atomically with retry logic.
+// Returns true if newly blacklisted, false if already blacklisted or failed after retries.
+func (s *TokenStore) BlacklistAtomicWithRetry(ctx context.Context, token string, expiry time.Duration, maxRetries int) (bool, error) {
+	var lastErr error
+	backoff := time.Millisecond * 50
+
+	for i := 0; i < maxRetries; i++ {
+		wasSet, err := s.BlacklistAtomic(ctx, token, expiry)
+		if err != nil {
+			lastErr = err
+			// Context-aware backoff
+			select {
+			case <-ctx.Done():
+				return false, ctx.Err()
+			case <-time.After(backoff * time.Duration(i+1)):
+				continue
+			}
+		}
+		return wasSet, nil
+	}
+	return false, lastErr
+}

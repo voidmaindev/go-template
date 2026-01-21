@@ -176,29 +176,13 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 		return nil, ErrTokenInvalid
 	}
 
-	// Check if token is blacklisted
-	isBlacklisted, err := s.tokenStore.IsBlacklisted(ctx, refreshToken)
-	if err != nil {
-		return nil, errors.Internal(domainName, err).WithOperation("RefreshToken")
-	}
-	if isBlacklisted {
-		return nil, ErrTokenBlacklisted
-	}
-
-	// Get user
-	user, err := s.repo.FindByID(ctx, claims.UserID)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, ErrUserNotFound
-		}
-		return nil, errors.Internal(domainName, err).WithOperation("RefreshToken")
-	}
-
-	// Blacklist old refresh token with retry logic
-	// In production, fail the operation if blacklisting fails to prevent token reuse
+	// Atomically blacklist the refresh token to prevent race conditions.
+	// This check-and-set operation ensures the token can only be used once,
+	// even with concurrent requests.
 	expiry, _ := utils.GetTokenExpiry(refreshToken, s.jwtConfig.SecretKey)
 	if expiry > 0 {
-		if err := s.tokenStore.BlacklistWithRetry(ctx, refreshToken, expiry, blacklistMaxRetries); err != nil {
+		wasBlacklisted, err := s.tokenStore.BlacklistAtomicWithRetry(ctx, refreshToken, expiry, blacklistMaxRetries)
+		if err != nil {
 			slog.Error("failed to blacklist refresh token after retries",
 				"error", err,
 				"retries", blacklistMaxRetries,
@@ -208,7 +192,28 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 			if s.isProduction {
 				return nil, ErrTokenRefreshUnavailable
 			}
+		} else if !wasBlacklisted {
+			// Token was already blacklisted by another concurrent request
+			return nil, ErrTokenBlacklisted
 		}
+	} else {
+		// Token has no expiry or is already expired, check if blacklisted
+		isBlacklisted, err := s.tokenStore.IsBlacklisted(ctx, refreshToken)
+		if err != nil {
+			return nil, errors.Internal(domainName, err).WithOperation("RefreshToken")
+		}
+		if isBlacklisted {
+			return nil, ErrTokenBlacklisted
+		}
+	}
+
+	// Get user
+	user, err := s.repo.FindByID(ctx, claims.UserID)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, ErrUserNotFound
+		}
+		return nil, errors.Internal(domainName, err).WithOperation("RefreshToken")
 	}
 
 	// Generate new tokens

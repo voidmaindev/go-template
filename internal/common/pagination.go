@@ -4,19 +4,54 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 )
 
-const (
-	// DefaultPage is the default page number
-	DefaultPage = 1
-	// DefaultPageSize is the default number of items per page
-	DefaultPageSize = 10
-	// MaxPageSize is the maximum allowed page size
-	MaxPageSize = 100
+// DefaultPage is the default page number (not configurable)
+const DefaultPage = 1
+
+// paginationConfig holds the current pagination settings
+// These can be overridden via InitPagination at startup
+var (
+	paginationMu        sync.RWMutex
+	defaultPageSize     = 10  // Default items per page
+	maxPageSize         = 100 // Maximum allowed page size
 )
+
+// InitPagination initializes pagination defaults from configuration.
+// Should be called once at application startup after config is loaded.
+func InitPagination(defPageSize, maxSize int) {
+	paginationMu.Lock()
+	defer paginationMu.Unlock()
+
+	if defPageSize > 0 {
+		defaultPageSize = defPageSize
+	}
+	if maxSize > 0 {
+		maxPageSize = maxSize
+	}
+	// Ensure default doesn't exceed max
+	if defaultPageSize > maxPageSize {
+		defaultPageSize = maxPageSize
+	}
+}
+
+// GetDefaultPageSize returns the configured default page size
+func GetDefaultPageSize() int {
+	paginationMu.RLock()
+	defer paginationMu.RUnlock()
+	return defaultPageSize
+}
+
+// GetMaxPageSize returns the configured maximum page size
+func GetMaxPageSize() int {
+	paginationMu.RLock()
+	defer paginationMu.RUnlock()
+	return maxPageSize
+}
 
 // AllowedSortFields defines valid sort column names to prevent SQL injection.
 // Only lowercase snake_case field names are allowed.
@@ -63,7 +98,7 @@ type PaginatedResult[T any] struct {
 func NewPagination() *Pagination {
 	return &Pagination{
 		Page:     DefaultPage,
-		PageSize: DefaultPageSize,
+		PageSize: GetDefaultPageSize(),
 		Order:    "desc",
 	}
 }
@@ -93,7 +128,7 @@ func PaginationFromQuery(c *fiber.Ctx, defaultSort ...string) *Pagination {
 
 	p := &Pagination{
 		Page:     c.QueryInt("page", DefaultPage),
-		PageSize: c.QueryInt("page_size", DefaultPageSize),
+		PageSize: c.QueryInt("page_size", GetDefaultPageSize()),
 		Sort:     sort,
 		Order:    c.Query("order", "asc"),
 	}
@@ -106,7 +141,7 @@ func PaginationFromQuery(c *fiber.Ctx, defaultSort ...string) *Pagination {
 func PaginationFromOptional(page, pageSize *int, sort, order *string) *Pagination {
 	p := &Pagination{
 		Page:     intOrDefault(page, DefaultPage),
-		PageSize: intOrDefault(pageSize, DefaultPageSize),
+		PageSize: intOrDefault(pageSize, GetDefaultPageSize()),
 		Sort:     stringOrDefault(sort, ""),
 		Order:    stringOrDefault(order, "asc"),
 	}
@@ -134,12 +169,15 @@ func (p *Pagination) Validate() {
 		p.Page = DefaultPage
 	}
 
+	defPageSize := GetDefaultPageSize()
+	maxSize := GetMaxPageSize()
+
 	if p.PageSize < 1 {
-		p.PageSize = DefaultPageSize
+		p.PageSize = defPageSize
 	}
 
-	if p.PageSize > MaxPageSize {
-		p.PageSize = MaxPageSize
+	if p.PageSize > maxSize {
+		p.PageSize = maxSize
 	}
 
 	if p.Order != "asc" && p.Order != "desc" {
@@ -278,7 +316,7 @@ func NewFilteredResult[T any](data []T, total int64, params *filter.Params) *Pag
 
 	pageSize := params.Limit
 	if pageSize < 1 {
-		pageSize = DefaultPageSize
+		pageSize = GetDefaultPageSize()
 	}
 
 	page := params.Page

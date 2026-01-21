@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/voidmaindev/go-template/internal/api"
 	"github.com/voidmaindev/go-template/internal/app"
+	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/database"
@@ -60,6 +61,9 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Setup logger based on environment
 	logger.SetupFromEnv(cfg.App.Environment, cfg.App.Debug)
+
+	// Initialize pagination defaults from config
+	common.InitPagination(cfg.Pagination.DefaultPageSize, cfg.Pagination.MaxPageSize)
 
 	// Override from flags if provided
 	if port, _ := cmd.Flags().GetInt("port"); port != 0 {
