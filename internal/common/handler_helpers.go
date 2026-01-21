@@ -14,9 +14,13 @@ import (
 //	func (h *Handler) Create(c *fiber.Ctx) error {
 //	    req, err := common.ParseAndValidate[CreateItemRequest](c)
 //	    if err != nil {
-//	        return err // already returns appropriate response
+//	        return err // already returns appropriate HTTP response
 //	    }
-//	    // use req...
+//	    item, err := h.service.Create(c.Context(), req)
+//	    if err != nil {
+//	        return common.HandleError(c, err)
+//	    }
+//	    return common.CreatedResponse(c, item.ToResponse())
 //	}
 func ParseAndValidate[T any](c *fiber.Ctx) (*T, error) {
 	var req T
@@ -39,9 +43,13 @@ func ParseAndValidate[T any](c *fiber.Ctx) (*T, error) {
 //	func (h *Handler) GetByID(c *fiber.Ctx) error {
 //	    id, err := common.ParseID(c, "id", "item")
 //	    if err != nil {
-//	        return err // already returns appropriate response
+//	        return err // already returns appropriate HTTP response
 //	    }
-//	    // use id...
+//	    item, err := h.service.GetByID(c.Context(), id)
+//	    if err != nil {
+//	        return common.HandleError(c, err)
+//	    }
+//	    return common.SuccessResponse(c, item.ToResponse())
 //	}
 func ParseID(c *fiber.Ctx, paramName, resourceName string) (uint, error) {
 	id, err := c.ParamsInt(paramName)

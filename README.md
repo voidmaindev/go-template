@@ -133,7 +133,8 @@ Generated files:
 │   │   ├── query_options.go         # Composable query options
 │   │   ├── pagination.go            # Pagination utilities
 │   │   ├── response.go              # HTTP response helpers (with request_id)
-│   │   └── errors.go                # Legacy errors (backward compat)
+│   │   ├── handler_helpers.go       # Generic handler utilities (ParseAndValidate, ParseID)
+│   │   └── errors.go                # Legacy errors (deprecated, use errors/)
 │   └── domain/
 │       ├── user/                    # User domain with auth
 │       │   ├── errors.go            # Domain-specific errors
@@ -670,6 +671,58 @@ func (v *Validator) ValidateCreate(ctx context.Context, req *CreateItemRequest) 
 }
 ```
 
+## Handler Helpers
+
+Generic utilities to reduce boilerplate in HTTP handlers.
+
+### ParseAndValidate
+
+Parse and validate request body in one call:
+
+```go
+func (h *Handler) Create(c *fiber.Ctx) error {
+    req, err := common.ParseAndValidate[CreateItemRequest](c)
+    if err != nil {
+        return err // Already returns 400 response
+    }
+
+    item, err := h.service.Create(c.Context(), req)
+    if err != nil {
+        return common.HandleError(c, err) // Maps DomainError to HTTP status
+    }
+    return common.CreatedResponse(c, item.ToResponse())
+}
+```
+
+### ParseID
+
+Parse route parameter as uint:
+
+```go
+func (h *Handler) GetByID(c *fiber.Ctx) error {
+    id, err := common.ParseID(c, "id", "item")
+    if err != nil {
+        return err // Already returns 400 response
+    }
+
+    item, err := h.service.GetByID(c.Context(), id)
+    if err != nil {
+        return common.HandleError(c, err)
+    }
+    return common.SuccessResponse(c, item.ToResponse())
+}
+```
+
+### HandleError
+
+Automatically maps `DomainError` to appropriate HTTP responses:
+
+```go
+if err != nil {
+    return common.HandleError(c, err) // Maps error code to HTTP status
+}
+```
+
 ## Query Specifications
 
 The specification pattern allows composable, reusable query conditions.
@@ -679,6 +732,12 @@ The specification pattern allows composable, reusable query conditions.
 ```go
 // By field value
 spec := common.ByField("status", "active")
+
+// Common field shortcuts
+spec := common.ByName("ProductName")        // ByField("name", ...)
+spec := common.ByNameContains("search")     // ByFieldContains("name", ...)
+spec := common.ByCode("PRD-001")            // ByField("code", ...)
+spec := common.ByEmail("user@example.com")  // ByField("email", ...)
 
 // Combine with AND
 spec := common.And(
@@ -788,9 +847,11 @@ Request context (request ID, user info) flows through all layers for logging and
 |-----|------|-------------|
 | `request_id` | string | Unique request identifier |
 | `trace_id` | string | OpenTelemetry trace ID |
-| `user_id` | uint | Authenticated user ID |
+| `middleware.UserIDKey` | uint | Authenticated user ID (typed key) |
 | `user_email` | string | Authenticated user email |
 | `user_role` | string | Authenticated user role |
+
+> **Note**: `UserIDKey` is a typed context key (`contextKey` type) to prevent key collisions. Access it via `c.Locals(middleware.UserIDKey)`.
 
 ### Accessing Context
 
@@ -1148,6 +1209,22 @@ The application provides Kubernetes-ready health endpoints:
 | `GET /readyz` | Readiness probe | `readinessProbe` - are dependencies ready? |
 | `GET /health` | Combined check | Backward compatible, detailed status |
 
+### Built-in Health Checks
+
+```go
+// Database and Redis checks are auto-registered
+checker := health.DefaultHealthChecker(db, redisClient, version)
+
+// Add memory monitoring (alert if heap exceeds 512MB)
+checker.Register("memory", health.MemoryCheck(512.0))
+
+// Add custom check
+checker.Register("external-api", func(ctx context.Context) error {
+    // Check external dependency
+    return nil
+})
+```
+
 Example Kubernetes deployment:
 
 ```yaml
@@ -1176,9 +1253,18 @@ All API endpoints include rate limit headers:
 | `X-RateLimit-Remaining` | Remaining requests |
 | `X-RateLimit-Reset` | Unix timestamp when limit resets |
 
-Default limits:
-- General API: 100 requests/minute
-- Auth endpoints: 5 requests/minute
+Rate limit tiers (configurable):
+
+| Tier | Default Limit | Used For |
+|------|---------------|----------|
+| `auth` | 10 req/min | Public auth (login, register, refresh) |
+| `auth_user` | 30 req/min | Authenticated auth ops (logout, password change) |
+| `rbac_admin` | 30 req/min | RBAC admin operations |
+| `api_write` | 60 req/min | POST, PUT, DELETE operations |
+| `api_read` | 200 req/min | GET operations |
+| `global` | 100 req/min | Fallback catch-all |
+
+All domain routes (items, cities, countries, documents) are rate-limited by tier.
 
 ## Security Features
 
