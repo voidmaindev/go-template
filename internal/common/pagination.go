@@ -20,6 +20,11 @@ const (
 
 // AllowedSortFields defines valid sort column names to prevent SQL injection.
 // Only lowercase snake_case field names are allowed.
+//
+// Deprecated: Use filter.Config with Sortable field per-model instead.
+// This global whitelist violates Open/Closed Principle - adding new sortable
+// fields requires modifying this common code. Prefer using ValidateSortWithConfig()
+// or the filter.Apply() function which uses per-model FilterConfig.
 var AllowedSortFields = map[string]bool{
 	"id":           true,
 	"created_at":   true,
@@ -167,11 +172,43 @@ func (p *Pagination) isValidSortField() bool {
 
 // IsSortValid returns whether the current sort field is valid
 // Use this to check before processing if you want to return an error
+//
+// Deprecated: Use IsSortValidForConfig for per-model validation.
 func (p *Pagination) IsSortValid() bool {
 	if p.Sort == "" {
 		return true
 	}
 	return p.isValidSortField()
+}
+
+// IsSortValidForConfig validates the sort field against a model's filter.Config.
+// This is the preferred method as it uses per-model field definitions instead of
+// the global AllowedSortFields whitelist.
+func (p *Pagination) IsSortValidForConfig(config filter.Config) bool {
+	if p.Sort == "" {
+		return true
+	}
+
+	sort := strings.ToLower(p.Sort)
+
+	// Check if field exists in config and is sortable
+	fieldConfig, ok := config.Fields[sort]
+	if !ok {
+		return false
+	}
+
+	return fieldConfig.Sortable
+}
+
+// ValidateSortWithConfig validates and sanitizes the sort field using a model's
+// filter.Config. If the sort field is not valid for the config, it is reset to empty.
+// Returns true if the sort field was valid, false if it was reset.
+func (p *Pagination) ValidateSortWithConfig(config filter.Config) bool {
+	if !p.IsSortValidForConfig(config) {
+		p.Sort = ""
+		return false
+	}
+	return true
 }
 
 // GetOffset returns the offset for database queries
@@ -219,17 +256,9 @@ func NewPaginatedResult[T any](data []T, total int64, pagination *Pagination) *P
 	}
 }
 
-// FilteredResult wraps filtered data with metadata.
-// Deprecated: Use PaginatedResult instead. This type is kept for backward compatibility
-// and is structurally identical to PaginatedResult.
-type FilteredResult[T any] struct {
-	Data       []T   `json:"data"`
-	Total      int64 `json:"total"`
-	Page       int   `json:"page"`
-	PageSize   int   `json:"page_size"`
-	TotalPages int   `json:"total_pages"`
-	HasMore    bool  `json:"has_more"`
-}
+// FilteredResult is an alias for PaginatedResult.
+// Deprecated: Use PaginatedResult instead. This alias is kept for backward compatibility.
+type FilteredResult[T any] = PaginatedResult[T]
 
 // CalculateTotalPages computes the number of pages needed for the given total and page size.
 func CalculateTotalPages(total int64, pageSize int) int {
@@ -239,8 +268,10 @@ func CalculateTotalPages(total int64, pageSize int) int {
 	return int(math.Ceil(float64(total) / float64(pageSize)))
 }
 
-// NewFilteredResult creates a new filtered result from filter.Params
-func NewFilteredResult[T any](data []T, total int64, params *filter.Params) *FilteredResult[T] {
+// NewFilteredResult creates a new filtered result from filter.Params.
+// Deprecated: Use NewPaginatedResult with filter.Params converted to Pagination instead.
+// This function is kept for backward compatibility.
+func NewFilteredResult[T any](data []T, total int64, params *filter.Params) *PaginatedResult[T] {
 	if params == nil {
 		params = filter.DefaultParams()
 	}
@@ -258,7 +289,7 @@ func NewFilteredResult[T any](data []T, total int64, params *filter.Params) *Fil
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
 	hasMore := page < totalPages
 
-	return &FilteredResult[T]{
+	return &PaginatedResult[T]{
 		Data:       data,
 		Total:      total,
 		Page:       page,

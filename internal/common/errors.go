@@ -8,14 +8,21 @@ import (
 )
 
 // Legacy application errors.
+//
 // Deprecated: Use the typed DomainError system from internal/common/errors package instead.
-// These are kept for backward compatibility. New code should use:
+// These sentinel errors are NO LONGER USED in the codebase and are kept only for
+// backward compatibility with external consumers. They will be removed in a future version.
+//
+// Migration guide - use domain-specific errors from internal/common/errors:
 //   - errors.NotFound(domain, resource) instead of ErrNotFound
-//   - errors.AlreadyExists(domain, resource) instead of ErrAlreadyExists
+//   - errors.AlreadyExists(domain, resource, field) instead of ErrAlreadyExists
 //   - errors.Validation(domain, message) instead of ErrValidation
 //   - errors.Unauthorized(domain, message) instead of ErrUnauthorized
 //   - errors.Forbidden(domain, message) instead of ErrForbidden
 //   - errors.Internal(domain, err) instead of ErrInternalServer
+//
+// The bridge functions (IsNotFoundError, etc.) support both legacy and new errors
+// during the transition period.
 var (
 	// Deprecated: Use errors.NotFound() instead
 	ErrNotFound = errors.New("resource not found")

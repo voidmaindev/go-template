@@ -66,13 +66,24 @@ func (c *Container) Get(key string) any {
 	return c.components[key]
 }
 
-// MustGet retrieves a component and panics if not found
+// MustGet retrieves a component and panics if not found.
+// For error handling, use GetRequired instead.
 func (c *Container) MustGet(key string) any {
 	comp, ok := c.components[key]
 	if !ok {
 		panic(fmt.Sprintf("component not found: %s (ensure domain is registered before dependent domains)", key))
 	}
 	return comp
+}
+
+// GetRequired retrieves a component and returns an error if not found.
+// This is the non-panicking alternative to MustGet.
+func (c *Container) GetRequired(key string) (any, error) {
+	comp, ok := c.components[key]
+	if !ok {
+		return nil, fmt.Errorf("component not found: %s (ensure domain is registered before dependent domains)", key)
+	}
+	return comp, nil
 }
 
 // MustGetTyped retrieves a typed component from the container.
@@ -116,11 +127,43 @@ func (c *Container) GetAllModels() []any {
 	return models
 }
 
-// RegisterAll registers all domains (repos, services, handlers)
+// RegisterAll registers all domains (repos, services, handlers).
+// Panics if registration fails. For error handling, use TryRegisterAll instead.
 func (c *Container) RegisterAll() {
-	for _, d := range c.domains {
-		d.Register(c)
+	if err := c.TryRegisterAll(); err != nil {
+		panic(err)
 	}
+}
+
+// TryRegisterAll registers all domains and returns an error if any registration fails.
+// This catches panics from MustGet calls and returns them as errors, providing
+// better error handling during application startup.
+func (c *Container) TryRegisterAll() error {
+	for _, d := range c.domains {
+		if err := c.tryRegisterDomain(d); err != nil {
+			return fmt.Errorf("failed to register domain %q: %w", d.Name(), err)
+		}
+	}
+	return nil
+}
+
+// tryRegisterDomain attempts to register a single domain, recovering from panics.
+func (c *Container) tryRegisterDomain(d Domain) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch v := r.(type) {
+			case error:
+				err = v
+			case string:
+				err = fmt.Errorf("%s", v)
+			default:
+				err = fmt.Errorf("panic during registration: %v", r)
+			}
+		}
+	}()
+
+	d.Register(c)
+	return nil
 }
 
 // RegisterRoutes registers routes for all domains

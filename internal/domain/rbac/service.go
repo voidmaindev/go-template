@@ -201,7 +201,6 @@ func (s *service) UpdateRolePermissions(ctx context.Context, code string, req *U
 
 	// Track added policies for rollback if needed
 	var addedPolicies [][]string
-	var updateErr error
 
 	// Use transaction wrapper for atomicity
 	err = s.repo.Transaction(ctx, func(txRepo common.Repository[Role]) error {
@@ -261,10 +260,6 @@ func (s *service) UpdateRolePermissions(ctx context.Context, code string, req *U
 			)
 		}
 		return nil, errors.Internal(domainName, err).WithOperation("UpdateRolePermissions")
-	}
-
-	if updateErr != nil {
-		return nil, errors.Internal(domainName, updateErr).WithOperation("UpdateRolePermissions")
 	}
 
 	permissions := s.getRolePermissions(code)
