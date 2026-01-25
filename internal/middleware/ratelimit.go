@@ -11,6 +11,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/redis"
+	"github.com/voidmaindev/go-template/internal/telemetry"
 )
 
 const (
@@ -97,6 +98,9 @@ func (f *RateLimiterFactory) ForTier(tier string) fiber.Handler {
 				retryAfter = 1
 			}
 			c.Set(RetryAfterHeader, strconv.FormatInt(retryAfter, 10))
+
+			// Record rate limit hit metric
+			telemetry.IncrementRateLimitHits(tier)
 
 			return c.Status(fiber.StatusTooManyRequests).JSON(common.Response{
 				Success: false,

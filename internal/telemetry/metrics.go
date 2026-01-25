@@ -27,9 +27,15 @@ type Metrics struct {
 	RedisOperationDuration *prometheus.HistogramVec
 
 	// Business metrics
-	UsersRegistered prometheus.Counter
-	UsersLoggedIn   prometheus.Counter
+	UsersRegistered  prometheus.Counter
+	UsersLoggedIn    prometheus.Counter
+	UsersUpdated     prometheus.Counter
+	UsersDeleted     prometheus.Counter
 	DocumentsCreated prometheus.Counter
+
+	// Security metrics
+	AuthFailures   *prometheus.CounterVec
+	RateLimitHits  *prometheus.CounterVec
 }
 
 // NewMetrics creates and registers all application metrics.
@@ -125,12 +131,44 @@ func NewMetrics(namespace string) *Metrics {
 				Help:      "Total number of user logins",
 			},
 		),
+		UsersUpdated: promauto.NewCounter(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "users_updated_total",
+				Help:      "Total number of user profile updates",
+			},
+		),
+		UsersDeleted: promauto.NewCounter(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "users_deleted_total",
+				Help:      "Total number of users deleted",
+			},
+		),
 		DocumentsCreated: promauto.NewCounter(
 			prometheus.CounterOpts{
 				Namespace: namespace,
 				Name:      "documents_created_total",
 				Help:      "Total number of documents created",
 			},
+		),
+
+		// Security metrics
+		AuthFailures: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "auth_failures_total",
+				Help:      "Total number of authentication failures",
+			},
+			[]string{"reason"},
+		),
+		RateLimitHits: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "rate_limit_hits_total",
+				Help:      "Total number of rate limit hits",
+			},
+			[]string{"tier"},
 		),
 	}
 }
@@ -193,4 +231,24 @@ func IncrementUsersLoggedIn() {
 // IncrementDocumentsCreated increments the documents created counter.
 func IncrementDocumentsCreated() {
 	GetMetrics().DocumentsCreated.Inc()
+}
+
+// IncrementUsersUpdated increments the users updated counter.
+func IncrementUsersUpdated() {
+	GetMetrics().UsersUpdated.Inc()
+}
+
+// IncrementUsersDeleted increments the users deleted counter.
+func IncrementUsersDeleted() {
+	GetMetrics().UsersDeleted.Inc()
+}
+
+// IncrementAuthFailures increments the auth failures counter with reason label.
+func IncrementAuthFailures(reason string) {
+	GetMetrics().AuthFailures.WithLabelValues(reason).Inc()
+}
+
+// IncrementRateLimitHits increments the rate limit hits counter with tier label.
+func IncrementRateLimitHits(tier string) {
+	GetMetrics().RateLimitHits.WithLabelValues(tier).Inc()
 }

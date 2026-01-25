@@ -122,6 +122,7 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			telemetry.IncrementAuthFailures("user_not_found")
 			return nil, ErrInvalidCredentials
 		}
 		return nil, errors.Internal(domainName, err).WithOperation("Login")
@@ -129,6 +130,7 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 
 	// Verify password
 	if !utils.CheckPassword(req.Password, user.Password) {
+		telemetry.IncrementAuthFailures("invalid_password")
 		return nil, ErrInvalidCredentials
 	}
 
@@ -263,6 +265,9 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateUserRequest) (
 		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
+	// Record metric
+	telemetry.IncrementUsersUpdated()
+
 	return user, nil
 }
 
@@ -314,6 +319,10 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
+
+	// Record metric
+	telemetry.IncrementUsersDeleted()
+
 	return nil
 }
 
