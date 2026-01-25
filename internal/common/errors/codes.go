@@ -1,9 +1,14 @@
+// Package errors provides domain-specific error types with HTTP mapping.
+// DomainError supports error codes, stack traces, and error chaining
+// via the standard errors.Is() and errors.As() interfaces.
 package errors
 
-// ErrorCode represents a standardized error code for API responses
+// ErrorCode represents a standardized error code for API responses.
+// Each code maps to a specific HTTP status code via HTTPStatus().
 type ErrorCode string
 
-// Standard error codes
+// Standard error codes for domain errors.
+// These codes are used in API responses and can be mapped to HTTP status codes.
 const (
 	CodeNotFound      ErrorCode = "NOT_FOUND"
 	CodeAlreadyExists ErrorCode = "ALREADY_EXISTS"

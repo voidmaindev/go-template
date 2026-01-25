@@ -95,30 +95,14 @@ func (v *Validator) RegisterValidation(tag string, fn validator.Func) error {
 	return v.validate.RegisterValidation(tag, fn)
 }
 
+// passwordPolicy is the default policy used by the password validator.
+var passwordPolicy = DefaultPasswordPolicy()
+
 // registerCustomValidators registers custom validation rules
 func registerCustomValidators(v *validator.Validate) {
-	// Password validation: 8-128 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+	// Password validation using centralized PasswordPolicy
 	_ = v.RegisterValidation("password", func(fl validator.FieldLevel) bool {
-		password := fl.Field().String()
-		if len(password) < 8 || len(password) > 128 {
-			return false
-		}
-
-		var hasUpper, hasLower, hasNumber, hasSpecial bool
-		for _, char := range password {
-			switch {
-			case 'A' <= char && char <= 'Z':
-				hasUpper = true
-			case 'a' <= char && char <= 'z':
-				hasLower = true
-			case '0' <= char && char <= '9':
-				hasNumber = true
-			case strings.ContainsRune("!@#$%^&*()_+-=[]{}|;':\",./<>?", char):
-				hasSpecial = true
-			}
-		}
-
-		return hasUpper && hasLower && hasNumber && hasSpecial
+		return passwordPolicy.Validate(fl.Field().String())
 	})
 
 	// Non-empty string validation
@@ -165,7 +149,7 @@ func tagToMessage(e validator.FieldError) string {
 		"min":       "value is too short",
 		"max":       "value is too long",
 		"len":       "invalid length",
-		"password":  "password must be at least 8 characters with uppercase, lowercase, number, and special character",
+		"password":  passwordPolicy.ErrorMessage(),
 		"gt":        "value must be greater than " + e.Param(),
 		"gte":       "value must be at least " + e.Param(),
 		"lt":        "value must be less than " + e.Param(),

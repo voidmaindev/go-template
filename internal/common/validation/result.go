@@ -1,6 +1,8 @@
 package validation
 
-// FieldError represents a validation error for a specific field
+// FieldError represents a validation error for a specific field.
+// It contains the field name, an error code for programmatic handling,
+// a human-readable message, and optionally the invalid value.
 type FieldError struct {
 	Field   string `json:"field"`
 	Code    string `json:"code"`
