@@ -7,22 +7,22 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
+	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
-// Minimum response time for sensitive operations to prevent timing attacks
-const minPasswordChangeResponseTime = 200 * time.Millisecond
-
 // Handler handles HTTP requests for users
 type Handler struct {
-	service Service
+	service   Service
+	jwtConfig *config.JWTConfig
 }
 
 // NewHandler creates a new user handler
-func NewHandler(service Service) *Handler {
+func NewHandler(service Service, jwtConfig *config.JWTConfig) *Handler {
 	return &Handler{
-		service: service,
+		service:   service,
+		jwtConfig: jwtConfig,
 	}
 }
 
@@ -232,8 +232,8 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
-		if elapsed < minPasswordChangeResponseTime {
-			time.Sleep(minPasswordChangeResponseTime - elapsed)
+		if elapsed < h.jwtConfig.MinPasswordResponseTime {
+			time.Sleep(h.jwtConfig.MinPasswordResponseTime - elapsed)
 		}
 	}()
 

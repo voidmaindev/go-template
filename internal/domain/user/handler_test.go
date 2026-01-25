@@ -118,10 +118,11 @@ func createTestApp(handler *Handler) *fiber.App {
 
 func getHandlerTestConfig() *config.JWTConfig {
 	return &config.JWTConfig{
-		SecretKey:          "test-secret-key-at-least-32-chars!!",
-		AccessTokenExpiry:  15 * time.Minute,
-		RefreshTokenExpiry: 7 * 24 * time.Hour,
-		Issuer:             "test-issuer",
+		SecretKey:               "test-secret-key-at-least-32-chars!!",
+		AccessTokenExpiry:       15 * time.Minute,
+		RefreshTokenExpiry:      7 * 24 * time.Hour,
+		Issuer:                  "test-issuer",
+		MinPasswordResponseTime: 200 * time.Millisecond,
 	}
 }
 
@@ -165,7 +166,7 @@ func TestHandler_Register(t *testing.T) {
 		svc := &mockService{
 			registerResponse: createTestTokenResponse(),
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/register", handler.Register)
@@ -194,7 +195,7 @@ func TestHandler_Register(t *testing.T) {
 
 	t.Run("invalid request body", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/register", handler.Register)
@@ -215,7 +216,7 @@ func TestHandler_Register(t *testing.T) {
 
 	t.Run("validation error - missing fields", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/register", handler.Register)
@@ -243,7 +244,7 @@ func TestHandler_Register(t *testing.T) {
 		svc := &mockService{
 			registerErr: ErrEmailExists,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/register", handler.Register)
@@ -273,7 +274,7 @@ func TestHandler_Register(t *testing.T) {
 		svc := &mockService{
 			registerErr: errors.New("database error"),
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/register", handler.Register)
@@ -305,7 +306,7 @@ func TestHandler_Login(t *testing.T) {
 		svc := &mockService{
 			loginResponse: createTestTokenResponse(),
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/login", handler.Login)
@@ -335,7 +336,7 @@ func TestHandler_Login(t *testing.T) {
 		svc := &mockService{
 			loginErr: ErrInvalidCredentials,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/login", handler.Login)
@@ -362,7 +363,7 @@ func TestHandler_Login(t *testing.T) {
 
 	t.Run("invalid request body", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/login", handler.Login)
@@ -387,7 +388,7 @@ func TestHandler_Logout(t *testing.T) {
 
 	t.Run("successful logout", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -412,7 +413,7 @@ func TestHandler_Logout(t *testing.T) {
 
 	t.Run("no token provided", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		// No JWT middleware - simulating missing token
@@ -435,7 +436,7 @@ func TestHandler_Logout(t *testing.T) {
 		svc := &mockService{
 			logoutErr: errors.New("redis error"),
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -463,7 +464,7 @@ func TestHandler_RefreshToken(t *testing.T) {
 		svc := &mockService{
 			refreshResponse: createTestTokenResponse(),
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/refresh", handler.RefreshToken)
@@ -492,7 +493,7 @@ func TestHandler_RefreshToken(t *testing.T) {
 		svc := &mockService{
 			refreshErr: ErrTokenInvalid,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/refresh", handler.RefreshToken)
@@ -520,7 +521,7 @@ func TestHandler_RefreshToken(t *testing.T) {
 		svc := &mockService{
 			refreshErr: ErrTokenBlacklisted,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Post("/refresh", handler.RefreshToken)
@@ -552,7 +553,7 @@ func TestHandler_GetMe(t *testing.T) {
 		svc := &mockService{
 			getByIDResponse: createTestUser(),
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -579,7 +580,7 @@ func TestHandler_GetMe(t *testing.T) {
 		svc := &mockService{
 			getByIDErr: ErrUserNotFound,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -603,7 +604,7 @@ func TestHandler_GetMe(t *testing.T) {
 
 	t.Run("unauthorized - no token", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -628,7 +629,7 @@ func TestHandler_ChangePassword(t *testing.T) {
 
 	t.Run("successful change", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -662,7 +663,7 @@ func TestHandler_ChangePassword(t *testing.T) {
 		svc := &mockService{
 			changePasswordErr: ErrInvalidPassword,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -695,7 +696,7 @@ func TestHandler_ChangePassword(t *testing.T) {
 		svc := &mockService{
 			changePasswordErr: ErrSamePassword,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -732,7 +733,7 @@ func TestHandler_GetByID(t *testing.T) {
 		svc := &mockService{
 			getByIDResponse: createTestUser(),
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -759,7 +760,7 @@ func TestHandler_GetByID(t *testing.T) {
 		svc := &mockService{
 			getByIDErr: ErrUserNotFound,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -784,7 +785,7 @@ func TestHandler_GetByID(t *testing.T) {
 
 	t.Run("invalid user ID", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -821,7 +822,7 @@ func TestHandler_List(t *testing.T) {
 				TotalPages: 1,
 			},
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -855,7 +856,7 @@ func TestHandler_List(t *testing.T) {
 				TotalPages: 0,
 			},
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -884,7 +885,7 @@ func TestHandler_Delete(t *testing.T) {
 
 	t.Run("successful self-delete", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -910,7 +911,7 @@ func TestHandler_Delete(t *testing.T) {
 
 	t.Run("forbidden - cannot delete other users", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -936,7 +937,7 @@ func TestHandler_Delete(t *testing.T) {
 		svc := &mockService{
 			deleteErr: ErrUserNotFound,
 		}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))
@@ -960,7 +961,7 @@ func TestHandler_Delete(t *testing.T) {
 
 	t.Run("invalid user ID", func(t *testing.T) {
 		svc := &mockService{}
-		handler := NewHandler(svc)
+		handler := NewHandler(svc, getHandlerTestConfig())
 
 		app := fiber.New()
 		app.Use(middleware.JWTMiddleware(cfg, nil))

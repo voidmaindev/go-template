@@ -160,24 +160,3 @@ func (f *RateLimiterFactory) generateKey(c *fiber.Ctx, tier string) string {
 func getClientIP(c *fiber.Ctx) string {
 	return c.IP()
 }
-
-// AuthRateLimiter creates a rate limiter for public auth endpoints (login, register, refresh).
-// This is a convenience function for backward compatibility.
-// Deprecated: Use RateLimiterFactory.ForTier(TierAuth) instead.
-func AuthRateLimiter() fiber.Handler {
-	// Return a passthrough if no factory is configured
-	// The factory-based approach should be used instead
-	return func(c *fiber.Ctx) error {
-		slog.Warn("AuthRateLimiter called without factory, rate limiting disabled")
-		return c.Next()
-	}
-}
-
-// GeneralRateLimiter creates a rate limiter for general API endpoints.
-// Deprecated: Use RateLimiterFactory.ForTier(TierAPIRead) or ForTier(TierAPIWrite) instead.
-func GeneralRateLimiter() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		slog.Warn("GeneralRateLimiter called without factory, rate limiting disabled")
-		return c.Next()
-	}
-}

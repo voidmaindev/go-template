@@ -69,10 +69,11 @@ type RedisConfig struct {
 
 // JWTConfig holds JWT authentication configuration
 type JWTConfig struct {
-	SecretKey          string        `mapstructure:"secret_key"`
-	AccessTokenExpiry  time.Duration `mapstructure:"access_token_expiry"`
-	RefreshTokenExpiry time.Duration `mapstructure:"refresh_token_expiry"`
-	Issuer             string        `mapstructure:"issuer"`
+	SecretKey               string        `mapstructure:"secret_key"`
+	AccessTokenExpiry       time.Duration `mapstructure:"access_token_expiry"`
+	RefreshTokenExpiry      time.Duration `mapstructure:"refresh_token_expiry"`
+	Issuer                  string        `mapstructure:"issuer"`
+	MinPasswordResponseTime time.Duration `mapstructure:"min_password_response_time"` // Timing attack protection delay
 }
 
 // CORSConfig holds CORS configuration
@@ -224,6 +225,7 @@ func setDefaults() {
 	viper.SetDefault("jwt.access_token_expiry", 15*time.Minute)
 	viper.SetDefault("jwt.refresh_token_expiry", 7*24*time.Hour)
 	viper.SetDefault("jwt.issuer", "go-template")
+	viper.SetDefault("jwt.min_password_response_time", 200*time.Millisecond)
 
 	// CORS defaults
 	viper.SetDefault("cors.allowed_origins", "http://localhost:3000,http://localhost:5173")
@@ -302,6 +304,7 @@ func bindEnvVars() {
 	viper.BindEnv("jwt.access_token_expiry", "JWT_ACCESS_EXPIRY")
 	viper.BindEnv("jwt.refresh_token_expiry", "JWT_REFRESH_EXPIRY")
 	viper.BindEnv("jwt.issuer", "JWT_ISSUER")
+	viper.BindEnv("jwt.min_password_response_time", "JWT_MIN_PASSWORD_RESPONSE_TIME")
 
 	// CORS
 	viper.BindEnv("cors.allowed_origins", "CORS_ALLOWED_ORIGINS")

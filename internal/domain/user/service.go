@@ -346,16 +346,19 @@ func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*com
 	return common.NewFilteredResult(users, total, params), nil
 }
 
+// toUtilsJWTConfig converts config.JWTConfig to utils.JWTConfig
+func toUtilsJWTConfig(cfg *config.JWTConfig) *utils.JWTConfig {
+	return &utils.JWTConfig{
+		SecretKey:          cfg.SecretKey,
+		AccessTokenExpiry:  cfg.AccessTokenExpiry,
+		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
+		Issuer:             cfg.Issuer,
+	}
+}
+
 // generateTokenResponse generates a token response for a user
 func (s *service) generateTokenResponse(user *User) (*TokenResponse, error) {
-	jwtConfig := &utils.JWTConfig{
-		SecretKey:          s.jwtConfig.SecretKey,
-		AccessTokenExpiry:  s.jwtConfig.AccessTokenExpiry,
-		RefreshTokenExpiry: s.jwtConfig.RefreshTokenExpiry,
-		Issuer:             s.jwtConfig.Issuer,
-	}
-
-	tokenPair, err := utils.GenerateTokenPair(user.ID, user.Email, jwtConfig)
+	tokenPair, err := utils.GenerateTokenPair(user.ID, user.Email, toUtilsJWTConfig(s.jwtConfig))
 	if err != nil {
 		return nil, err
 	}

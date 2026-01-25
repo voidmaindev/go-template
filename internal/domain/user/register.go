@@ -53,7 +53,7 @@ func (d *domain) Register(c *container.Container) {
 	ServiceKey.Set(c, service)
 
 	// Initialize handler
-	handler := NewHandler(service)
+	handler := NewHandler(service, &c.Config.JWT)
 	HandlerKey.Set(c, handler)
 }
 

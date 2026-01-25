@@ -282,23 +282,6 @@ func TestRateLimitHeaders(t *testing.T) {
 	}
 }
 
-func TestDeprecatedFunctions_LogWarning(t *testing.T) {
-	// Test that deprecated functions return a passthrough handler
-	app := fiber.New()
-	app.Use(AuthRateLimiter())
-	app.Get("/test", func(c *fiber.Ctx) error {
-		return c.SendString("OK")
-	})
-
-	req := httptest.NewRequest("GET", "/test", nil)
-	resp, _ := app.Test(req)
-
-	// Should still work (passthrough)
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
-	}
-}
-
 func TestRedisClient_RateLimitCheck(t *testing.T) {
 	mr, redisClient := setupTestRedis(t)
 	defer mr.Close()
