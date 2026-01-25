@@ -2,7 +2,6 @@ package app
 
 import (
 	"sort"
-	"sync"
 
 	"github.com/voidmaindev/go-template/internal/container"
 )
@@ -14,32 +13,27 @@ type App struct {
 	Domains     func() []container.Domain
 }
 
-// Registry of all available apps (protected by registryMu)
-var (
-	registry   = make(map[string]*App)
-	registryMu sync.RWMutex
-)
-
-// Register adds an app to the registry (thread-safe)
-func Register(a *App) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	registry[a.Name] = a
+// All returns all available app configurations.
+// This is the single source of truth for available apps.
+func All() map[string]*App {
+	main := MainApp()
+	geo := GeographyApp()
+	return map[string]*App{
+		main.Name: main,
+		geo.Name:  geo,
+	}
 }
 
-// Get returns an app by name (thread-safe)
+// Get returns an app by name, or nil if not found.
 func Get(name string) *App {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-	return registry[name]
+	return All()[name]
 }
 
-// List returns all registered app names sorted alphabetically (thread-safe)
+// List returns all registered app names sorted alphabetically.
 func List() []string {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-	names := make([]string, 0, len(registry))
-	for name := range registry {
+	apps := All()
+	names := make([]string, 0, len(apps))
+	for name := range apps {
 		names = append(names, name)
 	}
 	sort.Strings(names)

@@ -8,20 +8,24 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/user"
 )
 
-func init() {
-	Register(&App{
+// GeographyApp returns the geography service application configuration.
+// A lightweight service focused on country and city management.
+func GeographyApp() *App {
+	return &App{
 		Name:        "geography",
 		Description: "Geography service (countries and cities)",
-		Domains: func() []container.Domain {
-			return []container.Domain{
-				// Core domains (user depends on rbac)
-				rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
-				user.NewDomain(), // depends on: rbac
+		Domains:     geographyDomains,
+	}
+}
 
-				// Geography domains
-				country.NewDomain(),
-				city.NewDomain(), // depends on: country
-			}
-		},
-	})
+func geographyDomains() []container.Domain {
+	return []container.Domain{
+		// Core domains (user depends on rbac)
+		rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
+		user.NewDomain(), // depends on: rbac
+
+		// Geography domains
+		country.NewDomain(),
+		city.NewDomain(), // depends on: country
+	}
 }

@@ -10,22 +10,26 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/user"
 )
 
-func init() {
-	Register(&App{
+// MainApp returns the main application configuration.
+// Includes all domains for a full-featured deployment.
+func MainApp() *App {
+	return &App{
 		Name:        "main",
 		Description: "Full application with all domains",
-		Domains: func() []container.Domain {
-			return []container.Domain{
-				// Core domains (no dependencies)
-				rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
-				user.NewDomain(), // depends on: rbac
-				item.NewDomain(),
-				country.NewDomain(),
+		Domains:     mainDomains,
+	}
+}
 
-				// Domains with dependencies
-				city.NewDomain(),     // depends on: country
-				document.NewDomain(), // depends on: city, item
-			}
-		},
-	})
+func mainDomains() []container.Domain {
+	return []container.Domain{
+		// Core domains (no dependencies)
+		rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
+		user.NewDomain(), // depends on: rbac
+		item.NewDomain(),
+		country.NewDomain(),
+
+		// Domains with dependencies
+		city.NewDomain(),     // depends on: country
+		document.NewDomain(), // depends on: city, item
+	}
 }

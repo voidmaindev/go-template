@@ -1035,26 +1035,45 @@ Domains: func() []container.Domain {
 
 To add a new app:
 
-1. Create `internal/app/<appname>.go`:
+1. Create `internal/app/<appname>.go` with an explicit factory function:
 
 ```go
 package app
 
-func init() {
-    Register(&App{
+// MyApp returns the custom application configuration.
+func MyApp() *App {
+    return &App{
         Name:        "myapp",
         Description: "My custom application",
-        Domains: func() []container.Domain {
-            return []container.Domain{
-                user.NewDomain(),  // Required for auth
-                // Add your domains here
-            }
-        },
-    })
+        Domains:     myAppDomains,
+    }
+}
+
+func myAppDomains() []container.Domain {
+    return []container.Domain{
+        rbac.NewDomain(), // Required (user depends on it)
+        user.NewDomain(), // Required for auth
+        // Add your domains here
+    }
 }
 ```
 
-2. Run with: `go run ./cmd/api serve myapp`
+2. Register in `internal/app/app.go` by adding to the `All()` function:
+
+```go
+func All() map[string]*App {
+    main := MainApp()
+    geo := GeographyApp()
+    my := MyApp()  // Add your app
+    return map[string]*App{
+        main.Name: main,
+        geo.Name:  geo,
+        my.Name:   my,  // Register it
+    }
+}
+```
+
+3. Run with: `go run ./cmd/api serve myapp`
 
 ## Removing Template Domains
 
