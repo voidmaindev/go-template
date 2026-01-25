@@ -350,20 +350,12 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // @Failure 404 {object} common.Response
 // @Router /users/{id} [delete]
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	// Get the current authenticated user
-	currentUserID, ok := middleware.GetUserIDFromContext(c)
-	if !ok {
-		return common.UnauthorizedResponse(c, "")
-	}
+	// Authorization is handled by RequirePermission middleware at route level
+	// which checks user:delete permission for all delete operations
 
 	targetID, err := c.ParamsInt("id")
 	if err != nil {
 		return common.BadRequestResponse(c, "invalid user ID")
-	}
-
-	// Only allow self-delete; admin delete of other users handled by RBAC middleware
-	if uint(targetID) != currentUserID {
-		return common.ForbiddenResponse(c, "cannot delete other users")
 	}
 
 	if err := h.service.Delete(c.Context(), uint(targetID)); err != nil {

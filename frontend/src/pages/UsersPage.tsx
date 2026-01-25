@@ -329,6 +329,28 @@ export default function UsersPage() {
             required
           />
 
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Roles <span className="text-gray-500">(optional)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {allRoles?.data?.map((role) => (
+                <label
+                  key={role.code}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-cyber-darker border border-cyber-border rounded-lg cursor-pointer hover:border-neon-cyan/50 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    value={role.code}
+                    {...register('role_codes')}
+                    className="w-4 h-4 rounded border-cyber-border bg-cyber-darker text-neon-cyan focus:ring-neon-cyan/50"
+                  />
+                  <span className="text-sm text-gray-300">{role.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3 pt-4">
             <button type="button" onClick={closeCreateModal} className="cyber-button-ghost">
               Cancel

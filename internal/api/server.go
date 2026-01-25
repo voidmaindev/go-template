@@ -337,13 +337,15 @@ func (s *Server) DeleteUser(ctx context.Context, request DeleteUserRequestObject
 		return DeleteUser401JSONResponse{}, nil
 	}
 
-	// Authorization: self-delete allowed, admin delete handled by RBAC middleware at route level
-	// For admin deleting other users, the route should have RBAC middleware with user:delete permission
+	// Authorization: self-delete always allowed, admin delete requires user:write permission
 	if uint(request.Id) != currentUserID {
-		return DeleteUser403JSONResponse{
-			Error:   ptr.To("forbidden"),
-			Message: ptr.To("cannot delete other users"),
-		}, nil
+		hasPermission, err := s.rbacService.CheckPermission(ctx, currentUserID, "user", "write")
+		if err != nil || !hasPermission {
+			return DeleteUser403JSONResponse{
+				Error:   ptr.To("forbidden"),
+				Message: ptr.To("cannot delete other users"),
+			}, nil
+		}
 	}
 
 	if err := s.userService.Delete(ctx, uint(request.Id)); err != nil {
