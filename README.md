@@ -150,6 +150,7 @@ Generated files:
 │       ├── city/                    # City domain (depends on country)
 │       └── document/                # Document with line items (example)
 ├── pkg/
+│   ├── ptr/                         # Generic pointer utilities
 │   ├── utils/                       # Hash, JWT, money utilities
 │   └── validator/                   # Validation helpers
 ├── grafana/
@@ -720,6 +721,57 @@ Automatically maps `DomainError` to appropriate HTTP responses:
 ```go
 if err != nil {
     return common.HandleError(c, err) // Maps error code to HTTP status
+}
+```
+
+## Pointer Utilities
+
+The `pkg/ptr` package provides generic pointer utilities for working with optional values.
+
+### Functions
+
+| Function | Description |
+|----------|-------------|
+| `ptr.To(v)` | Returns a pointer to the given value |
+| `ptr.Deref(p)` | Returns the value pointed to, or zero value if nil |
+| `ptr.DerefOr(p, def)` | Returns the value pointed to, or the default if nil |
+
+### Usage
+
+```go
+import "github.com/voidmaindev/go-template/pkg/ptr"
+
+// Create pointers to literal values
+name := ptr.To("John")           // *string
+count := ptr.To(42)              // *int
+active := ptr.To(true)           // *bool
+
+// Safely dereference with zero value fallback
+value := ptr.Deref(maybeNilString)  // Returns "" if nil
+
+// Safely dereference with custom default
+page := ptr.DerefOr(pageParam, 1)   // Returns 1 if nil
+size := ptr.DerefOr(sizeParam, 10)  // Returns 10 if nil
+```
+
+### Common Use Cases
+
+**API Response Construction** (OpenAPI generated types with pointer fields):
+```go
+return UserResponse{
+    Id:    ptr.To(int64(user.ID)),
+    Name:  ptr.To(user.Name),
+    Email: ptr.To(user.Email),
+}
+```
+
+**Optional Parameter Handling**:
+```go
+func PaginationFromOptional(page, pageSize *int) *Pagination {
+    return &Pagination{
+        Page:     ptr.DerefOr(page, 1),
+        PageSize: ptr.DerefOr(pageSize, 10),
+    }
 }
 ```
 
