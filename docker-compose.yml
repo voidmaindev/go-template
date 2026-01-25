@@ -113,7 +113,7 @@ services:
     profiles:
       - observability
     ports:
-      - "16686:16686"   # Jaeger UI
+      - "16886:16686"   # Jaeger UI (host port changed to avoid Windows reserved range)
       - "4317:4317"     # OTLP gRPC
       - "4318:4318"     # OTLP HTTP
     environment:
