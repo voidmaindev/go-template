@@ -67,9 +67,12 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 
 	// Auth routes (public) - with strict rate limiting to prevent brute force
 	auth := api.Group("/auth", rateLimiter.ForTier(middleware.TierAuth))
-	auth.Post("/register", handler.Register)
 	auth.Post("/login", handler.Login)
 	auth.Post("/refresh", handler.RefreshToken)
+
+	// Register requires authentication and user:write permission (admin-only)
+	authRegister := auth.Group("", middleware.JWTMiddleware(jwtConfig, tokenStore))
+	authRegister.Post("/register", middleware.RequirePermission(enforcer, "user", rbac.ActionWrite), handler.Register)
 
 	// Auth routes (protected) - with auth_user tier rate limiting
 	authProtected := auth.Group("", middleware.JWTMiddleware(jwtConfig, tokenStore), rateLimiter.ForTier(middleware.TierAuthUser))
