@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a3a #0a0a0f;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #0a0a0f;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #2a2a3a;
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #3a3a4a;
+  }
+
+  html {
+    font-family: 'Rajdhani', sans-serif;
+  }
+
+  body {
+    @apply bg-cyber-black text-white antialiased;
+    background-image:
+      linear-gradient(rgba(0, 245, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 245, 255, 0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+    min-height: 100vh;
+  }
+
+  /* Scan line effect */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: linear-gradient(
+      transparent 50%,
+      rgba(0, 0, 0, 0.02) 50%
+    );
+    background-size: 100% 4px;
+    z-index: 9999;
+  }
+
+  /* CRT flicker effect */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 0%,
+      rgba(0, 0, 0, 0.2) 100%
+    );
+    z-index: 9998;
+  }
+}
+
+@layer components {
+  .neon-border {
+    @apply border border-neon-cyan/30;
+    box-shadow:
+      0 0 10px rgba(0, 245, 255, 0.1),
+      inset 0 0 10px rgba(0, 245, 255, 0.03);
+  }
+
+  .neon-border-pink {
+    @apply border border-neon-pink/30;
+    box-shadow:
+      0 0 10px rgba(255, 0, 170, 0.1),
+      inset 0 0 10px rgba(255, 0, 170, 0.03);
+  }
+
+  .neon-border-green {
+    @apply border border-neon-green/30;
+    box-shadow:
+      0 0 10px rgba(0, 255, 136, 0.1),
+      inset 0 0 10px rgba(0, 255, 136, 0.03);
+  }
+
+  .cyber-card {
+    @apply bg-cyber-dark/80 backdrop-blur-sm rounded-lg neon-border;
+  }
+
+  .cyber-input {
+    @apply w-full bg-cyber-darker border border-cyber-border rounded-lg px-4 py-3
+           text-white font-body placeholder:text-gray-500
+           focus:outline-none focus:border-neon-cyan/50 focus:shadow-neon-cyan
+           transition-all duration-300;
+  }
+
+  .cyber-button {
+    @apply px-6 py-3 bg-gradient-to-r from-neon-cyan/20 to-neon-cyan/10
+           border border-neon-cyan/50 rounded-lg font-display font-semibold
+           text-neon-cyan uppercase tracking-wider text-sm
+           hover:from-neon-cyan/30 hover:to-neon-cyan/20 hover:shadow-neon-cyan
+           active:scale-95 transition-all duration-300
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none;
+  }
+
+  .cyber-button-pink {
+    @apply px-6 py-3 bg-gradient-to-r from-neon-pink/20 to-neon-pink/10
+           border border-neon-pink/50 rounded-lg font-display font-semibold
+           text-neon-pink uppercase tracking-wider text-sm
+           hover:from-neon-pink/30 hover:to-neon-pink/20 hover:shadow-neon-pink
+           active:scale-95 transition-all duration-300
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .cyber-button-green {
+    @apply px-6 py-3 bg-gradient-to-r from-neon-green/20 to-neon-green/10
+           border border-neon-green/50 rounded-lg font-display font-semibold
+           text-neon-green uppercase tracking-wider text-sm
+           hover:from-neon-green/30 hover:to-neon-green/20 hover:shadow-neon-green
+           active:scale-95 transition-all duration-300
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .cyber-button-ghost {
+    @apply px-4 py-2 bg-transparent border border-cyber-border rounded-lg
+           font-body text-gray-400 text-sm
+           hover:border-neon-cyan/30 hover:text-neon-cyan
+           active:scale-95 transition-all duration-300;
+  }
+
+  .cyber-table {
+    @apply w-full border-collapse;
+  }
+
+  .cyber-table thead {
+    @apply bg-cyber-darker;
+  }
+
+  .cyber-table th {
+    @apply px-4 py-3 text-left font-display text-xs uppercase tracking-wider text-neon-cyan/70 border-b border-cyber-border;
+  }
+
+  .cyber-table td {
+    @apply px-4 py-3 text-sm font-body text-gray-300 border-b border-cyber-border/50;
+  }
+
+  .cyber-table tbody tr {
+    @apply hover:bg-neon-cyan/5 transition-colors duration-200;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-2 py-1 rounded text-xs font-mono uppercase tracking-wider;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 font-body
+           hover:bg-neon-cyan/10 hover:text-neon-cyan
+           transition-all duration-300 cursor-pointer;
+  }
+
+  .nav-item.active {
+    @apply bg-neon-cyan/10 text-neon-cyan border-l-2 border-neon-cyan;
+  }
+
+  .glow-text {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
+  }
+
+  .typing-cursor::after {
+    content: '|';
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+}
+
+@layer utilities {
+  .text-gradient-cyber {
+    @apply bg-gradient-to-r from-neon-cyan via-neon-green to-neon-cyan bg-clip-text text-transparent;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+}

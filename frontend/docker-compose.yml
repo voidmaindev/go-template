@@ -1,0 +1,43 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-template-frontend
+    ports:
+      - "${FRONTEND_PORT:-5179}:5178"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - go-template-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5178/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Development service (optional - use for local development with hot reload)
+  frontend-dev:
+    image: node:20-alpine
+    container_name: go-template-frontend-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "5178:5178"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3000/api/v1
+    profiles:
+      - dev
+    networks:
+      - go-template-network
+
+networks:
+  go-template-network:
+    external: true
+    name: go-template-network
