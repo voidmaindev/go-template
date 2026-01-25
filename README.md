@@ -29,11 +29,18 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 - **Rate Limiting**: With standard headers (`X-RateLimit-*`)
 - **Request Correlation**: Request ID in all error responses
 
-## API Documentation
+## Documentation
+
+### Developer Guides
+
+| Guide | Description |
+|-------|-------------|
+| [Adding a New App](docs/guides/adding-new-app.md) | Create app configurations with different domain sets |
+| [Adding a New Domain](docs/guides/adding-new-domain.md) | Create a domain with full CRUD (model, repository, service, handler) |
+
+### API Documentation
 
 This project uses **OpenAPI 3.0** with code generation via [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) and **Scalar** for interactive documentation.
-
-### Access Documentation
 
 | URL | Description |
 |-----|-------------|
