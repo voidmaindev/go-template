@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { Users, Trash2, Eye } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { Users, Trash2, Eye, Plus } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import DataTable, { Column } from '../components/DataTable'
 import Modal, { ConfirmDialog } from '../components/Modal'
-import { useUsers, useUser, useDeleteUser } from '../hooks/useUsers'
+import FormField from '../components/FormField'
+import { useUsers, useUser, useDeleteUser, useCreateUser } from '../hooks/useUsers'
 import { useUserRoles, useRoles, useAssignRole, useRemoveRole } from '../hooks/useRBAC'
 import { formatDateTime } from '../lib/utils'
-import type { User, QueryParams } from '../types'
+import type { User, QueryParams, RegisterRequest } from '../types'
 
 export default function UsersPage() {
   const [params, setParams] = useState<QueryParams>({
@@ -18,6 +20,7 @@ export default function UsersPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [roleModalOpen, setRoleModalOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState('')
+  const [createModalOpen, setCreateModalOpen] = useState(false)
 
   const { data, isLoading } = useUsers(params)
   const { data: selectedUser } = useUser(selectedUserId || 0)
@@ -26,6 +29,14 @@ export default function UsersPage() {
   const { mutate: deleteUser, isPending: isDeleting } = useDeleteUser()
   const { mutate: assignRole, isPending: isAssigning } = useAssignRole()
   const { mutate: removeRole, isPending: isRemoving } = useRemoveRole()
+  const { mutate: createUser, isPending: isCreating } = useCreateUser()
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<RegisterRequest>()
 
   const columns: Column<User>[] = [
     {
@@ -92,12 +103,32 @@ export default function UsersPage() {
     }
   }
 
+  const openCreateModal = () => {
+    reset({ email: '', password: '', name: '', role_codes: [] })
+    setCreateModalOpen(true)
+  }
+
+  const closeCreateModal = () => {
+    setCreateModalOpen(false)
+    reset()
+  }
+
+  const onCreateSubmit = (formData: RegisterRequest) => {
+    createUser(formData, { onSuccess: closeCreateModal })
+  }
+
   return (
     <div>
       <PageHeader
         title="Users"
         subtitle={`${data?.total ?? 0} users registered`}
         icon={Users}
+        action={
+          <button onClick={openCreateModal} className="cyber-button-green flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            Create User
+          </button>
+        }
       />
 
       <DataTable
@@ -245,6 +276,72 @@ export default function UsersPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Create User Modal */}
+      <Modal
+        isOpen={createModalOpen}
+        onClose={closeCreateModal}
+        title="Create User"
+      >
+        <form onSubmit={handleSubmit(onCreateSubmit)} className="space-y-6">
+          <FormField
+            label="Email"
+            type="email"
+            {...register('email', {
+              required: 'Email is required',
+              pattern: {
+                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                message: 'Invalid email address',
+              },
+            })}
+            error={errors.email?.message}
+            placeholder="user@example.com"
+            required
+          />
+
+          <FormField
+            label="Name"
+            {...register('name', {
+              required: 'Name is required',
+              minLength: { value: 1, message: 'Name is required' },
+              maxLength: { value: 200, message: 'Name is too long' },
+            })}
+            error={errors.name?.message}
+            placeholder="Enter user name"
+            required
+          />
+
+          <FormField
+            label="Password"
+            type="password"
+            {...register('password', {
+              required: 'Password is required',
+              minLength: { value: 8, message: 'Password must be at least 8 characters' },
+              pattern: {
+                value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/,
+                message: 'Password must include uppercase, lowercase, number, and special character',
+              },
+            })}
+            error={errors.password?.message}
+            placeholder="Enter password"
+            hint="8+ chars with uppercase, lowercase, number, and special character"
+            required
+          />
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button type="button" onClick={closeCreateModal} className="cyber-button-ghost">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isCreating}
+              className="cyber-button"
+            >
+              {isCreating ? 'Creating...' : 'Create User'}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       {/* Delete Confirmation */}
