@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,6 +19,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/middleware"
+	"github.com/voidmaindev/go-template/pkg/ptr"
 )
 
 // Server implements the StrictServerInterface.
@@ -62,13 +62,13 @@ func (s *Server) Register(ctx context.Context, request RegisterRequestObject) (R
 	if err != nil {
 		if errors.Is(err, user.ErrEmailExists) {
 			return Register409JSONResponse{
-				Error:   ptr("conflict"),
-				Message: ptr("email already exists"),
+				Error:   ptr.To("conflict"),
+				Message: ptr.To("email already exists"),
 			}, nil
 		}
 		return Register400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("registration failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("registration failed"),
 		}, nil
 	}
 
@@ -86,13 +86,13 @@ func (s *Server) Login(ctx context.Context, request LoginRequestObject) (LoginRe
 	if err != nil {
 		if errors.Is(err, user.ErrInvalidCredentials) || commonerrors.IsUnauthorized(err) {
 			return Login401JSONResponse{
-				Error:   ptr("unauthorized"),
-				Message: ptr("invalid email or password"),
+				Error:   ptr.To("unauthorized"),
+				Message: ptr.To("invalid email or password"),
 			}, nil
 		}
 		return Login401JSONResponse{
-			Error:   ptr("unauthorized"),
-			Message: ptr("login failed"),
+			Error:   ptr.To("unauthorized"),
+			Message: ptr.To("login failed"),
 		}, nil
 	}
 
@@ -107,16 +107,16 @@ func (s *Server) Logout(ctx context.Context, request LogoutRequestObject) (Logou
 	fiberCtx := getFiberContext(ctx)
 	if fiberCtx == nil {
 		return Logout401JSONResponse{
-			Error:   ptr("unauthorized"),
-			Message: ptr("no context"),
+			Error:   ptr.To("unauthorized"),
+			Message: ptr.To("no context"),
 		}, nil
 	}
 
 	accessToken := middleware.GetTokenFromContext(fiberCtx)
 	if accessToken == "" {
 		return Logout401JSONResponse{
-			Error:   ptr("unauthorized"),
-			Message: ptr("no token provided"),
+			Error:   ptr.To("unauthorized"),
+			Message: ptr.To("no token provided"),
 		}, nil
 	}
 
@@ -133,8 +133,8 @@ func (s *Server) Logout(ctx context.Context, request LogoutRequestObject) (Logou
 
 	if err := s.userService.Logout(ctx, accessToken, refreshToken); err != nil {
 		return Logout401JSONResponse{
-			Error:   ptr("unauthorized"),
-			Message: ptr("logout failed"),
+			Error:   ptr.To("unauthorized"),
+			Message: ptr.To("logout failed"),
 		}, nil
 	}
 
@@ -147,13 +147,13 @@ func (s *Server) RefreshToken(ctx context.Context, request RefreshTokenRequestOb
 	if err != nil {
 		if errors.Is(err, user.ErrTokenInvalid) || errors.Is(err, user.ErrTokenBlacklisted) || commonerrors.IsUnauthorized(err) {
 			return RefreshToken401JSONResponse{
-				Error:   ptr("unauthorized"),
-				Message: ptr("invalid or expired refresh token"),
+				Error:   ptr.To("unauthorized"),
+				Message: ptr.To("invalid or expired refresh token"),
 			}, nil
 		}
 		return RefreshToken401JSONResponse{
-			Error:   ptr("unauthorized"),
-			Message: ptr("token refresh failed"),
+			Error:   ptr.To("unauthorized"),
+			Message: ptr.To("token refresh failed"),
 		}, nil
 	}
 
@@ -209,8 +209,8 @@ func (s *Server) UpdateCurrentUser(ctx context.Context, request UpdateCurrentUse
 			return UpdateCurrentUser401JSONResponse{}, nil
 		}
 		return UpdateCurrentUser400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("update failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("update failed"),
 		}, nil
 	}
 
@@ -248,18 +248,18 @@ func (s *Server) ChangePassword(ctx context.Context, request ChangePasswordReque
 		switch {
 		case errors.Is(err, user.ErrUserNotFound), errors.Is(err, user.ErrInvalidPassword):
 			return ChangePassword400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("current password is incorrect"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("current password is incorrect"),
 			}, nil
 		case errors.Is(err, user.ErrSamePassword):
 			return ChangePassword400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("new password must be different"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("new password must be different"),
 			}, nil
 		default:
 			return ChangePassword400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("password change failed"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("password change failed"),
 			}, nil
 		}
 	}
@@ -283,8 +283,8 @@ func (s *Server) ListUsers(ctx context.Context, request ListUsersRequestObject) 
 	if err != nil {
 		slog.Error("ListUsers failed", "error", err)
 		return ListUsers500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to list users"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to list users"),
 		}, nil
 	}
 
@@ -311,14 +311,14 @@ func (s *Server) GetUser(ctx context.Context, request GetUserRequestObject) (Get
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
 			return GetUser404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("user not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("user not found"),
 			}, nil
 		}
 		slog.Error("GetUser failed", "error", err, "user_id", request.Id)
 		return GetUser500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to get user"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to get user"),
 		}, nil
 	}
 
@@ -341,22 +341,22 @@ func (s *Server) DeleteUser(ctx context.Context, request DeleteUserRequestObject
 	// For admin deleting other users, the route should have RBAC middleware with user:delete permission
 	if uint(request.Id) != currentUserID {
 		return DeleteUser403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr("cannot delete other users"),
+			Error:   ptr.To("forbidden"),
+			Message: ptr.To("cannot delete other users"),
 		}, nil
 	}
 
 	if err := s.userService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
 			return DeleteUser404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("user not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("user not found"),
 			}, nil
 		}
 		slog.Error("DeleteUser failed", "error", err, "user_id", request.Id)
 		return DeleteUser500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to delete user"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to delete user"),
 		}, nil
 	}
 
@@ -381,8 +381,8 @@ func (s *Server) ListItems(ctx context.Context, request ListItemsRequestObject) 
 	if err != nil {
 		slog.Error("ListItems failed", "error", err)
 		return ListItems500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to list items"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to list items"),
 		}, nil
 	}
 
@@ -394,15 +394,15 @@ func (s *Server) ListItems(ctx context.Context, request ListItemsRequestObject) 
 func (s *Server) CreateItem(ctx context.Context, request CreateItemRequestObject) (CreateItemResponseObject, error) {
 	req := &item.CreateItemRequest{
 		Name:        request.Body.Name,
-		Description: ptrToString(request.Body.Description),
+		Description: ptr.Deref(request.Body.Description),
 		Price:       int64(request.Body.Price),
 	}
 
 	i, err := s.itemService.Create(ctx, req)
 	if err != nil {
 		return CreateItem400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("item creation failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("item creation failed"),
 		}, nil
 	}
 
@@ -415,14 +415,14 @@ func (s *Server) GetItem(ctx context.Context, request GetItemRequestObject) (Get
 	if err != nil {
 		if errors.Is(err, item.ErrItemNotFound) {
 			return GetItem404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("item not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("item not found"),
 			}, nil
 		}
 		slog.Error("GetItem failed", "error", err, "item_id", request.Id)
 		return GetItem500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to get item"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to get item"),
 		}, nil
 	}
 
@@ -448,13 +448,13 @@ func (s *Server) UpdateItem(ctx context.Context, request UpdateItemRequestObject
 	if err != nil {
 		if errors.Is(err, item.ErrItemNotFound) {
 			return UpdateItem404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("item not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("item not found"),
 			}, nil
 		}
 		return UpdateItem400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("update failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("update failed"),
 		}, nil
 	}
 
@@ -467,14 +467,14 @@ func (s *Server) DeleteItem(ctx context.Context, request DeleteItemRequestObject
 	if err := s.itemService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, item.ErrItemNotFound) {
 			return DeleteItem404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("item not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("item not found"),
 			}, nil
 		}
 		slog.Error("DeleteItem failed", "error", err, "item_id", request.Id)
 		return DeleteItem500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to delete item"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to delete item"),
 		}, nil
 	}
 
@@ -499,8 +499,8 @@ func (s *Server) ListCountries(ctx context.Context, request ListCountriesRequest
 	if err != nil {
 		slog.Error("ListCountries failed", "error", err)
 		return ListCountries500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to list countries"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to list countries"),
 		}, nil
 	}
 
@@ -519,13 +519,13 @@ func (s *Server) CreateCountry(ctx context.Context, request CreateCountryRequest
 	if err != nil {
 		if errors.Is(err, country.ErrCountryCodeExists) {
 			return CreateCountry400JSONResponse{
-				Error:   ptr("conflict"),
-				Message: ptr("country code already exists"),
+				Error:   ptr.To("conflict"),
+				Message: ptr.To("country code already exists"),
 			}, nil
 		}
 		return CreateCountry400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("country creation failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("country creation failed"),
 		}, nil
 	}
 
@@ -538,14 +538,14 @@ func (s *Server) GetCountry(ctx context.Context, request GetCountryRequestObject
 	if err != nil {
 		if errors.Is(err, country.ErrCountryNotFound) {
 			return GetCountry404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("country not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("country not found"),
 			}, nil
 		}
 		slog.Error("GetCountry failed", "error", err, "country_id", request.Id)
 		return GetCountry500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to get country"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to get country"),
 		}, nil
 	}
 
@@ -564,19 +564,19 @@ func (s *Server) UpdateCountry(ctx context.Context, request UpdateCountryRequest
 	if err != nil {
 		if errors.Is(err, country.ErrCountryNotFound) {
 			return UpdateCountry404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("country not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("country not found"),
 			}, nil
 		}
 		if errors.Is(err, country.ErrCountryCodeExists) {
 			return UpdateCountry400JSONResponse{
-				Error:   ptr("conflict"),
-				Message: ptr("country code already exists"),
+				Error:   ptr.To("conflict"),
+				Message: ptr.To("country code already exists"),
 			}, nil
 		}
 		return UpdateCountry400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("update failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("update failed"),
 		}, nil
 	}
 
@@ -589,14 +589,14 @@ func (s *Server) DeleteCountry(ctx context.Context, request DeleteCountryRequest
 	if err := s.countryService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, country.ErrCountryNotFound) {
 			return DeleteCountry404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("country not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("country not found"),
 			}, nil
 		}
 		slog.Error("DeleteCountry failed", "error", err, "country_id", request.Id)
 		return DeleteCountry500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to delete country"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to delete country"),
 		}, nil
 	}
 
@@ -621,8 +621,8 @@ func (s *Server) ListCities(ctx context.Context, request ListCitiesRequestObject
 	if err != nil {
 		slog.Error("ListCities failed", "error", err)
 		return ListCities500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to list cities"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to list cities"),
 		}, nil
 	}
 
@@ -641,13 +641,13 @@ func (s *Server) CreateCity(ctx context.Context, request CreateCityRequestObject
 	if err != nil {
 		if errors.Is(err, city.ErrCountryNotFound) {
 			return CreateCity400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("country not found"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("country not found"),
 			}, nil
 		}
 		return CreateCity400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("city creation failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("city creation failed"),
 		}, nil
 	}
 
@@ -660,14 +660,14 @@ func (s *Server) GetCity(ctx context.Context, request GetCityRequestObject) (Get
 	if err != nil {
 		if errors.Is(err, city.ErrCityNotFound) {
 			return GetCity404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("city not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("city not found"),
 			}, nil
 		}
 		slog.Error("GetCity failed", "error", err, "city_id", request.Id)
 		return GetCity500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to get city"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to get city"),
 		}, nil
 	}
 
@@ -689,19 +689,19 @@ func (s *Server) UpdateCity(ctx context.Context, request UpdateCityRequestObject
 	if err != nil {
 		if errors.Is(err, city.ErrCityNotFound) {
 			return UpdateCity404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("city not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("city not found"),
 			}, nil
 		}
 		if errors.Is(err, city.ErrCountryNotFound) {
 			return UpdateCity400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("country not found"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("country not found"),
 			}, nil
 		}
 		return UpdateCity400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("update failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("update failed"),
 		}, nil
 	}
 
@@ -714,14 +714,14 @@ func (s *Server) DeleteCity(ctx context.Context, request DeleteCityRequestObject
 	if err := s.cityService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, city.ErrCityNotFound) {
 			return DeleteCity404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("city not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("city not found"),
 			}, nil
 		}
 		slog.Error("DeleteCity failed", "error", err, "city_id", request.Id)
 		return DeleteCity500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to delete city"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to delete city"),
 		}, nil
 	}
 
@@ -740,14 +740,14 @@ func (s *Server) ListCitiesByCountry(ctx context.Context, request ListCitiesByCo
 	if err != nil {
 		if errors.Is(err, city.ErrCountryNotFound) {
 			return ListCitiesByCountry404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("country not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("country not found"),
 			}, nil
 		}
 		slog.Error("ListCitiesByCountry failed", "error", err, "country_id", request.CountryId)
 		return ListCitiesByCountry500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to list cities"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to list cities"),
 		}, nil
 	}
 
@@ -772,8 +772,8 @@ func (s *Server) ListDocuments(ctx context.Context, request ListDocumentsRequest
 	if err != nil {
 		slog.Error("ListDocuments failed", "error", err)
 		return ListDocuments500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to list documents"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to list documents"),
 		}, nil
 	}
 
@@ -806,25 +806,25 @@ func (s *Server) CreateDocument(ctx context.Context, request CreateDocumentReque
 	if err != nil {
 		if errors.Is(err, document.ErrDocumentCodeExists) {
 			return CreateDocument400JSONResponse{
-				Error:   ptr("conflict"),
-				Message: ptr("document code already exists"),
+				Error:   ptr.To("conflict"),
+				Message: ptr.To("document code already exists"),
 			}, nil
 		}
 		if errors.Is(err, document.ErrCityNotFound) {
 			return CreateDocument400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("city not found"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("city not found"),
 			}, nil
 		}
 		if errors.Is(err, document.ErrItemNotFound) {
 			return CreateDocument400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("item not found"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("item not found"),
 			}, nil
 		}
 		return CreateDocument400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("document creation failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("document creation failed"),
 		}, nil
 	}
 
@@ -837,14 +837,14 @@ func (s *Server) GetDocument(ctx context.Context, request GetDocumentRequestObje
 	if err != nil {
 		if errors.Is(err, document.ErrDocumentNotFound) {
 			return GetDocument404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("document not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("document not found"),
 			}, nil
 		}
 		slog.Error("GetDocument failed", "error", err, "document_id", request.Id)
 		return GetDocument500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to get document"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to get document"),
 		}, nil
 	}
 
@@ -870,25 +870,25 @@ func (s *Server) UpdateDocument(ctx context.Context, request UpdateDocumentReque
 	if err != nil {
 		if errors.Is(err, document.ErrDocumentNotFound) {
 			return UpdateDocument404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("document not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("document not found"),
 			}, nil
 		}
 		if errors.Is(err, document.ErrDocumentCodeExists) {
 			return UpdateDocument400JSONResponse{
-				Error:   ptr("conflict"),
-				Message: ptr("document code already exists"),
+				Error:   ptr.To("conflict"),
+				Message: ptr.To("document code already exists"),
 			}, nil
 		}
 		if errors.Is(err, document.ErrCityNotFound) {
 			return UpdateDocument400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("city not found"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("city not found"),
 			}, nil
 		}
 		return UpdateDocument400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("update failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("update failed"),
 		}, nil
 	}
 
@@ -901,14 +901,14 @@ func (s *Server) DeleteDocument(ctx context.Context, request DeleteDocumentReque
 	if err := s.documentService.Delete(ctx, uint(request.Id)); err != nil {
 		if errors.Is(err, document.ErrDocumentNotFound) {
 			return DeleteDocument404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("document not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("document not found"),
 			}, nil
 		}
 		slog.Error("DeleteDocument failed", "error", err, "document_id", request.Id)
 		return DeleteDocument500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to delete document"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to delete document"),
 		}, nil
 	}
 
@@ -928,19 +928,19 @@ func (s *Server) AddDocumentItem(ctx context.Context, request AddDocumentItemReq
 	if err != nil {
 		if errors.Is(err, document.ErrDocumentNotFound) {
 			return AddDocumentItem404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("document not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("document not found"),
 			}, nil
 		}
 		if errors.Is(err, document.ErrItemNotFound) {
 			return AddDocumentItem400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("item not found"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("item not found"),
 			}, nil
 		}
 		return AddDocumentItem400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("add item failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("add item failed"),
 		}, nil
 	}
 
@@ -963,19 +963,19 @@ func (s *Server) UpdateDocumentItem(ctx context.Context, request UpdateDocumentI
 	if err != nil {
 		if errors.Is(err, document.ErrDocumentNotFound) {
 			return UpdateDocumentItem404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("document not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("document not found"),
 			}, nil
 		}
 		if errors.Is(err, document.ErrDocumentItemNotFound) {
 			return UpdateDocumentItem404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("document item not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("document item not found"),
 			}, nil
 		}
 		return UpdateDocumentItem400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr("update failed"),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To("update failed"),
 		}, nil
 	}
 
@@ -988,20 +988,20 @@ func (s *Server) DeleteDocumentItem(ctx context.Context, request DeleteDocumentI
 	if err := s.documentService.RemoveItem(ctx, uint(request.Id), uint(request.ItemId)); err != nil {
 		if errors.Is(err, document.ErrDocumentNotFound) {
 			return DeleteDocumentItem404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("document not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("document not found"),
 			}, nil
 		}
 		if errors.Is(err, document.ErrDocumentItemNotFound) {
 			return DeleteDocumentItem404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("document item not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("document item not found"),
 			}, nil
 		}
 		slog.Error("DeleteDocumentItem failed", "error", err, "document_id", request.Id, "item_id", request.ItemId)
 		return DeleteDocumentItem500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to delete document item"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to delete document item"),
 		}, nil
 	}
 
@@ -1023,11 +1023,11 @@ func (s *Server) HealthCheck(ctx context.Context, request HealthCheckRequestObje
 	sqlDB, err := s.container.DB.DB()
 	if err != nil {
 		dbStatus = CheckResultStatusUnhealthy
-		dbError = ptr("unhealthy")
+		dbError = ptr.To("unhealthy")
 		slog.Error("health check: database connection failed", "error", err)
 	} else if err := sqlDB.Ping(); err != nil {
 		dbStatus = CheckResultStatusUnhealthy
-		dbError = ptr("unhealthy")
+		dbError = ptr.To("unhealthy")
 		slog.Error("health check: database ping failed", "error", err)
 	}
 	checks["database"] = CheckResult{
@@ -1042,7 +1042,7 @@ func (s *Server) HealthCheck(ctx context.Context, request HealthCheckRequestObje
 	if s.container.Redis != nil {
 		if err := s.container.Redis.Ping(ctx).Err(); err != nil {
 			redisStatus = CheckResultStatusUnhealthy
-			redisError = ptr("unhealthy")
+			redisError = ptr.To("unhealthy")
 			slog.Error("health check: redis ping failed", "error", err)
 		}
 	}
@@ -1096,11 +1096,11 @@ func (s *Server) ReadinessCheck(ctx context.Context, request ReadinessCheckReque
 	sqlDB, err := s.container.DB.DB()
 	if err != nil {
 		dbStatus = CheckResultStatusUnhealthy
-		dbError = ptr("unhealthy")
+		dbError = ptr.To("unhealthy")
 		slog.Error("readiness check: database connection failed", "error", err)
 	} else if err := sqlDB.Ping(); err != nil {
 		dbStatus = CheckResultStatusUnhealthy
-		dbError = ptr("unhealthy")
+		dbError = ptr.To("unhealthy")
 		slog.Error("readiness check: database ping failed", "error", err)
 	}
 	checks["database"] = CheckResult{
@@ -1115,7 +1115,7 @@ func (s *Server) ReadinessCheck(ctx context.Context, request ReadinessCheckReque
 	if s.container.Redis != nil {
 		if err := s.container.Redis.Ping(ctx).Err(); err != nil {
 			redisStatus = CheckResultStatusUnhealthy
-			redisError = ptr("unhealthy")
+			redisError = ptr.To("unhealthy")
 			slog.Error("readiness check: redis ping failed", "error", err)
 		}
 	}
@@ -1163,40 +1163,10 @@ func WithFiberContext(ctx context.Context, c *fiber.Ctx) context.Context {
 	return context.WithValue(ctx, fiberContextKey{}, c)
 }
 
-// ptr returns a pointer to the given value.
-func ptr[T any](v T) *T {
-	return &v
-}
-
-func ptrToString(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
-func intToString(i int) string {
-	return strconv.Itoa(i)
-}
-
-func deref(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
-func getIntOrDefault(p *int, def int) int {
-	if p == nil {
-		return def
-	}
-	return *p
-}
-
 func buildFilterParams(page, pageSize *int, sort, order *string) *filter.Params {
 	params := &filter.Params{
-		Page:    getIntOrDefault(page, 1),
-		Limit:   getIntOrDefault(pageSize, 10),
+		Page:    ptr.DerefOr(page, 1),
+		Limit:   ptr.DerefOr(pageSize, 10),
 		Filters: make([]filter.FilterParam, 0),
 		Sort:    make([]filter.SortParam, 0),
 	}
@@ -1228,8 +1198,8 @@ func (s *Server) ListDomains(ctx context.Context, request ListDomainsRequestObje
 	apiDomains := make([]DomainResponse, len(domains))
 	for i, d := range domains {
 		apiDomains[i] = DomainResponse{
-			Name:        ptr(d.Name),
-			IsProtected: ptr(d.IsProtected),
+			Name:        ptr.To(d.Name),
+			IsProtected: ptr.To(d.IsProtected),
 		}
 	}
 	return ListDomains200JSONResponse{Domains: &apiDomains}, nil
@@ -1243,30 +1213,30 @@ func (s *Server) ListRoles(ctx context.Context, request ListRolesRequestObject) 
 	if err != nil {
 		slog.Error("ListRoles failed", "error", err)
 		return ListRoles500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to list roles"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to list roles"),
 		}, nil
 	}
 
 	roles := make([]RoleResponse, len(result.Data))
 	for i, r := range result.Data {
 		roles[i] = RoleResponse{
-			Code:        ptr(r.Code),
-			Name:        ptr(r.Name),
-			Description: ptr(r.Description),
-			IsSystem:    ptr(r.IsSystem),
-			CreatedAt:   ptr(r.CreatedAt),
+			Code:        ptr.To(r.Code),
+			Name:        ptr.To(r.Name),
+			Description: ptr.To(r.Description),
+			IsSystem:    ptr.To(r.IsSystem),
+			CreatedAt:   ptr.To(r.CreatedAt),
 		}
 	}
 
 	totalPages := common.CalculateTotalPages(result.Total, params.Limit)
 	return ListRoles200JSONResponse{
 		Data:       &roles,
-		Total:      ptr(result.Total),
-		Page:       ptr(params.Page),
-		PageSize:   ptr(params.Limit),
-		TotalPages: ptr(totalPages),
-		HasMore:    ptr(params.Page < totalPages),
+		Total:      ptr.To(result.Total),
+		Page:       ptr.To(params.Page),
+		PageSize:   ptr.To(params.Limit),
+		TotalPages: ptr.To(totalPages),
+		HasMore:    ptr.To(params.Page < totalPages),
 	}, nil
 }
 
@@ -1290,7 +1260,7 @@ func (s *Server) CreateRole(ctx context.Context, request CreateRoleRequestObject
 	req := &rbac.CreateRoleRequest{
 		Code:        request.Body.Code,
 		Name:        request.Body.Name,
-		Description: deref(request.Body.Description),
+		Description: ptr.Deref(request.Body.Description),
 		Permissions: perms,
 	}
 
@@ -1298,22 +1268,22 @@ func (s *Server) CreateRole(ctx context.Context, request CreateRoleRequestObject
 	if err != nil {
 		if errors.Is(err, rbac.ErrRoleCodeExists) {
 			return CreateRole409JSONResponse{
-				Error:   ptr("conflict"),
-				Message: ptr("Role code already exists"),
+				Error:   ptr.To("conflict"),
+				Message: ptr.To("Role code already exists"),
 			}, nil
 		}
 		return CreateRole400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr(err.Error()),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To(err.Error()),
 		}, nil
 	}
 
 	return CreateRole201JSONResponse{
-		Code:        ptr(role.Code),
-		Name:        ptr(role.Name),
-		Description: ptr(role.Description),
-		IsSystem:    ptr(role.IsSystem),
-		CreatedAt:   ptr(role.CreatedAt),
+		Code:        ptr.To(role.Code),
+		Name:        ptr.To(role.Name),
+		Description: ptr.To(role.Description),
+		IsSystem:    ptr.To(role.IsSystem),
+		CreatedAt:   ptr.To(role.CreatedAt),
 	}, nil
 }
 
@@ -1324,31 +1294,31 @@ func (s *Server) GetRole(ctx context.Context, request GetRoleRequestObject) (Get
 	if err != nil {
 		if errors.Is(err, rbac.ErrRoleNotFound) {
 			return GetRole404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("Role not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("Role not found"),
 			}, nil
 		}
 		slog.Error("GetRole failed", "error", err, "role_code", request.Code)
 		return GetRole500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to get role"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to get role"),
 		}, nil
 	}
 
 	perms := make([]PermissionResponse, len(roleWithPerms.Permissions))
 	for i, p := range roleWithPerms.Permissions {
 		perms[i] = PermissionResponse{
-			Domain:  ptr(p.Domain),
-			Actions: ptr(p.Actions),
+			Domain:  ptr.To(p.Domain),
+			Actions: ptr.To(p.Actions),
 		}
 	}
 
 	return GetRole200JSONResponse{
-		Code:        ptr(roleWithPerms.Role.Code),
-		Name:        ptr(roleWithPerms.Role.Name),
-		Description: ptr(roleWithPerms.Role.Description),
-		IsSystem:    ptr(roleWithPerms.Role.IsSystem),
-		CreatedAt:   ptr(roleWithPerms.Role.CreatedAt),
+		Code:        ptr.To(roleWithPerms.Role.Code),
+		Name:        ptr.To(roleWithPerms.Role.Name),
+		Description: ptr.To(roleWithPerms.Role.Description),
+		IsSystem:    ptr.To(roleWithPerms.Role.IsSystem),
+		CreatedAt:   ptr.To(roleWithPerms.Role.CreatedAt),
 		Permissions: &perms,
 	}, nil
 }
@@ -1360,20 +1330,20 @@ func (s *Server) DeleteRole(ctx context.Context, request DeleteRoleRequestObject
 	if err != nil {
 		if errors.Is(err, rbac.ErrRoleNotFound) {
 			return DeleteRole404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("Role not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("Role not found"),
 			}, nil
 		}
 		if errors.Is(err, rbac.ErrSystemRoleCannotBeDeleted) {
 			return DeleteRole403JSONResponse{
-				Error:   ptr("forbidden"),
-				Message: ptr("Cannot delete system role"),
+				Error:   ptr.To("forbidden"),
+				Message: ptr.To("Cannot delete system role"),
 			}, nil
 		}
 		slog.Error("DeleteRole failed", "error", err, "role_code", request.Code)
 		return DeleteRole500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to delete role"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to delete role"),
 		}, nil
 	}
 
@@ -1403,36 +1373,36 @@ func (s *Server) UpdateRolePermissions(ctx context.Context, request UpdateRolePe
 	if err != nil {
 		if errors.Is(err, rbac.ErrRoleNotFound) {
 			return UpdateRolePermissions404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("Role not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("Role not found"),
 			}, nil
 		}
 		if errors.Is(err, rbac.ErrSystemRoleCannotBeModified) {
 			return UpdateRolePermissions403JSONResponse{
-				Error:   ptr("forbidden"),
-				Message: ptr("Cannot modify system role"),
+				Error:   ptr.To("forbidden"),
+				Message: ptr.To("Cannot modify system role"),
 			}, nil
 		}
 		return UpdateRolePermissions400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr(err.Error()),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To(err.Error()),
 		}, nil
 	}
 
 	permResponses := make([]PermissionResponse, len(roleWithPerms.Permissions))
 	for i, p := range roleWithPerms.Permissions {
 		permResponses[i] = PermissionResponse{
-			Domain:  ptr(p.Domain),
-			Actions: ptr(p.Actions),
+			Domain:  ptr.To(p.Domain),
+			Actions: ptr.To(p.Actions),
 		}
 	}
 
 	return UpdateRolePermissions200JSONResponse{
-		Code:        ptr(roleWithPerms.Role.Code),
-		Name:        ptr(roleWithPerms.Role.Name),
-		Description: ptr(roleWithPerms.Role.Description),
-		IsSystem:    ptr(roleWithPerms.Role.IsSystem),
-		CreatedAt:   ptr(roleWithPerms.Role.CreatedAt),
+		Code:        ptr.To(roleWithPerms.Role.Code),
+		Name:        ptr.To(roleWithPerms.Role.Name),
+		Description: ptr.To(roleWithPerms.Role.Description),
+		IsSystem:    ptr.To(roleWithPerms.Role.IsSystem),
+		CreatedAt:   ptr.To(roleWithPerms.Role.CreatedAt),
 		Permissions: &permResponses,
 	}, nil
 }
@@ -1453,21 +1423,21 @@ func (s *Server) GetUserRoles(ctx context.Context, request GetUserRolesRequestOb
 	if err != nil {
 		slog.Error("GetUserRoles failed", "error", err, "user_id", request.Id)
 		return GetUserRoles500JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr("failed to get user roles"),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To("failed to get user roles"),
 		}, nil
 	}
 
 	apiRoles := make([]UserRoleResponse, len(roles))
 	for i, r := range roles {
 		apiRoles[i] = UserRoleResponse{
-			Code: ptr(r.Code),
-			Name: ptr(r.Name),
+			Code: ptr.To(r.Code),
+			Name: ptr.To(r.Name),
 		}
 	}
 
 	return GetUserRoles200JSONResponse{
-		UserId: ptr(request.Id),
+		UserId: ptr.To(request.Id),
 		Roles:  &apiRoles,
 	}, nil
 }
@@ -1479,19 +1449,19 @@ func (s *Server) AssignRoleToUser(ctx context.Context, request AssignRoleToUserR
 	if err != nil {
 		if errors.Is(err, rbac.ErrRoleNotFound) {
 			return AssignRoleToUser404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("Role not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("Role not found"),
 			}, nil
 		}
 		if errors.Is(err, rbac.ErrRoleAlreadyAssigned) {
 			return AssignRoleToUser400JSONResponse{
-				Error:   ptr("bad_request"),
-				Message: ptr("Role already assigned"),
+				Error:   ptr.To("bad_request"),
+				Message: ptr.To("Role already assigned"),
 			}, nil
 		}
 		return AssignRoleToUser400JSONResponse{
-			Error:   ptr("bad_request"),
-			Message: ptr(err.Error()),
+			Error:   ptr.To("bad_request"),
+			Message: ptr.To(err.Error()),
 		}, nil
 	}
 
@@ -1499,21 +1469,21 @@ func (s *Server) AssignRoleToUser(ctx context.Context, request AssignRoleToUserR
 	roles, err := s.rbacService.GetUserRoles(ctx, uint(request.Id))
 	if err != nil {
 		return AssignRoleToUser400JSONResponse{
-			Error:   ptr("internal_error"),
-			Message: ptr(err.Error()),
+			Error:   ptr.To("internal_error"),
+			Message: ptr.To(err.Error()),
 		}, nil
 	}
 
 	apiRoles := make([]UserRoleResponse, len(roles))
 	for i, r := range roles {
 		apiRoles[i] = UserRoleResponse{
-			Code: ptr(r.Code),
-			Name: ptr(r.Name),
+			Code: ptr.To(r.Code),
+			Name: ptr.To(r.Name),
 		}
 	}
 
 	return AssignRoleToUser200JSONResponse{
-		UserId: ptr(request.Id),
+		UserId: ptr.To(request.Id),
 		Roles:  &apiRoles,
 	}, nil
 }
@@ -1525,13 +1495,13 @@ func (s *Server) RemoveRoleFromUser(ctx context.Context, request RemoveRoleFromU
 	if err != nil {
 		if errors.Is(err, rbac.ErrRoleNotFound) || errors.Is(err, rbac.ErrRoleNotAssigned) {
 			return RemoveRoleFromUser404JSONResponse{
-				Error:   ptr("not_found"),
-				Message: ptr("Role assignment not found"),
+				Error:   ptr.To("not_found"),
+				Message: ptr.To("Role assignment not found"),
 			}, nil
 		}
 		return RemoveRoleFromUser403JSONResponse{
-			Error:   ptr("forbidden"),
-			Message: ptr(err.Error()),
+			Error:   ptr.To("forbidden"),
+			Message: ptr.To(err.Error()),
 		}, nil
 	}
 

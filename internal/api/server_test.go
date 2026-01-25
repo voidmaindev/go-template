@@ -3,102 +3,83 @@ package api
 import (
 	"context"
 	"testing"
+
+	"github.com/voidmaindev/go-template/pkg/ptr"
 )
 
-func TestPtr(t *testing.T) {
+func TestPtrTo(t *testing.T) {
 	t.Run("string", func(t *testing.T) {
 		s := "hello"
-		p := ptr(s)
+		p := ptr.To(s)
 		if *p != s {
-			t.Errorf("ptr() = %s, want %s", *p, s)
+			t.Errorf("ptr.To() = %s, want %s", *p, s)
 		}
 	})
 
 	t.Run("int", func(t *testing.T) {
 		i := 42
-		p := ptr(i)
+		p := ptr.To(i)
 		if *p != i {
-			t.Errorf("ptr() = %d, want %d", *p, i)
+			t.Errorf("ptr.To() = %d, want %d", *p, i)
 		}
 	})
 
 	t.Run("int64", func(t *testing.T) {
 		i := int64(100)
-		p := ptr(i)
+		p := ptr.To(i)
 		if *p != i {
-			t.Errorf("ptr() = %d, want %d", *p, i)
+			t.Errorf("ptr.To() = %d, want %d", *p, i)
 		}
 	})
 
 	t.Run("bool", func(t *testing.T) {
 		b := true
-		p := ptr(b)
+		p := ptr.To(b)
 		if *p != b {
-			t.Errorf("ptr() = %v, want %v", *p, b)
+			t.Errorf("ptr.To() = %v, want %v", *p, b)
 		}
 	})
 }
 
-func TestPtrToString(t *testing.T) {
+func TestPtrDeref(t *testing.T) {
 	tests := []struct {
 		name string
 		s    *string
 		want string
 	}{
 		{"nil", nil, ""},
-		{"empty", ptr(""), ""},
-		{"value", ptr("hello"), "hello"},
+		{"empty", ptr.To(""), ""},
+		{"value", ptr.To("hello"), "hello"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ptrToString(tt.s)
+			got := ptr.Deref(tt.s)
 			if got != tt.want {
-				t.Errorf("ptrToString() = %s, want %s", got, tt.want)
+				t.Errorf("ptr.Deref() = %s, want %s", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestIntToString(t *testing.T) {
+func TestPtrDerefOr(t *testing.T) {
 	tests := []struct {
-		i    int
-		want string
-	}{
-		{0, "0"},
-		{42, "42"},
-		{-1, "-1"},
-		{1000, "1000"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
-			got := intToString(tt.i)
-			if got != tt.want {
-				t.Errorf("intToString(%d) = %s, want %s", tt.i, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetIntOrDefault(t *testing.T) {
-	tests := []struct {
-		name    string
-		val     *int
-		def     int
-		want    int
+		name string
+		val  *int
+		def  int
+		want int
 	}{
 		{"nil uses default", nil, 10, 10},
-		{"value used", ptr(5), 10, 5},
-		{"zero value used", ptr(0), 10, 0},
-		{"negative value used", ptr(-1), 10, -1},
+		{"value used", ptr.To(5), 10, 5},
+		{"zero value used", ptr.To(0), 10, 0},
+		{"negative value used", ptr.To(-1), 10, -1},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getIntOrDefault(tt.val, tt.def)
+			got := ptr.DerefOr(tt.val, tt.def)
 			if got != tt.want {
-				t.Errorf("getIntOrDefault() = %d, want %d", got, tt.want)
+				t.Errorf("ptr.DerefOr() = %d, want %d", got, tt.want)
 			}
 		})
 	}

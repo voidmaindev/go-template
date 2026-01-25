@@ -11,6 +11,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/document"
 	"github.com/voidmaindev/go-template/internal/domain/item"
 	"github.com/voidmaindev/go-template/internal/domain/user"
+	"github.com/voidmaindev/go-template/pkg/ptr"
 )
 
 // ================================
@@ -19,9 +20,9 @@ import (
 
 func toTokenResponse(t *user.TokenResponse) TokenResponse {
 	return TokenResponse{
-		AccessToken:  ptr(t.AccessToken),
-		RefreshToken: ptr(t.RefreshToken),
-		ExpiresAt:    ptr(time.Unix(t.ExpiresAt, 0)),
+		AccessToken:  ptr.To(t.AccessToken),
+		RefreshToken: ptr.To(t.RefreshToken),
+		ExpiresAt:    ptr.To(time.Unix(t.ExpiresAt, 0)),
 		User:         toUserResponsePtr(t.User),
 	}
 }
@@ -33,11 +34,11 @@ func toTokenResponse(t *user.TokenResponse) TokenResponse {
 func toUserResponse(u *user.User) UserResponse {
 	email := openapi_types.Email(u.Email)
 	return UserResponse{
-		Id:        ptr(int64(u.ID)),
+		Id:        ptr.To(int64(u.ID)),
 		Email:     &email,
-		Name:      ptr(u.Name),
-		CreatedAt: ptr(u.CreatedAt),
-		UpdatedAt: ptr(u.UpdatedAt),
+		Name:      ptr.To(u.Name),
+		CreatedAt: ptr.To(u.CreatedAt),
+		UpdatedAt: ptr.To(u.UpdatedAt),
 	}
 }
 
@@ -47,11 +48,11 @@ func toUserResponsePtr(u *user.UserResponse) *UserResponse {
 	}
 	email := openapi_types.Email(u.Email)
 	return &UserResponse{
-		Id:        ptr(int64(u.ID)),
+		Id:        ptr.To(int64(u.ID)),
 		Email:     &email,
-		Name:      ptr(u.Name),
-		CreatedAt: ptr(u.CreatedAt),
-		UpdatedAt: ptr(u.UpdatedAt),
+		Name:      ptr.To(u.Name),
+		CreatedAt: ptr.To(u.CreatedAt),
+		UpdatedAt: ptr.To(u.UpdatedAt),
 	}
 }
 
@@ -65,11 +66,11 @@ func toUserListResponse(result *common.FilteredResult[user.User], params *filter
 
 	return UserListResponse{
 		Data:       &users,
-		Total:      ptr(result.Total),
-		Page:       ptr(params.Page),
-		PageSize:   ptr(params.Limit),
-		TotalPages: ptr(totalPages),
-		HasMore:    ptr(params.Page < totalPages),
+		Total:      ptr.To(result.Total),
+		Page:       ptr.To(params.Page),
+		PageSize:   ptr.To(params.Limit),
+		TotalPages: ptr.To(totalPages),
+		HasMore:    ptr.To(params.Page < totalPages),
 	}
 }
 
@@ -79,12 +80,12 @@ func toUserListResponse(result *common.FilteredResult[user.User], params *filter
 
 func toItemResponse(i *item.Item) ItemResponse {
 	return ItemResponse{
-		Id:          ptr(int64(i.ID)),
-		Name:        ptr(i.Name),
-		Description: ptr(i.Description),
-		Price:       ptr(int(i.Price)),
-		CreatedAt:   ptr(i.CreatedAt),
-		UpdatedAt:   ptr(i.UpdatedAt),
+		Id:          ptr.To(int64(i.ID)),
+		Name:        ptr.To(i.Name),
+		Description: ptr.To(i.Description),
+		Price:       ptr.To(int(i.Price)),
+		CreatedAt:   ptr.To(i.CreatedAt),
+		UpdatedAt:   ptr.To(i.UpdatedAt),
 	}
 }
 
@@ -106,11 +107,11 @@ func toItemListResponse(result *common.FilteredResult[item.Item], params *filter
 
 	return ItemListResponse{
 		Data:       &items,
-		Total:      ptr(result.Total),
-		Page:       ptr(params.Page),
-		PageSize:   ptr(params.Limit),
-		TotalPages: ptr(totalPages),
-		HasMore:    ptr(params.Page < totalPages),
+		Total:      ptr.To(result.Total),
+		Page:       ptr.To(params.Page),
+		PageSize:   ptr.To(params.Limit),
+		TotalPages: ptr.To(totalPages),
+		HasMore:    ptr.To(params.Page < totalPages),
 	}
 }
 
@@ -120,11 +121,11 @@ func toItemListResponse(result *common.FilteredResult[item.Item], params *filter
 
 func toCountryResponse(c *country.Country) CountryResponse {
 	return CountryResponse{
-		Id:        ptr(int64(c.ID)),
-		Name:      ptr(c.Name),
-		Code:      ptr(c.Code),
-		CreatedAt: ptr(c.CreatedAt),
-		UpdatedAt: ptr(c.UpdatedAt),
+		Id:        ptr.To(int64(c.ID)),
+		Name:      ptr.To(c.Name),
+		Code:      ptr.To(c.Code),
+		CreatedAt: ptr.To(c.CreatedAt),
+		UpdatedAt: ptr.To(c.UpdatedAt),
 	}
 }
 
@@ -146,11 +147,11 @@ func toCountryListResponse(result *common.FilteredResult[country.Country], param
 
 	return CountryListResponse{
 		Data:       &countries,
-		Total:      ptr(result.Total),
-		Page:       ptr(params.Page),
-		PageSize:   ptr(params.Limit),
-		TotalPages: ptr(totalPages),
-		HasMore:    ptr(params.Page < totalPages),
+		Total:      ptr.To(result.Total),
+		Page:       ptr.To(params.Page),
+		PageSize:   ptr.To(params.Limit),
+		TotalPages: ptr.To(totalPages),
+		HasMore:    ptr.To(params.Page < totalPages),
 	}
 }
 
@@ -160,11 +161,11 @@ func toCountryListResponse(result *common.FilteredResult[country.Country], param
 
 func toCityResponse(c *city.City) CityResponse {
 	resp := CityResponse{
-		Id:        ptr(int64(c.ID)),
-		Name:      ptr(c.Name),
-		CountryId: ptr(int64(c.CountryID)),
-		CreatedAt: ptr(c.CreatedAt),
-		UpdatedAt: ptr(c.UpdatedAt),
+		Id:        ptr.To(int64(c.ID)),
+		Name:      ptr.To(c.Name),
+		CountryId: ptr.To(int64(c.CountryID)),
+		CreatedAt: ptr.To(c.CreatedAt),
+		UpdatedAt: ptr.To(c.UpdatedAt),
 	}
 
 	// Include country if loaded
@@ -193,11 +194,11 @@ func toCityListResponse(result *common.FilteredResult[city.City], params *filter
 
 	return CityListResponse{
 		Data:       &cities,
-		Total:      ptr(result.Total),
-		Page:       ptr(params.Page),
-		PageSize:   ptr(params.Limit),
-		TotalPages: ptr(totalPages),
-		HasMore:    ptr(params.Page < totalPages),
+		Total:      ptr.To(result.Total),
+		Page:       ptr.To(params.Page),
+		PageSize:   ptr.To(params.Limit),
+		TotalPages: ptr.To(totalPages),
+		HasMore:    ptr.To(params.Page < totalPages),
 	}
 }
 
@@ -209,11 +210,11 @@ func toCityListFromPaginated(result *common.PaginatedResult[city.City]) CityList
 
 	return CityListResponse{
 		Data:       &cities,
-		Total:      ptr(result.Total),
-		Page:       ptr(result.Page),
-		PageSize:   ptr(result.PageSize),
-		TotalPages: ptr(result.TotalPages),
-		HasMore:    ptr(result.HasMore),
+		Total:      ptr.To(result.Total),
+		Page:       ptr.To(result.Page),
+		PageSize:   ptr.To(result.PageSize),
+		TotalPages: ptr.To(result.TotalPages),
+		HasMore:    ptr.To(result.HasMore),
 	}
 }
 
@@ -223,13 +224,13 @@ func toCityListFromPaginated(result *common.PaginatedResult[city.City]) CityList
 
 func toDocumentResponse(d *document.Document) DocumentResponse {
 	resp := DocumentResponse{
-		Id:           ptr(int64(d.ID)),
-		Code:         ptr(d.Code),
-		CityId:       ptr(int64(d.CityID)),
-		DocumentDate: ptr(openapi_types.Date{Time: d.DocumentDate}),
-		TotalAmount:  ptr(int(d.TotalAmount)),
-		CreatedAt:    ptr(d.CreatedAt),
-		UpdatedAt:    ptr(d.UpdatedAt),
+		Id:           ptr.To(int64(d.ID)),
+		Code:         ptr.To(d.Code),
+		CityId:       ptr.To(int64(d.CityID)),
+		DocumentDate: ptr.To(openapi_types.Date{Time: d.DocumentDate}),
+		TotalAmount:  ptr.To(int(d.TotalAmount)),
+		CreatedAt:    ptr.To(d.CreatedAt),
+		UpdatedAt:    ptr.To(d.UpdatedAt),
 	}
 
 	// Include city if loaded
@@ -259,22 +260,22 @@ func toDocumentListResponse(result *common.FilteredResult[document.Document], pa
 
 	return DocumentListResponse{
 		Data:       &docs,
-		Total:      ptr(result.Total),
-		Page:       ptr(params.Page),
-		PageSize:   ptr(params.Limit),
-		TotalPages: ptr(totalPages),
-		HasMore:    ptr(params.Page < totalPages),
+		Total:      ptr.To(result.Total),
+		Page:       ptr.To(params.Page),
+		PageSize:   ptr.To(params.Limit),
+		TotalPages: ptr.To(totalPages),
+		HasMore:    ptr.To(params.Page < totalPages),
 	}
 }
 
 func toDocumentItemResponse(di *document.DocumentItem) DocumentItemResponse {
 	resp := DocumentItemResponse{
-		Id:         ptr(int64(di.ID)),
-		DocumentId: ptr(int64(di.DocumentID)),
-		ItemId:     ptr(int64(di.ItemID)),
-		Quantity:   ptr(di.Quantity),
-		Price:      ptr(int(di.Price)),
-		LineTotal:  ptr(int(di.GetLineTotal())),
+		Id:         ptr.To(int64(di.ID)),
+		DocumentId: ptr.To(int64(di.DocumentID)),
+		ItemId:     ptr.To(int64(di.ItemID)),
+		Quantity:   ptr.To(di.Quantity),
+		Price:      ptr.To(int(di.Price)),
+		LineTotal:  ptr.To(int(di.GetLineTotal())),
 	}
 
 	// Include item if loaded

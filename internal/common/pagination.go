@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common/filter"
+	"github.com/voidmaindev/go-template/pkg/ptr"
 )
 
 // DefaultPage is the default page number (not configurable)
@@ -140,27 +141,13 @@ func PaginationFromQuery(c *fiber.Ctx, defaultSort ...string) *Pagination {
 // Useful for OpenAPI generated params where page/pageSize are *int.
 func PaginationFromOptional(page, pageSize *int, sort, order *string) *Pagination {
 	p := &Pagination{
-		Page:     intOrDefault(page, DefaultPage),
-		PageSize: intOrDefault(pageSize, GetDefaultPageSize()),
-		Sort:     stringOrDefault(sort, ""),
-		Order:    stringOrDefault(order, "asc"),
+		Page:     ptr.DerefOr(page, DefaultPage),
+		PageSize: ptr.DerefOr(pageSize, GetDefaultPageSize()),
+		Sort:     ptr.DerefOr(sort, ""),
+		Order:    ptr.DerefOr(order, "asc"),
 	}
 	p.Validate()
 	return p
-}
-
-func intOrDefault(v *int, def int) int {
-	if v != nil {
-		return *v
-	}
-	return def
-}
-
-func stringOrDefault(v *string, def string) string {
-	if v != nil {
-		return *v
-	}
-	return def
 }
 
 // Validate ensures pagination values are within acceptable ranges
