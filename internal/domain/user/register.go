@@ -73,12 +73,17 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	auth.Post("/refresh", handler.RefreshToken)
 
 	// Register requires authentication and user:write permission (admin-only)
-	authRegister := auth.Group("", middleware.JWTMiddleware(jwtConfig, tokenStore))
-	authRegister.Post("/register", middleware.RequirePermission(enforcer, "user", rbac.ActionCreate), handler.Register)
+	// Apply JWT middleware directly to the route to avoid affecting other /auth/* routes
+	auth.Post("/register",
+		middleware.JWTMiddleware(jwtConfig, tokenStore),
+		middleware.RequirePermission(enforcer, "user", rbac.ActionCreate),
+		handler.Register)
 
-	// Auth routes (protected) - with auth_user tier rate limiting
-	authProtected := auth.Group("", middleware.JWTMiddleware(jwtConfig, tokenStore), rateLimiter.ForTier(middleware.TierAuthUser))
-	authProtected.Post("/logout", handler.Logout)
+	// Logout requires authentication
+	auth.Post("/logout",
+		middleware.JWTMiddleware(jwtConfig, tokenStore),
+		rateLimiter.ForTier(middleware.TierAuthUser),
+		handler.Logout)
 
 	// User routes (protected)
 	users := api.Group("/users", middleware.JWTMiddleware(jwtConfig, tokenStore))
