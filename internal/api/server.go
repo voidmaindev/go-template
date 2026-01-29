@@ -1510,5 +1510,98 @@ func (s *Server) RemoveRoleFromUser(ctx context.Context, request RemoveRoleFromU
 	return RemoveRoleFromUser204Response{}, nil
 }
 
+// =============================================================================
+// Self-Registration & OAuth Endpoints (Stubs - to be implemented in auth domain)
+// =============================================================================
+
+// SelfRegister handles self-registration with email
+func (s *Server) SelfRegister(_ context.Context, _ SelfRegisterRequestObject) (SelfRegisterResponseObject, error) {
+	return SelfRegister403JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("Self-registration is not yet implemented"),
+	}, nil
+}
+
+// VerifyEmail handles email verification
+func (s *Server) VerifyEmail(_ context.Context, _ VerifyEmailRequestObject) (VerifyEmailResponseObject, error) {
+	return VerifyEmail400JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("Email verification is not yet implemented"),
+	}, nil
+}
+
+// ResendVerification handles resending verification email
+func (s *Server) ResendVerification(_ context.Context, _ ResendVerificationRequestObject) (ResendVerificationResponseObject, error) {
+	return ResendVerification200Response{}, nil
+}
+
+// ForgotPassword handles password reset request
+func (s *Server) ForgotPassword(_ context.Context, _ ForgotPasswordRequestObject) (ForgotPasswordResponseObject, error) {
+	return ForgotPassword200Response{}, nil
+}
+
+// ResetPassword handles password reset with token
+func (s *Server) ResetPassword(_ context.Context, _ ResetPasswordRequestObject) (ResetPasswordResponseObject, error) {
+	return ResetPassword400JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("Password reset is not yet implemented"),
+	}, nil
+}
+
+// OauthRedirect initiates OAuth flow
+func (s *Server) OauthRedirect(_ context.Context, _ OauthRedirectRequestObject) (OauthRedirectResponseObject, error) {
+	return OauthRedirect400JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("OAuth is not yet implemented"),
+	}, nil
+}
+
+// OauthCallback handles OAuth callback
+func (s *Server) OauthCallback(_ context.Context, _ OauthCallbackRequestObject) (OauthCallbackResponseObject, error) {
+	return OauthCallback400JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("OAuth is not yet implemented"),
+	}, nil
+}
+
+// OauthTokenExchange handles OAuth token exchange for SPAs
+func (s *Server) OauthTokenExchange(_ context.Context, _ OauthTokenExchangeRequestObject) (OauthTokenExchangeResponseObject, error) {
+	return OauthTokenExchange400JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("OAuth is not yet implemented"),
+	}, nil
+}
+
+// SetPassword sets password for OAuth users
+func (s *Server) SetPassword(_ context.Context, _ SetPasswordRequestObject) (SetPasswordResponseObject, error) {
+	return SetPassword400JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("Set password is not yet implemented"),
+	}, nil
+}
+
+// ListIdentities lists linked OAuth accounts
+func (s *Server) ListIdentities(_ context.Context, _ ListIdentitiesRequestObject) (ListIdentitiesResponseObject, error) {
+	return ListIdentities200JSONResponse{
+		Identities: &[]ExternalIdentityResponse{},
+	}, nil
+}
+
+// LinkIdentity links an OAuth account
+func (s *Server) LinkIdentity(_ context.Context, _ LinkIdentityRequestObject) (LinkIdentityResponseObject, error) {
+	return LinkIdentity400JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("Link identity is not yet implemented"),
+	}, nil
+}
+
+// UnlinkIdentity unlinks an OAuth account
+func (s *Server) UnlinkIdentity(_ context.Context, _ UnlinkIdentityRequestObject) (UnlinkIdentityResponseObject, error) {
+	return UnlinkIdentity404JSONResponse{
+		Error:   ptr.To("not_implemented"),
+		Message: ptr.To("Unlink identity is not yet implemented"),
+	}, nil
+}
+
 // Ensure Server implements StrictServerInterface at compile time.
 var _ StrictServerInterface = (*Server)(nil)

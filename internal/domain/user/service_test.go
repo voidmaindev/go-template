@@ -15,6 +15,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
+	"github.com/voidmaindev/go-template/pkg/ptr"
 	"github.com/voidmaindev/go-template/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -117,7 +118,7 @@ func (m *mockRepository) UpdateFields(ctx context.Context, id uint, fields map[s
 		return commonerrors.NotFound("repository", "entity")
 	}
 	if pwd, ok := fields["password"].(string); ok {
-		user.Password = pwd
+		user.Password = &pwd
 	}
 	if name, ok := fields["name"].(string); ok {
 		user.Name = name
@@ -412,7 +413,7 @@ func TestService_Login(t *testing.T) {
 	hashedPassword, _ := utils.HashPassword("correctpassword")
 	repo.Create(context.Background(), &User{
 		Email:    "user@example.com",
-		Password: hashedPassword,
+		Password: ptr.To(hashedPassword),
 		Name:     "Test User",
 	})
 
@@ -473,7 +474,7 @@ func TestService_GetByID(t *testing.T) {
 	// Create a user
 	repo.Create(context.Background(), &User{
 		Email:    "user@example.com",
-		Password: "hashedpwd",
+		Password: ptr.To("hashedpwd"),
 		Name:     "Test User",
 	})
 
@@ -508,7 +509,7 @@ func TestService_GetByEmail(t *testing.T) {
 
 	repo.Create(context.Background(), &User{
 		Email:    "user@example.com",
-		Password: "hashedpwd",
+		Password: ptr.To("hashedpwd"),
 		Name:     "Test User",
 	})
 
@@ -543,7 +544,7 @@ func TestService_Update(t *testing.T) {
 
 	repo.Create(context.Background(), &User{
 		Email:    "user@example.com",
-		Password: "hashedpwd",
+		Password: ptr.To("hashedpwd"),
 		Name:     "Original Name",
 	})
 
@@ -589,7 +590,7 @@ func TestService_ChangePassword(t *testing.T) {
 	hashedPassword, _ := utils.HashPassword("currentpassword")
 	repo.Create(context.Background(), &User{
 		Email:    "user@example.com",
-		Password: hashedPassword,
+		Password: ptr.To(hashedPassword),
 		Name:     "Test User",
 	})
 
@@ -620,7 +621,7 @@ func TestService_ChangePassword(t *testing.T) {
 	t.Run("same password", func(t *testing.T) {
 		// First update the password
 		hashedNew, _ := utils.HashPassword("samepassword")
-		repo.users[1].Password = hashedNew
+		repo.users[1].Password = ptr.To(hashedNew)
 
 		req := &ChangePasswordRequest{
 			CurrentPassword: "samepassword",
@@ -658,7 +659,7 @@ func TestService_Delete(t *testing.T) {
 
 	repo.Create(context.Background(), &User{
 		Email:    "user@example.com",
-		Password: "hashedpwd",
+		Password: ptr.To("hashedpwd"),
 		Name:     "Test User",
 	})
 
@@ -697,7 +698,7 @@ func TestService_List(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		repo.Create(context.Background(), &User{
 			Email:    "user" + string(rune('0'+i)) + "@example.com",
-			Password: "hashedpwd",
+			Password: ptr.To("hashedpwd"),
 			Name:     "User " + string(rune('0'+i)),
 		})
 	}
@@ -740,7 +741,7 @@ func TestService_RefreshToken(t *testing.T) {
 	// Create a user
 	repo.Create(context.Background(), &User{
 		Email:    "user@example.com",
-		Password: "hashedpwd",
+		Password: ptr.To("hashedpwd"),
 		Name:     "Test User",
 	})
 

@@ -32,6 +32,7 @@ func (d *domain) Name() string {
 func (d *domain) Models() []any {
 	return []any{
 		&User{},
+		&ExternalIdentity{},
 	}
 }
 

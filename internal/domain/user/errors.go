@@ -18,6 +18,9 @@ var (
 	// ErrSamePassword is returned when new password is same as current
 	ErrSamePassword = errors.Validation(domainName, "new password must be different from current password")
 
+	// ErrNoPassword is returned when user has no password set (OAuth-only user)
+	ErrNoPassword = errors.Validation(domainName, "user does not have a password set")
+
 	// ErrInvalidCredentials is returned for failed login attempts
 	ErrInvalidCredentials = errors.New(domainName, errors.CodeUnauthorized).
 				WithMessage("invalid credentials")

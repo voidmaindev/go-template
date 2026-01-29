@@ -41,11 +41,14 @@ type UpdateUserRequest struct {
 
 // UserResponse represents the user response (without sensitive data)
 type UserResponse struct {
-	ID        uint      `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID               uint       `json:"id"`
+	Email            string     `json:"email"`
+	Name             string     `json:"name"`
+	EmailVerifiedAt  *time.Time `json:"email_verified_at,omitempty"`
+	IsSelfRegistered bool       `json:"is_self_registered"`
+	HasPassword      bool       `json:"has_password"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 // TokenResponse represents the token response

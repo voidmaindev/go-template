@@ -31,6 +31,13 @@ const (
 	CheckResultStatusUnhealthy CheckResultStatus = "unhealthy"
 )
 
+// Defines values for ExternalIdentityResponseProvider.
+const (
+	ExternalIdentityResponseProviderApple    ExternalIdentityResponseProvider = "apple"
+	ExternalIdentityResponseProviderFacebook ExternalIdentityResponseProvider = "facebook"
+	ExternalIdentityResponseProviderGoogle   ExternalIdentityResponseProvider = "google"
+)
+
 // Defines values for HealthResponseStatus.
 const (
 	HealthResponseStatusDegraded  HealthResponseStatus = "degraded"
@@ -56,6 +63,34 @@ const (
 const (
 	OrderParamAsc  OrderParam = "asc"
 	OrderParamDesc OrderParam = "desc"
+)
+
+// Defines values for ProviderPathParam.
+const (
+	ProviderPathParamApple    ProviderPathParam = "apple"
+	ProviderPathParamFacebook ProviderPathParam = "facebook"
+	ProviderPathParamGoogle   ProviderPathParam = "google"
+)
+
+// Defines values for OauthRedirectParamsProvider.
+const (
+	OauthRedirectParamsProviderApple    OauthRedirectParamsProvider = "apple"
+	OauthRedirectParamsProviderFacebook OauthRedirectParamsProvider = "facebook"
+	OauthRedirectParamsProviderGoogle   OauthRedirectParamsProvider = "google"
+)
+
+// Defines values for OauthCallbackParamsProvider.
+const (
+	OauthCallbackParamsProviderApple    OauthCallbackParamsProvider = "apple"
+	OauthCallbackParamsProviderFacebook OauthCallbackParamsProvider = "facebook"
+	OauthCallbackParamsProviderGoogle   OauthCallbackParamsProvider = "google"
+)
+
+// Defines values for OauthTokenExchangeParamsProvider.
+const (
+	OauthTokenExchangeParamsProviderApple    OauthTokenExchangeParamsProvider = "apple"
+	OauthTokenExchangeParamsProviderFacebook OauthTokenExchangeParamsProvider = "facebook"
+	OauthTokenExchangeParamsProviderGoogle   OauthTokenExchangeParamsProvider = "google"
 )
 
 // Defines values for ListCitiesParamsOrder.
@@ -86,6 +121,20 @@ const (
 const (
 	ListUsersParamsOrderAsc  ListUsersParamsOrder = "asc"
 	ListUsersParamsOrderDesc ListUsersParamsOrder = "desc"
+)
+
+// Defines values for UnlinkIdentityParamsProvider.
+const (
+	UnlinkIdentityParamsProviderApple    UnlinkIdentityParamsProvider = "apple"
+	UnlinkIdentityParamsProviderFacebook UnlinkIdentityParamsProvider = "facebook"
+	UnlinkIdentityParamsProviderGoogle   UnlinkIdentityParamsProvider = "google"
+)
+
+// Defines values for LinkIdentityParamsProvider.
+const (
+	Apple    LinkIdentityParamsProvider = "apple"
+	Facebook LinkIdentityParamsProvider = "facebook"
+	Google   LinkIdentityParamsProvider = "google"
 )
 
 // ActionsResponse defines model for ActionsResponse.
@@ -270,6 +319,27 @@ type ErrorResponse struct {
 	Success   *bool   `json:"success,omitempty"`
 }
 
+// ExternalIdentityResponse defines model for ExternalIdentityResponse.
+type ExternalIdentityResponse struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Email Email from the OAuth provider (may differ from user's primary email)
+	Email    *openapi_types.Email              `json:"email,omitempty"`
+	Id       *int64                            `json:"id,omitempty"`
+	Provider *ExternalIdentityResponseProvider `json:"provider,omitempty"`
+
+	// ProviderId User ID from the OAuth provider
+	ProviderId *string `json:"provider_id,omitempty"`
+}
+
+// ExternalIdentityResponseProvider defines model for ExternalIdentityResponse.Provider.
+type ExternalIdentityResponseProvider string
+
+// ForgotPasswordRequest defines model for ForgotPasswordRequest.
+type ForgotPasswordRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
+
 // HealthResponse defines model for HealthResponse.
 type HealthResponse struct {
 	Checks    *map[string]CheckResult `json:"checks,omitempty"`
@@ -281,6 +351,11 @@ type HealthResponse struct {
 
 // HealthResponseStatus defines model for HealthResponse.Status.
 type HealthResponseStatus string
+
+// IdentitiesListResponse defines model for IdentitiesListResponse.
+type IdentitiesListResponse struct {
+	Identities *[]ExternalIdentityResponse `json:"identities,omitempty"`
+}
 
 // ItemListResponse defines model for ItemListResponse.
 type ItemListResponse struct {
@@ -304,6 +379,15 @@ type ItemResponse struct {
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
+// LinkIdentityRequest defines model for LinkIdentityRequest.
+type LinkIdentityRequest struct {
+	// Code Authorization code from OAuth provider
+	Code string `json:"code"`
+
+	// State State parameter for CSRF protection
+	State string `json:"state"`
+}
+
 // LivenessResponse defines model for LivenessResponse.
 type LivenessResponse struct {
 	Status *LivenessResponseStatus `json:"status,omitempty"`
@@ -316,6 +400,15 @@ type LivenessResponseStatus string
 type LoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Password string              `json:"password"`
+}
+
+// OAuthTokenRequest defines model for OAuthTokenRequest.
+type OAuthTokenRequest struct {
+	// Code Authorization code from OAuth provider
+	Code string `json:"code"`
+
+	// State State parameter for CSRF protection
+	State string `json:"state"`
 }
 
 // PermissionInput defines model for PermissionInput.
@@ -351,6 +444,19 @@ type RegisterRequest struct {
 	RoleCodes *[]string `json:"role_codes,omitempty"`
 }
 
+// ResendVerificationRequest defines model for ResendVerificationRequest.
+type ResendVerificationRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
+
+// ResetPasswordRequest defines model for ResetPasswordRequest.
+type ResetPasswordRequest struct {
+	NewPassword string `json:"new_password"`
+
+	// Token Password reset token from the reset link
+	Token string `json:"token"`
+}
+
 // RoleListResponse defines model for RoleListResponse.
 type RoleListResponse struct {
 	Data       *[]RoleResponse `json:"data,omitempty"`
@@ -384,6 +490,25 @@ type RoleWithPermissionsResponse struct {
 	Name        *string               `json:"name,omitempty"`
 	Permissions *[]PermissionResponse `json:"permissions,omitempty"`
 	UpdatedAt   *time.Time            `json:"updated_at,omitempty"`
+}
+
+// SelfRegisterRequest defines model for SelfRegisterRequest.
+type SelfRegisterRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Name     string              `json:"name"`
+	Password string              `json:"password"`
+}
+
+// SelfRegisterResponse defines model for SelfRegisterResponse.
+type SelfRegisterResponse struct {
+	Message              *string `json:"message,omitempty"`
+	RequiresVerification *bool   `json:"requires_verification,omitempty"`
+}
+
+// SetPasswordRequest defines model for SetPasswordRequest.
+type SetPasswordRequest struct {
+	// NewPassword New password for OAuth users who don't have a password set
+	NewPassword string `json:"new_password"`
 }
 
 // TokenResponse defines model for TokenResponse.
@@ -451,9 +576,15 @@ type UserListResponse struct {
 type UserResponse struct {
 	CreatedAt *time.Time           `json:"created_at,omitempty"`
 	Email     *openapi_types.Email `json:"email,omitempty"`
-	Id        *int64               `json:"id,omitempty"`
-	Name      *string              `json:"name,omitempty"`
-	UpdatedAt *time.Time           `json:"updated_at,omitempty"`
+
+	// EmailVerifiedAt When the email was verified (null if not verified)
+	EmailVerifiedAt *time.Time `json:"email_verified_at"`
+	Id              *int64     `json:"id,omitempty"`
+
+	// IsSelfRegistered Whether the user registered via self-registration
+	IsSelfRegistered *bool      `json:"is_self_registered,omitempty"`
+	Name             *string    `json:"name,omitempty"`
+	UpdatedAt        *time.Time `json:"updated_at,omitempty"`
 }
 
 // UserRoleResponse defines model for UserRoleResponse.
@@ -468,6 +599,12 @@ type UserRolesResponse struct {
 	UserId *int64              `json:"user_id,omitempty"`
 }
 
+// VerifyEmailRequest defines model for VerifyEmailRequest.
+type VerifyEmailRequest struct {
+	// Token Email verification token from the verification link
+	Token string `json:"token"`
+}
+
 // IdPathParam defines model for IdPathParam.
 type IdPathParam = int64
 
@@ -480,8 +617,26 @@ type PageParam = int
 // PageSizeParam defines model for PageSizeParam.
 type PageSizeParam = int
 
+// ProviderPathParam defines model for ProviderPathParam.
+type ProviderPathParam string
+
 // SortParam defines model for SortParam.
 type SortParam = string
+
+// OauthRedirectParamsProvider defines parameters for OauthRedirect.
+type OauthRedirectParamsProvider string
+
+// OauthCallbackParams defines parameters for OauthCallback.
+type OauthCallbackParams struct {
+	Code  string `form:"code" json:"code"`
+	State string `form:"state" json:"state"`
+}
+
+// OauthCallbackParamsProvider defines parameters for OauthCallback.
+type OauthCallbackParamsProvider string
+
+// OauthTokenExchangeParamsProvider defines parameters for OauthTokenExchange.
+type OauthTokenExchangeParamsProvider string
 
 // ListCitiesParams defines parameters for ListCities.
 type ListCitiesParams struct {
@@ -591,14 +746,38 @@ type ListUsersParams struct {
 // ListUsersParamsOrder defines parameters for ListUsers.
 type ListUsersParamsOrder string
 
+// UnlinkIdentityParamsProvider defines parameters for UnlinkIdentity.
+type UnlinkIdentityParamsProvider string
+
+// LinkIdentityParamsProvider defines parameters for LinkIdentity.
+type LinkIdentityParamsProvider string
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
+
+// OauthTokenExchangeJSONRequestBody defines body for OauthTokenExchange for application/json ContentType.
+type OauthTokenExchangeJSONRequestBody = OAuthTokenRequest
 
 // RefreshTokenJSONRequestBody defines body for RefreshToken for application/json ContentType.
 type RefreshTokenJSONRequestBody = RefreshTokenRequest
 
 // RegisterJSONRequestBody defines body for Register for application/json ContentType.
 type RegisterJSONRequestBody = RegisterRequest
+
+// ForgotPasswordJSONRequestBody defines body for ForgotPassword for application/json ContentType.
+type ForgotPasswordJSONRequestBody = ForgotPasswordRequest
+
+// SelfRegisterJSONRequestBody defines body for SelfRegister for application/json ContentType.
+type SelfRegisterJSONRequestBody = SelfRegisterRequest
+
+// ResendVerificationJSONRequestBody defines body for ResendVerification for application/json ContentType.
+type ResendVerificationJSONRequestBody = ResendVerificationRequest
+
+// ResetPasswordJSONRequestBody defines body for ResetPassword for application/json ContentType.
+type ResetPasswordJSONRequestBody = ResetPasswordRequest
+
+// VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
+type VerifyEmailJSONRequestBody = VerifyEmailRequest
 
 // CreateCityJSONRequestBody defines body for CreateCity for application/json ContentType.
 type CreateCityJSONRequestBody = CreateCityRequest
@@ -642,8 +821,14 @@ type AssignRoleToUserJSONRequestBody = AssignRoleRequest
 // UpdateCurrentUserJSONRequestBody defines body for UpdateCurrentUser for application/json ContentType.
 type UpdateCurrentUserJSONRequestBody = UpdateUserRequest
 
+// LinkIdentityJSONRequestBody defines body for LinkIdentity for application/json ContentType.
+type LinkIdentityJSONRequestBody = LinkIdentityRequest
+
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody = ChangePasswordRequest
+
+// SetPasswordJSONRequestBody defines body for SetPassword for application/json ContentType.
+type SetPasswordJSONRequestBody = SetPasswordRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -653,12 +838,36 @@ type ServerInterface interface {
 	// Logout
 	// (POST /auth/logout)
 	Logout(c *fiber.Ctx) error
+	// Initiate OAuth flow
+	// (GET /auth/oauth/{provider})
+	OauthRedirect(c *fiber.Ctx, provider OauthRedirectParamsProvider) error
+	// OAuth callback
+	// (GET /auth/oauth/{provider}/callback)
+	OauthCallback(c *fiber.Ctx, provider OauthCallbackParamsProvider, params OauthCallbackParams) error
+	// OAuth token exchange (SPA)
+	// (POST /auth/oauth/{provider}/token)
+	OauthTokenExchange(c *fiber.Ctx, provider OauthTokenExchangeParamsProvider) error
 	// Refresh access token
 	// (POST /auth/refresh)
 	RefreshToken(c *fiber.Ctx) error
 	// Register a new user
 	// (POST /auth/register)
 	Register(c *fiber.Ctx) error
+	// Request password reset
+	// (POST /auth/self/forgot-password)
+	ForgotPassword(c *fiber.Ctx) error
+	// Self-register a new account
+	// (POST /auth/self/register)
+	SelfRegister(c *fiber.Ctx) error
+	// Resend verification email
+	// (POST /auth/self/resend-verification)
+	ResendVerification(c *fiber.Ctx) error
+	// Reset password
+	// (POST /auth/self/reset-password)
+	ResetPassword(c *fiber.Ctx) error
+	// Verify email address
+	// (POST /auth/self/verify-email)
+	VerifyEmail(c *fiber.Ctx) error
 	// List cities
 	// (GET /cities)
 	ListCities(c *fiber.Ctx, params ListCitiesParams) error
@@ -782,9 +991,21 @@ type ServerInterface interface {
 	// Update current user
 	// (PUT /users/me)
 	UpdateCurrentUser(c *fiber.Ctx) error
+	// List linked OAuth accounts
+	// (GET /users/me/identities)
+	ListIdentities(c *fiber.Ctx) error
+	// Unlink OAuth account
+	// (DELETE /users/me/identities/{provider})
+	UnlinkIdentity(c *fiber.Ctx, provider UnlinkIdentityParamsProvider) error
+	// Link OAuth account
+	// (POST /users/me/identities/{provider})
+	LinkIdentity(c *fiber.Ctx, provider LinkIdentityParamsProvider) error
 	// Change password
 	// (PUT /users/me/password)
 	ChangePassword(c *fiber.Ctx) error
+	// Set password (OAuth users)
+	// (POST /users/me/set-password)
+	SetPassword(c *fiber.Ctx) error
 	// Delete user
 	// (DELETE /users/{id})
 	DeleteUser(c *fiber.Ctx, id IdPathParam) error
@@ -814,6 +1035,93 @@ func (siw *ServerInterfaceWrapper) Logout(c *fiber.Ctx) error {
 	return siw.Handler.Logout(c)
 }
 
+// OauthRedirect operation middleware
+func (siw *ServerInterfaceWrapper) OauthRedirect(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "provider" -------------
+	var provider OauthRedirectParamsProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", c.Params("provider"), &provider, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter provider: %w", err).Error())
+	}
+
+	return siw.Handler.OauthRedirect(c, provider)
+}
+
+// OauthCallback operation middleware
+func (siw *ServerInterfaceWrapper) OauthCallback(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "provider" -------------
+	var provider OauthCallbackParamsProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", c.Params("provider"), &provider, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter provider: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OauthCallbackParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "code" -------------
+
+	if paramValue := c.Query("code"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument code is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "code", query, &params.Code)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter code: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "state" -------------
+
+	if paramValue := c.Query("state"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument state is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "state", query, &params.State)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter state: %w", err).Error())
+	}
+
+	return siw.Handler.OauthCallback(c, provider, params)
+}
+
+// OauthTokenExchange operation middleware
+func (siw *ServerInterfaceWrapper) OauthTokenExchange(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "provider" -------------
+	var provider OauthTokenExchangeParamsProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", c.Params("provider"), &provider, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter provider: %w", err).Error())
+	}
+
+	return siw.Handler.OauthTokenExchange(c, provider)
+}
+
 // RefreshToken operation middleware
 func (siw *ServerInterfaceWrapper) RefreshToken(c *fiber.Ctx) error {
 
@@ -824,6 +1132,36 @@ func (siw *ServerInterfaceWrapper) RefreshToken(c *fiber.Ctx) error {
 func (siw *ServerInterfaceWrapper) Register(c *fiber.Ctx) error {
 
 	return siw.Handler.Register(c)
+}
+
+// ForgotPassword operation middleware
+func (siw *ServerInterfaceWrapper) ForgotPassword(c *fiber.Ctx) error {
+
+	return siw.Handler.ForgotPassword(c)
+}
+
+// SelfRegister operation middleware
+func (siw *ServerInterfaceWrapper) SelfRegister(c *fiber.Ctx) error {
+
+	return siw.Handler.SelfRegister(c)
+}
+
+// ResendVerification operation middleware
+func (siw *ServerInterfaceWrapper) ResendVerification(c *fiber.Ctx) error {
+
+	return siw.Handler.ResendVerification(c)
+}
+
+// ResetPassword operation middleware
+func (siw *ServerInterfaceWrapper) ResetPassword(c *fiber.Ctx) error {
+
+	return siw.Handler.ResetPassword(c)
+}
+
+// VerifyEmail operation middleware
+func (siw *ServerInterfaceWrapper) VerifyEmail(c *fiber.Ctx) error {
+
+	return siw.Handler.VerifyEmail(c)
 }
 
 // ListCities operation middleware
@@ -1633,12 +1971,64 @@ func (siw *ServerInterfaceWrapper) UpdateCurrentUser(c *fiber.Ctx) error {
 	return siw.Handler.UpdateCurrentUser(c)
 }
 
+// ListIdentities operation middleware
+func (siw *ServerInterfaceWrapper) ListIdentities(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.ListIdentities(c)
+}
+
+// UnlinkIdentity operation middleware
+func (siw *ServerInterfaceWrapper) UnlinkIdentity(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "provider" -------------
+	var provider UnlinkIdentityParamsProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", c.Params("provider"), &provider, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter provider: %w", err).Error())
+	}
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.UnlinkIdentity(c, provider)
+}
+
+// LinkIdentity operation middleware
+func (siw *ServerInterfaceWrapper) LinkIdentity(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "provider" -------------
+	var provider LinkIdentityParamsProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", c.Params("provider"), &provider, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter provider: %w", err).Error())
+	}
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.LinkIdentity(c, provider)
+}
+
 // ChangePassword operation middleware
 func (siw *ServerInterfaceWrapper) ChangePassword(c *fiber.Ctx) error {
 
 	c.Context().SetUserValue(BearerAuthScopes, []string{})
 
 	return siw.Handler.ChangePassword(c)
+}
+
+// SetPassword operation middleware
+func (siw *ServerInterfaceWrapper) SetPassword(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.SetPassword(c)
 }
 
 // DeleteUser operation middleware
@@ -1702,9 +2092,25 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
 
+	router.Get(options.BaseURL+"/auth/oauth/:provider", wrapper.OauthRedirect)
+
+	router.Get(options.BaseURL+"/auth/oauth/:provider/callback", wrapper.OauthCallback)
+
+	router.Post(options.BaseURL+"/auth/oauth/:provider/token", wrapper.OauthTokenExchange)
+
 	router.Post(options.BaseURL+"/auth/refresh", wrapper.RefreshToken)
 
 	router.Post(options.BaseURL+"/auth/register", wrapper.Register)
+
+	router.Post(options.BaseURL+"/auth/self/forgot-password", wrapper.ForgotPassword)
+
+	router.Post(options.BaseURL+"/auth/self/register", wrapper.SelfRegister)
+
+	router.Post(options.BaseURL+"/auth/self/resend-verification", wrapper.ResendVerification)
+
+	router.Post(options.BaseURL+"/auth/self/reset-password", wrapper.ResetPassword)
+
+	router.Post(options.BaseURL+"/auth/self/verify-email", wrapper.VerifyEmail)
 
 	router.Get(options.BaseURL+"/cities", wrapper.ListCities)
 
@@ -1788,7 +2194,15 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/users/me", wrapper.UpdateCurrentUser)
 
+	router.Get(options.BaseURL+"/users/me/identities", wrapper.ListIdentities)
+
+	router.Delete(options.BaseURL+"/users/me/identities/:provider", wrapper.UnlinkIdentity)
+
+	router.Post(options.BaseURL+"/users/me/identities/:provider", wrapper.LinkIdentity)
+
 	router.Put(options.BaseURL+"/users/me/password", wrapper.ChangePassword)
+
+	router.Post(options.BaseURL+"/users/me/set-password", wrapper.SetPassword)
 
 	router.Delete(options.BaseURL+"/users/:id", wrapper.DeleteUser)
 
@@ -1842,6 +2256,103 @@ type Logout401JSONResponse ErrorResponse
 func (response Logout401JSONResponse) VisitLogoutResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type OauthRedirectRequestObject struct {
+	Provider OauthRedirectParamsProvider `json:"provider"`
+}
+
+type OauthRedirectResponseObject interface {
+	VisitOauthRedirectResponse(ctx *fiber.Ctx) error
+}
+
+type OauthRedirect302Response struct {
+}
+
+func (response OauthRedirect302Response) VisitOauthRedirectResponse(ctx *fiber.Ctx) error {
+	ctx.Status(302)
+	return nil
+}
+
+type OauthRedirect400JSONResponse ErrorResponse
+
+func (response OauthRedirect400JSONResponse) VisitOauthRedirectResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type OauthCallbackRequestObject struct {
+	Provider OauthCallbackParamsProvider `json:"provider"`
+	Params   OauthCallbackParams
+}
+
+type OauthCallbackResponseObject interface {
+	VisitOauthCallbackResponse(ctx *fiber.Ctx) error
+}
+
+type OauthCallback200JSONResponse TokenResponse
+
+func (response OauthCallback200JSONResponse) VisitOauthCallbackResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type OauthCallback400JSONResponse ErrorResponse
+
+func (response OauthCallback400JSONResponse) VisitOauthCallbackResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type OauthCallback403JSONResponse ErrorResponse
+
+func (response OauthCallback403JSONResponse) VisitOauthCallbackResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type OauthTokenExchangeRequestObject struct {
+	Provider OauthTokenExchangeParamsProvider `json:"provider"`
+	Body     *OauthTokenExchangeJSONRequestBody
+}
+
+type OauthTokenExchangeResponseObject interface {
+	VisitOauthTokenExchangeResponse(ctx *fiber.Ctx) error
+}
+
+type OauthTokenExchange200JSONResponse TokenResponse
+
+func (response OauthTokenExchange200JSONResponse) VisitOauthTokenExchangeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type OauthTokenExchange400JSONResponse ErrorResponse
+
+func (response OauthTokenExchange400JSONResponse) VisitOauthTokenExchangeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type OauthTokenExchange403JSONResponse ErrorResponse
+
+func (response OauthTokenExchange403JSONResponse) VisitOauthTokenExchangeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
 
 	return ctx.JSON(&response)
 }
@@ -1903,6 +2414,151 @@ type Register409JSONResponse ErrorResponse
 func (response Register409JSONResponse) VisitRegisterResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ForgotPasswordRequestObject struct {
+	Body *ForgotPasswordJSONRequestBody
+}
+
+type ForgotPasswordResponseObject interface {
+	VisitForgotPasswordResponse(ctx *fiber.Ctx) error
+}
+
+type ForgotPassword200Response struct {
+}
+
+func (response ForgotPassword200Response) VisitForgotPasswordResponse(ctx *fiber.Ctx) error {
+	ctx.Status(200)
+	return nil
+}
+
+type ForgotPassword429JSONResponse ErrorResponse
+
+func (response ForgotPassword429JSONResponse) VisitForgotPasswordResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(429)
+
+	return ctx.JSON(&response)
+}
+
+type SelfRegisterRequestObject struct {
+	Body *SelfRegisterJSONRequestBody
+}
+
+type SelfRegisterResponseObject interface {
+	VisitSelfRegisterResponse(ctx *fiber.Ctx) error
+}
+
+type SelfRegister201JSONResponse SelfRegisterResponse
+
+func (response SelfRegister201JSONResponse) VisitSelfRegisterResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(201)
+
+	return ctx.JSON(&response)
+}
+
+type SelfRegister400JSONResponse ErrorResponse
+
+func (response SelfRegister400JSONResponse) VisitSelfRegisterResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type SelfRegister403JSONResponse ErrorResponse
+
+func (response SelfRegister403JSONResponse) VisitSelfRegisterResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type SelfRegister409JSONResponse ErrorResponse
+
+func (response SelfRegister409JSONResponse) VisitSelfRegisterResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ResendVerificationRequestObject struct {
+	Body *ResendVerificationJSONRequestBody
+}
+
+type ResendVerificationResponseObject interface {
+	VisitResendVerificationResponse(ctx *fiber.Ctx) error
+}
+
+type ResendVerification200Response struct {
+}
+
+func (response ResendVerification200Response) VisitResendVerificationResponse(ctx *fiber.Ctx) error {
+	ctx.Status(200)
+	return nil
+}
+
+type ResendVerification429JSONResponse ErrorResponse
+
+func (response ResendVerification429JSONResponse) VisitResendVerificationResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(429)
+
+	return ctx.JSON(&response)
+}
+
+type ResetPasswordRequestObject struct {
+	Body *ResetPasswordJSONRequestBody
+}
+
+type ResetPasswordResponseObject interface {
+	VisitResetPasswordResponse(ctx *fiber.Ctx) error
+}
+
+type ResetPassword200Response struct {
+}
+
+func (response ResetPassword200Response) VisitResetPasswordResponse(ctx *fiber.Ctx) error {
+	ctx.Status(200)
+	return nil
+}
+
+type ResetPassword400JSONResponse ErrorResponse
+
+func (response ResetPassword400JSONResponse) VisitResetPasswordResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type VerifyEmailRequestObject struct {
+	Body *VerifyEmailJSONRequestBody
+}
+
+type VerifyEmailResponseObject interface {
+	VisitVerifyEmailResponse(ctx *fiber.Ctx) error
+}
+
+type VerifyEmail200JSONResponse TokenResponse
+
+func (response VerifyEmail200JSONResponse) VisitVerifyEmailResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type VerifyEmail400JSONResponse ErrorResponse
+
+func (response VerifyEmail400JSONResponse) VisitVerifyEmailResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }
@@ -3701,6 +4357,119 @@ func (response UpdateCurrentUser401JSONResponse) VisitUpdateCurrentUserResponse(
 	return ctx.JSON(&response)
 }
 
+type ListIdentitiesRequestObject struct {
+}
+
+type ListIdentitiesResponseObject interface {
+	VisitListIdentitiesResponse(ctx *fiber.Ctx) error
+}
+
+type ListIdentities200JSONResponse IdentitiesListResponse
+
+func (response ListIdentities200JSONResponse) VisitListIdentitiesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListIdentities401JSONResponse ErrorResponse
+
+func (response ListIdentities401JSONResponse) VisitListIdentitiesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type UnlinkIdentityRequestObject struct {
+	Provider UnlinkIdentityParamsProvider `json:"provider"`
+}
+
+type UnlinkIdentityResponseObject interface {
+	VisitUnlinkIdentityResponse(ctx *fiber.Ctx) error
+}
+
+type UnlinkIdentity204Response struct {
+}
+
+func (response UnlinkIdentity204Response) VisitUnlinkIdentityResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type UnlinkIdentity400JSONResponse ErrorResponse
+
+func (response UnlinkIdentity400JSONResponse) VisitUnlinkIdentityResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type UnlinkIdentity401JSONResponse ErrorResponse
+
+func (response UnlinkIdentity401JSONResponse) VisitUnlinkIdentityResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type UnlinkIdentity404JSONResponse ErrorResponse
+
+func (response UnlinkIdentity404JSONResponse) VisitUnlinkIdentityResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type LinkIdentityRequestObject struct {
+	Provider LinkIdentityParamsProvider `json:"provider"`
+	Body     *LinkIdentityJSONRequestBody
+}
+
+type LinkIdentityResponseObject interface {
+	VisitLinkIdentityResponse(ctx *fiber.Ctx) error
+}
+
+type LinkIdentity201JSONResponse ExternalIdentityResponse
+
+func (response LinkIdentity201JSONResponse) VisitLinkIdentityResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(201)
+
+	return ctx.JSON(&response)
+}
+
+type LinkIdentity400JSONResponse ErrorResponse
+
+func (response LinkIdentity400JSONResponse) VisitLinkIdentityResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type LinkIdentity401JSONResponse ErrorResponse
+
+func (response LinkIdentity401JSONResponse) VisitLinkIdentityResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type LinkIdentity409JSONResponse ErrorResponse
+
+func (response LinkIdentity409JSONResponse) VisitLinkIdentityResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type ChangePasswordRequestObject struct {
 	Body *ChangePasswordJSONRequestBody
 }
@@ -3729,6 +4498,40 @@ func (response ChangePassword400JSONResponse) VisitChangePasswordResponse(ctx *f
 type ChangePassword401JSONResponse ErrorResponse
 
 func (response ChangePassword401JSONResponse) VisitChangePasswordResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type SetPasswordRequestObject struct {
+	Body *SetPasswordJSONRequestBody
+}
+
+type SetPasswordResponseObject interface {
+	VisitSetPasswordResponse(ctx *fiber.Ctx) error
+}
+
+type SetPassword200Response struct {
+}
+
+func (response SetPassword200Response) VisitSetPasswordResponse(ctx *fiber.Ctx) error {
+	ctx.Status(200)
+	return nil
+}
+
+type SetPassword400JSONResponse ErrorResponse
+
+func (response SetPassword400JSONResponse) VisitSetPasswordResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type SetPassword401JSONResponse ErrorResponse
+
+func (response SetPassword401JSONResponse) VisitSetPasswordResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
 
@@ -3839,12 +4642,36 @@ type StrictServerInterface interface {
 	// Logout
 	// (POST /auth/logout)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// Initiate OAuth flow
+	// (GET /auth/oauth/{provider})
+	OauthRedirect(ctx context.Context, request OauthRedirectRequestObject) (OauthRedirectResponseObject, error)
+	// OAuth callback
+	// (GET /auth/oauth/{provider}/callback)
+	OauthCallback(ctx context.Context, request OauthCallbackRequestObject) (OauthCallbackResponseObject, error)
+	// OAuth token exchange (SPA)
+	// (POST /auth/oauth/{provider}/token)
+	OauthTokenExchange(ctx context.Context, request OauthTokenExchangeRequestObject) (OauthTokenExchangeResponseObject, error)
 	// Refresh access token
 	// (POST /auth/refresh)
 	RefreshToken(ctx context.Context, request RefreshTokenRequestObject) (RefreshTokenResponseObject, error)
 	// Register a new user
 	// (POST /auth/register)
 	Register(ctx context.Context, request RegisterRequestObject) (RegisterResponseObject, error)
+	// Request password reset
+	// (POST /auth/self/forgot-password)
+	ForgotPassword(ctx context.Context, request ForgotPasswordRequestObject) (ForgotPasswordResponseObject, error)
+	// Self-register a new account
+	// (POST /auth/self/register)
+	SelfRegister(ctx context.Context, request SelfRegisterRequestObject) (SelfRegisterResponseObject, error)
+	// Resend verification email
+	// (POST /auth/self/resend-verification)
+	ResendVerification(ctx context.Context, request ResendVerificationRequestObject) (ResendVerificationResponseObject, error)
+	// Reset password
+	// (POST /auth/self/reset-password)
+	ResetPassword(ctx context.Context, request ResetPasswordRequestObject) (ResetPasswordResponseObject, error)
+	// Verify email address
+	// (POST /auth/self/verify-email)
+	VerifyEmail(ctx context.Context, request VerifyEmailRequestObject) (VerifyEmailResponseObject, error)
 	// List cities
 	// (GET /cities)
 	ListCities(ctx context.Context, request ListCitiesRequestObject) (ListCitiesResponseObject, error)
@@ -3968,9 +4795,21 @@ type StrictServerInterface interface {
 	// Update current user
 	// (PUT /users/me)
 	UpdateCurrentUser(ctx context.Context, request UpdateCurrentUserRequestObject) (UpdateCurrentUserResponseObject, error)
+	// List linked OAuth accounts
+	// (GET /users/me/identities)
+	ListIdentities(ctx context.Context, request ListIdentitiesRequestObject) (ListIdentitiesResponseObject, error)
+	// Unlink OAuth account
+	// (DELETE /users/me/identities/{provider})
+	UnlinkIdentity(ctx context.Context, request UnlinkIdentityRequestObject) (UnlinkIdentityResponseObject, error)
+	// Link OAuth account
+	// (POST /users/me/identities/{provider})
+	LinkIdentity(ctx context.Context, request LinkIdentityRequestObject) (LinkIdentityResponseObject, error)
 	// Change password
 	// (PUT /users/me/password)
 	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+	// Set password (OAuth users)
+	// (POST /users/me/set-password)
+	SetPassword(ctx context.Context, request SetPasswordRequestObject) (SetPasswordResponseObject, error)
 	// Delete user
 	// (DELETE /users/{id})
 	DeleteUser(ctx context.Context, request DeleteUserRequestObject) (DeleteUserResponseObject, error)
@@ -4048,6 +4887,94 @@ func (sh *strictHandler) Logout(ctx *fiber.Ctx) error {
 	return nil
 }
 
+// OauthRedirect operation middleware
+func (sh *strictHandler) OauthRedirect(ctx *fiber.Ctx, provider OauthRedirectParamsProvider) error {
+	var request OauthRedirectRequestObject
+
+	request.Provider = provider
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.OauthRedirect(ctx.UserContext(), request.(OauthRedirectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OauthRedirect")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(OauthRedirectResponseObject); ok {
+		if err := validResponse.VisitOauthRedirectResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// OauthCallback operation middleware
+func (sh *strictHandler) OauthCallback(ctx *fiber.Ctx, provider OauthCallbackParamsProvider, params OauthCallbackParams) error {
+	var request OauthCallbackRequestObject
+
+	request.Provider = provider
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.OauthCallback(ctx.UserContext(), request.(OauthCallbackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OauthCallback")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(OauthCallbackResponseObject); ok {
+		if err := validResponse.VisitOauthCallbackResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// OauthTokenExchange operation middleware
+func (sh *strictHandler) OauthTokenExchange(ctx *fiber.Ctx, provider OauthTokenExchangeParamsProvider) error {
+	var request OauthTokenExchangeRequestObject
+
+	request.Provider = provider
+
+	var body OauthTokenExchangeJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.OauthTokenExchange(ctx.UserContext(), request.(OauthTokenExchangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OauthTokenExchange")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(OauthTokenExchangeResponseObject); ok {
+		if err := validResponse.VisitOauthTokenExchangeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // RefreshToken operation middleware
 func (sh *strictHandler) RefreshToken(ctx *fiber.Ctx) error {
 	var request RefreshTokenRequestObject
@@ -4102,6 +5029,161 @@ func (sh *strictHandler) Register(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(RegisterResponseObject); ok {
 		if err := validResponse.VisitRegisterResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ForgotPassword operation middleware
+func (sh *strictHandler) ForgotPassword(ctx *fiber.Ctx) error {
+	var request ForgotPasswordRequestObject
+
+	var body ForgotPasswordJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ForgotPassword(ctx.UserContext(), request.(ForgotPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ForgotPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ForgotPasswordResponseObject); ok {
+		if err := validResponse.VisitForgotPasswordResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SelfRegister operation middleware
+func (sh *strictHandler) SelfRegister(ctx *fiber.Ctx) error {
+	var request SelfRegisterRequestObject
+
+	var body SelfRegisterJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.SelfRegister(ctx.UserContext(), request.(SelfRegisterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SelfRegister")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(SelfRegisterResponseObject); ok {
+		if err := validResponse.VisitSelfRegisterResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ResendVerification operation middleware
+func (sh *strictHandler) ResendVerification(ctx *fiber.Ctx) error {
+	var request ResendVerificationRequestObject
+
+	var body ResendVerificationJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ResendVerification(ctx.UserContext(), request.(ResendVerificationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResendVerification")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ResendVerificationResponseObject); ok {
+		if err := validResponse.VisitResendVerificationResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ResetPassword operation middleware
+func (sh *strictHandler) ResetPassword(ctx *fiber.Ctx) error {
+	var request ResetPasswordRequestObject
+
+	var body ResetPasswordJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ResetPassword(ctx.UserContext(), request.(ResetPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResetPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ResetPasswordResponseObject); ok {
+		if err := validResponse.VisitResetPasswordResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// VerifyEmail operation middleware
+func (sh *strictHandler) VerifyEmail(ctx *fiber.Ctx) error {
+	var request VerifyEmailRequestObject
+
+	var body VerifyEmailJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.VerifyEmail(ctx.UserContext(), request.(VerifyEmailRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VerifyEmail")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(VerifyEmailResponseObject); ok {
+		if err := validResponse.VisitVerifyEmailResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -5279,6 +6361,91 @@ func (sh *strictHandler) UpdateCurrentUser(ctx *fiber.Ctx) error {
 	return nil
 }
 
+// ListIdentities operation middleware
+func (sh *strictHandler) ListIdentities(ctx *fiber.Ctx) error {
+	var request ListIdentitiesRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListIdentities(ctx.UserContext(), request.(ListIdentitiesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListIdentities")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListIdentitiesResponseObject); ok {
+		if err := validResponse.VisitListIdentitiesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UnlinkIdentity operation middleware
+func (sh *strictHandler) UnlinkIdentity(ctx *fiber.Ctx, provider UnlinkIdentityParamsProvider) error {
+	var request UnlinkIdentityRequestObject
+
+	request.Provider = provider
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UnlinkIdentity(ctx.UserContext(), request.(UnlinkIdentityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnlinkIdentity")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UnlinkIdentityResponseObject); ok {
+		if err := validResponse.VisitUnlinkIdentityResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// LinkIdentity operation middleware
+func (sh *strictHandler) LinkIdentity(ctx *fiber.Ctx, provider LinkIdentityParamsProvider) error {
+	var request LinkIdentityRequestObject
+
+	request.Provider = provider
+
+	var body LinkIdentityJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkIdentity(ctx.UserContext(), request.(LinkIdentityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkIdentity")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(LinkIdentityResponseObject); ok {
+		if err := validResponse.VisitLinkIdentityResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ChangePassword operation middleware
 func (sh *strictHandler) ChangePassword(ctx *fiber.Ctx) error {
 	var request ChangePasswordRequestObject
@@ -5302,6 +6469,37 @@ func (sh *strictHandler) ChangePassword(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
 		if err := validResponse.VisitChangePasswordResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SetPassword operation middleware
+func (sh *strictHandler) SetPassword(ctx *fiber.Ctx) error {
+	var request SetPasswordRequestObject
+
+	var body SetPasswordJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.SetPassword(ctx.UserContext(), request.(SetPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(SetPasswordResponseObject); ok {
+		if err := validResponse.VisitSetPasswordResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -5367,117 +6565,145 @@ func (sh *strictHandler) GetUser(ctx *fiber.Ctx, id IdPathParam) error {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

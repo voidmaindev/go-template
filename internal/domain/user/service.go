@@ -87,7 +87,7 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 	// Create user and assign roles atomically
 	user := &User{
 		Email:    req.Email,
-		Password: hashedPassword,
+		Password: &hashedPassword,
 		Name:     req.Name,
 	}
 
@@ -136,8 +136,14 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 		return nil, errors.Internal(domainName, err).WithOperation("Login")
 	}
 
+	// Check if user has a password (OAuth-only users cannot login with password)
+	if user.Password == nil || *user.Password == "" {
+		telemetry.IncrementAuthFailures("no_password")
+		return nil, ErrInvalidCredentials
+	}
+
 	// Verify password
-	if !utils.CheckPassword(req.Password, user.Password) {
+	if !utils.CheckPassword(req.Password, *user.Password) {
 		telemetry.IncrementAuthFailures("invalid_password")
 		return nil, ErrInvalidCredentials
 	}
@@ -289,13 +295,18 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswo
 		return errors.Internal(domainName, err).WithOperation("ChangePassword")
 	}
 
+	// Check if user has a password (OAuth-only users must use SetPassword instead)
+	if user.Password == nil || *user.Password == "" {
+		return ErrNoPassword
+	}
+
 	// Verify current password
-	if !utils.CheckPassword(req.CurrentPassword, user.Password) {
+	if !utils.CheckPassword(req.CurrentPassword, *user.Password) {
 		return ErrInvalidPassword
 	}
 
 	// Check if new password is different
-	if utils.CheckPassword(req.NewPassword, user.Password) {
+	if utils.CheckPassword(req.NewPassword, *user.Password) {
 		return ErrSamePassword
 	}
 

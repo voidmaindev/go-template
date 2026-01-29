@@ -11,17 +11,20 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	App        AppConfig        `mapstructure:"app"`
-	Server     ServerConfig     `mapstructure:"server"`
-	Database   DatabaseConfig   `mapstructure:"database"`
-	Redis      RedisConfig      `mapstructure:"redis"`
-	JWT        JWTConfig        `mapstructure:"jwt"`
-	CORS       CORSConfig       `mapstructure:"cors"`
-	Telemetry  TelemetryConfig  `mapstructure:"telemetry"`
-	Seed       SeedConfig       `mapstructure:"seed"`
-	RBAC       RBACConfig       `mapstructure:"rbac"`
-	RateLimit  RateLimitConfig  `mapstructure:"ratelimit"`
-	Pagination PaginationConfig `mapstructure:"pagination"`
+	App              AppConfig              `mapstructure:"app"`
+	Server           ServerConfig           `mapstructure:"server"`
+	Database         DatabaseConfig         `mapstructure:"database"`
+	Redis            RedisConfig            `mapstructure:"redis"`
+	JWT              JWTConfig              `mapstructure:"jwt"`
+	CORS             CORSConfig             `mapstructure:"cors"`
+	Telemetry        TelemetryConfig        `mapstructure:"telemetry"`
+	Seed             SeedConfig             `mapstructure:"seed"`
+	RBAC             RBACConfig             `mapstructure:"rbac"`
+	RateLimit        RateLimitConfig        `mapstructure:"ratelimit"`
+	Pagination       PaginationConfig       `mapstructure:"pagination"`
+	SelfRegistration SelfRegistrationConfig `mapstructure:"self_registration"`
+	SMTP             SMTPConfig             `mapstructure:"smtp"`
+	OAuth            OAuthConfig            `mapstructure:"oauth"`
 }
 
 // AppConfig holds application-level configuration
@@ -119,6 +122,42 @@ type RateLimitConfig struct {
 type PaginationConfig struct {
 	DefaultPageSize int `mapstructure:"default_page_size"` // Default items per page
 	MaxPageSize     int `mapstructure:"max_page_size"`     // Maximum allowed page size
+}
+
+// SelfRegistrationConfig holds self-registration settings
+type SelfRegistrationConfig struct {
+	Enabled                  bool          `mapstructure:"enabled"`
+	RequireEmailVerification bool          `mapstructure:"require_email_verification"`
+	VerificationTokenExpiry  time.Duration `mapstructure:"verification_token_expiry"`
+	PasswordResetTokenExpiry time.Duration `mapstructure:"password_reset_token_expiry"`
+	DefaultRole              string        `mapstructure:"default_role"`
+	BaseURL                  string        `mapstructure:"base_url"` // Frontend URL for email links
+}
+
+// SMTPConfig holds SMTP email settings
+type SMTPConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	FromName string `mapstructure:"from_name"`
+	UseTLS   bool   `mapstructure:"use_tls"`
+}
+
+// OAuthConfig holds OAuth provider settings
+type OAuthConfig struct {
+	Google   OAuthProviderConfig `mapstructure:"google"`
+	Facebook OAuthProviderConfig `mapstructure:"facebook"`
+	Apple    OAuthProviderConfig `mapstructure:"apple"`
+}
+
+// OAuthProviderConfig holds settings for a single OAuth provider
+type OAuthProviderConfig struct {
+	Enabled      bool   `mapstructure:"enabled"`
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+	RedirectURL  string `mapstructure:"redirect_url"`
 }
 
 // Load loads configuration from config file and environment variables
@@ -257,8 +296,41 @@ func setDefaults() {
 	viper.SetDefault("ratelimit.window_seconds", 60)   // 1 minute window
 
 	// Pagination defaults
-	viper.SetDefault("pagination.default_page_size", 10)  // Default items per page
-	viper.SetDefault("pagination.max_page_size", 100)     // Maximum allowed page size
+	viper.SetDefault("pagination.default_page_size", 10) // Default items per page
+	viper.SetDefault("pagination.max_page_size", 100)    // Maximum allowed page size
+
+	// Self-registration defaults
+	viper.SetDefault("self_registration.enabled", false)
+	viper.SetDefault("self_registration.require_email_verification", true)
+	viper.SetDefault("self_registration.verification_token_expiry", 24*time.Hour)
+	viper.SetDefault("self_registration.password_reset_token_expiry", 1*time.Hour)
+	viper.SetDefault("self_registration.default_role", "self_registered")
+	viper.SetDefault("self_registration.base_url", "http://localhost:5173")
+
+	// SMTP defaults
+	viper.SetDefault("smtp.host", "localhost")
+	viper.SetDefault("smtp.port", 587)
+	viper.SetDefault("smtp.username", "")
+	viper.SetDefault("smtp.password", "")
+	viper.SetDefault("smtp.from", "noreply@example.com")
+	viper.SetDefault("smtp.from_name", "Go Template")
+	viper.SetDefault("smtp.use_tls", true)
+
+	// OAuth defaults (all disabled by default)
+	viper.SetDefault("oauth.google.enabled", false)
+	viper.SetDefault("oauth.google.client_id", "")
+	viper.SetDefault("oauth.google.client_secret", "")
+	viper.SetDefault("oauth.google.redirect_url", "http://localhost:3000/api/auth/oauth/google/callback")
+
+	viper.SetDefault("oauth.facebook.enabled", false)
+	viper.SetDefault("oauth.facebook.client_id", "")
+	viper.SetDefault("oauth.facebook.client_secret", "")
+	viper.SetDefault("oauth.facebook.redirect_url", "http://localhost:3000/api/auth/oauth/facebook/callback")
+
+	viper.SetDefault("oauth.apple.enabled", false)
+	viper.SetDefault("oauth.apple.client_id", "")
+	viper.SetDefault("oauth.apple.client_secret", "")
+	viper.SetDefault("oauth.apple.redirect_url", "http://localhost:3000/api/auth/oauth/apple/callback")
 }
 
 // bindEnvVars binds environment variables to viper keys
@@ -338,6 +410,41 @@ func bindEnvVars() {
 	// Pagination
 	viper.BindEnv("pagination.default_page_size", "PAGINATION_DEFAULT_PAGE_SIZE")
 	viper.BindEnv("pagination.max_page_size", "PAGINATION_MAX_PAGE_SIZE")
+
+	// Self-registration
+	viper.BindEnv("self_registration.enabled", "SELF_REGISTRATION_ENABLED")
+	viper.BindEnv("self_registration.require_email_verification", "SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION")
+	viper.BindEnv("self_registration.verification_token_expiry", "SELF_REGISTRATION_VERIFICATION_TOKEN_EXPIRY")
+	viper.BindEnv("self_registration.password_reset_token_expiry", "SELF_REGISTRATION_PASSWORD_RESET_TOKEN_EXPIRY")
+	viper.BindEnv("self_registration.default_role", "SELF_REGISTRATION_DEFAULT_ROLE")
+	viper.BindEnv("self_registration.base_url", "SELF_REGISTRATION_BASE_URL")
+
+	// SMTP
+	viper.BindEnv("smtp.host", "SMTP_HOST")
+	viper.BindEnv("smtp.port", "SMTP_PORT")
+	viper.BindEnv("smtp.username", "SMTP_USERNAME")
+	viper.BindEnv("smtp.password", "SMTP_PASSWORD")
+	viper.BindEnv("smtp.from", "SMTP_FROM")
+	viper.BindEnv("smtp.from_name", "SMTP_FROM_NAME")
+	viper.BindEnv("smtp.use_tls", "SMTP_USE_TLS")
+
+	// OAuth - Google
+	viper.BindEnv("oauth.google.enabled", "OAUTH_GOOGLE_ENABLED")
+	viper.BindEnv("oauth.google.client_id", "OAUTH_GOOGLE_CLIENT_ID")
+	viper.BindEnv("oauth.google.client_secret", "OAUTH_GOOGLE_CLIENT_SECRET")
+	viper.BindEnv("oauth.google.redirect_url", "OAUTH_GOOGLE_REDIRECT_URL")
+
+	// OAuth - Facebook
+	viper.BindEnv("oauth.facebook.enabled", "OAUTH_FACEBOOK_ENABLED")
+	viper.BindEnv("oauth.facebook.client_id", "OAUTH_FACEBOOK_CLIENT_ID")
+	viper.BindEnv("oauth.facebook.client_secret", "OAUTH_FACEBOOK_CLIENT_SECRET")
+	viper.BindEnv("oauth.facebook.redirect_url", "OAUTH_FACEBOOK_REDIRECT_URL")
+
+	// OAuth - Apple
+	viper.BindEnv("oauth.apple.enabled", "OAUTH_APPLE_ENABLED")
+	viper.BindEnv("oauth.apple.client_id", "OAUTH_APPLE_CLIENT_ID")
+	viper.BindEnv("oauth.apple.client_secret", "OAUTH_APPLE_CLIENT_SECRET")
+	viper.BindEnv("oauth.apple.redirect_url", "OAUTH_APPLE_REDIRECT_URL")
 }
 
 // DSN returns the PostgreSQL connection string

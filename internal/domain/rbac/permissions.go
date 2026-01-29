@@ -41,7 +41,7 @@ func IsProtectedDomain(domain string) bool {
 
 // SystemRoles returns the codes of system-defined roles that cannot be deleted
 func SystemRoles() []string {
-	return []string{RoleCodeAdmin, RoleCodeFullReader, RoleCodeFullWriter, RoleCodeUser}
+	return []string{RoleCodeAdmin, RoleCodeFullReader, RoleCodeFullWriter, RoleCodeUser, RoleCodeSelfRegistered}
 }
 
 // IsSystemRole checks if a role code is a system role
@@ -56,8 +56,9 @@ func IsSystemRole(code string) bool {
 
 // System role codes
 const (
-	RoleCodeAdmin      = "admin"
-	RoleCodeFullReader = "full_reader"
-	RoleCodeFullWriter = "full_writer"
-	RoleCodeUser       = "user"
+	RoleCodeAdmin          = "admin"
+	RoleCodeFullReader     = "full_reader"
+	RoleCodeFullWriter     = "full_writer"
+	RoleCodeUser           = "user"
+	RoleCodeSelfRegistered = "self_registered"
 )

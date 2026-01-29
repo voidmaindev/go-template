@@ -2,9 +2,11 @@ package app
 
 import (
 	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/auth"
 	"github.com/voidmaindev/go-template/internal/domain/city"
 	"github.com/voidmaindev/go-template/internal/domain/country"
 	"github.com/voidmaindev/go-template/internal/domain/document"
+	"github.com/voidmaindev/go-template/internal/domain/email"
 	"github.com/voidmaindev/go-template/internal/domain/item"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
@@ -23,8 +25,10 @@ func MainApp() *App {
 func mainDomains() []container.Domain {
 	return []container.Domain{
 		// Core domains (no dependencies)
-		rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
-		user.NewDomain(), // depends on: rbac
+		rbac.NewDomain(),  // must be registered first (user depends on rbac.Service)
+		user.NewDomain(),  // depends on: rbac
+		email.NewDomain(), // standalone, no dependencies
+		auth.NewDomain(),  // depends on: user, email, rbac
 		item.NewDomain(),
 		country.NewDomain(),
 

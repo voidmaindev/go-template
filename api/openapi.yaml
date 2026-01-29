@@ -108,6 +108,8 @@ servers:
 tags:
   - name: Auth
     description: Authentication endpoints (register, login, logout, refresh)
+  - name: Self-Registration
+    description: Self-registration, email verification, password reset, and OAuth endpoints
   - name: Users
     description: User management endpoints
   - name: RBAC
@@ -251,6 +253,14 @@ components:
           format: email
         name:
           type: string
+        email_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the email was verified (null if not verified)
+        is_self_registered:
+          type: boolean
+          description: Whether the user registered via self-registration
         created_at:
           type: string
           format: date-time
@@ -295,6 +305,146 @@ components:
           type: integer
         has_more:
           type: boolean
+
+    # === Self-Registration DTOs ===
+    SelfRegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          example: SecurePass123!
+        name:
+          type: string
+          minLength: 2
+          example: John Doe
+
+    SelfRegisterResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Registration successful. Please check your email to verify your account.
+        requires_verification:
+          type: boolean
+          example: true
+
+    VerifyEmailRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Email verification token from the verification link
+
+    ResendVerificationRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - new_password
+      properties:
+        token:
+          type: string
+          description: Password reset token from the reset link
+        new_password:
+          type: string
+          minLength: 8
+          example: NewSecurePass123!
+
+    SetPasswordRequest:
+      type: object
+      required:
+        - new_password
+      properties:
+        new_password:
+          type: string
+          minLength: 8
+          description: New password for OAuth users who don't have a password set
+          example: NewSecurePass123!
+
+    OAuthTokenRequest:
+      type: object
+      required:
+        - code
+        - state
+      properties:
+        code:
+          type: string
+          description: Authorization code from OAuth provider
+        state:
+          type: string
+          description: State parameter for CSRF protection
+
+    ExternalIdentityResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        provider:
+          type: string
+          enum: [google, facebook, apple]
+          example: google
+        provider_id:
+          type: string
+          description: User ID from the OAuth provider
+        email:
+          type: string
+          format: email
+          description: Email from the OAuth provider (may differ from user's primary email)
+        created_at:
+          type: string
+          format: date-time
+
+    IdentitiesListResponse:
+      type: object
+      properties:
+        identities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalIdentityResponse'
+
+    LinkIdentityRequest:
+      type: object
+      required:
+        - code
+        - state
+      properties:
+        code:
+          type: string
+          description: Authorization code from OAuth provider
+        state:
+          type: string
+          description: State parameter for CSRF protection
 
     # === Item DTOs ===
     ItemResponse:
@@ -905,6 +1055,17 @@ components:
       schema:
         type: integer
         format: int64
+    ProviderPathParam:
+      name: provider
+      in: path
+      required: true
+      description: OAuth provider name
+      schema:
+        type: string
+        enum:
+          - google
+          - facebook
+          - apple
 
 paths:
   # === AUTH ===
@@ -1014,6 +1175,247 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # === SELF-REGISTRATION ===
+  /auth/self/register:
+    post:
+      tags:
+        - Self-Registration
+      summary: Self-register a new account
+      description: |
+        Register a new user account via self-registration.
+        Requires `SELF_REGISTRATION_ENABLED=true` in configuration.
+        If email verification is required, the user must verify their email before logging in.
+      operationId: selfRegister
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelfRegisterRequest'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelfRegisterResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Self-registration is disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/self/verify-email:
+    post:
+      tags:
+        - Self-Registration
+      summary: Verify email address
+      description: Verify email address using the token sent to the user's email
+      operationId: verifyEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/self/resend-verification:
+    post:
+      tags:
+        - Self-Registration
+      summary: Resend verification email
+      description: Resend the email verification link to the user's email
+      operationId: resendVerification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendVerificationRequest'
+      responses:
+        '200':
+          description: Verification email sent (always returns success for security)
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/self/forgot-password:
+    post:
+      tags:
+        - Self-Registration
+      summary: Request password reset
+      description: Send a password reset link to the user's email
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset email sent (always returns success for security)
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/self/reset-password:
+    post:
+      tags:
+        - Self-Registration
+      summary: Reset password
+      description: Reset password using the token sent to the user's email
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successfully
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # === OAUTH ===
+  /auth/oauth/{provider}:
+    get:
+      tags:
+        - Self-Registration
+      summary: Initiate OAuth flow
+      description: |
+        Redirect the user to the OAuth provider's authorization page.
+        For server-side flows, this endpoint redirects directly.
+        The provider must be enabled in configuration.
+      operationId: oauthRedirect
+      parameters:
+        - $ref: '#/components/parameters/ProviderPathParam'
+      responses:
+        '302':
+          description: Redirect to OAuth provider
+        '400':
+          description: Provider not enabled or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/oauth/{provider}/callback:
+    get:
+      tags:
+        - Self-Registration
+      summary: OAuth callback
+      description: |
+        Handle the OAuth callback from the provider.
+        Creates or links user account and returns authentication tokens.
+        If the OAuth email matches an existing user, accounts are auto-linked.
+      operationId: oauthCallback
+      parameters:
+        - $ref: '#/components/parameters/ProviderPathParam'
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid callback parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Self-registration disabled or provider not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/oauth/{provider}/token:
+    post:
+      tags:
+        - Self-Registration
+      summary: OAuth token exchange (SPA)
+      description: |
+        Exchange OAuth authorization code for tokens.
+        Use this endpoint for SPA flows where the frontend handles the OAuth redirect.
+      operationId: oauthTokenExchange
+      parameters:
+        - $ref: '#/components/parameters/ProviderPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthTokenRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid code or state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Self-registration disabled or provider not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   # === USERS ===
   /users/me:
     get:
@@ -1097,6 +1499,140 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me/set-password:
+    post:
+      tags:
+        - Users
+      summary: Set password (OAuth users)
+      description: |
+        Set a password for users who registered via OAuth and don't have a password.
+        This allows OAuth users to also log in with email/password.
+      operationId: setPassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+      responses:
+        '200':
+          description: Password set successfully
+        '400':
+          description: User already has a password or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me/identities:
+    get:
+      tags:
+        - Users
+      summary: List linked OAuth accounts
+      description: Get all OAuth accounts linked to the current user
+      operationId: listIdentities
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of linked identities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentitiesListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me/identities/{provider}:
+    post:
+      tags:
+        - Users
+      summary: Link OAuth account
+      description: |
+        Link an OAuth account to the current user.
+        The OAuth account must not be linked to another user.
+      operationId: linkIdentity
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProviderPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkIdentityRequest'
+      responses:
+        '201':
+          description: Identity linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalIdentityResponse'
+        '400':
+          description: Invalid code or state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Identity already linked to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Users
+      summary: Unlink OAuth account
+      description: |
+        Unlink an OAuth account from the current user.
+        Cannot unlink if it's the only login method (no password and only one identity).
+      operationId: unlinkIdentity
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProviderPathParam'
+      responses:
+        '204':
+          description: Identity unlinked successfully
+        '400':
+          description: Cannot unlink - would leave user without login method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Identity not found
           content:
             application/json:
               schema:

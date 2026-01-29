@@ -10,14 +10,15 @@ type ErrorCode string
 // Standard error codes for domain errors.
 // These codes are used in API responses and can be mapped to HTTP status codes.
 const (
-	CodeNotFound      ErrorCode = "NOT_FOUND"
-	CodeAlreadyExists ErrorCode = "ALREADY_EXISTS"
-	CodeValidation    ErrorCode = "VALIDATION_ERROR"
-	CodeUnauthorized  ErrorCode = "UNAUTHORIZED"
-	CodeForbidden     ErrorCode = "FORBIDDEN"
-	CodeConflict      ErrorCode = "CONFLICT"
-	CodeInternal      ErrorCode = "INTERNAL_ERROR"
-	CodeBadRequest    ErrorCode = "BAD_REQUEST"
+	CodeNotFound        ErrorCode = "NOT_FOUND"
+	CodeAlreadyExists   ErrorCode = "ALREADY_EXISTS"
+	CodeValidation      ErrorCode = "VALIDATION_ERROR"
+	CodeUnauthorized    ErrorCode = "UNAUTHORIZED"
+	CodeForbidden       ErrorCode = "FORBIDDEN"
+	CodeConflict        ErrorCode = "CONFLICT"
+	CodeInternal        ErrorCode = "INTERNAL_ERROR"
+	CodeBadRequest      ErrorCode = "BAD_REQUEST"
+	CodeTooManyRequests ErrorCode = "TOO_MANY_REQUESTS"
 )
 
 // HTTPStatus returns the HTTP status code for this error code
@@ -33,6 +34,8 @@ func (c ErrorCode) HTTPStatus() int {
 		return 401
 	case CodeForbidden:
 		return 403
+	case CodeTooManyRequests:
+		return 429
 	default:
 		return 500
 	}

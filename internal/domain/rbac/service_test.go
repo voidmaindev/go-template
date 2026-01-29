@@ -510,8 +510,8 @@ func TestProtectedDomains(t *testing.T) {
 func TestSystemRoles(t *testing.T) {
 	systemRoles := SystemRoles()
 
-	if len(systemRoles) != 4 {
-		t.Errorf("SystemRoles() returned %d roles, want 4", len(systemRoles))
+	if len(systemRoles) != 5 {
+		t.Errorf("SystemRoles() returned %d roles, want 5", len(systemRoles))
 	}
 
 	roleMap := make(map[string]bool)
@@ -519,7 +519,7 @@ func TestSystemRoles(t *testing.T) {
 		roleMap[r] = true
 	}
 
-	expected := []string{RoleCodeAdmin, RoleCodeFullReader, RoleCodeFullWriter, RoleCodeUser}
+	expected := []string{RoleCodeAdmin, RoleCodeFullReader, RoleCodeFullWriter, RoleCodeUser, RoleCodeSelfRegistered}
 	for _, e := range expected {
 		if !roleMap[e] {
 			t.Errorf("Expected system role %s not found", e)

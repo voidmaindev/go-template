@@ -16,6 +16,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/redis"
 	"github.com/voidmaindev/go-template/internal/testutil"
+	"github.com/voidmaindev/go-template/pkg/ptr"
 	"gorm.io/gorm"
 )
 
@@ -161,7 +162,7 @@ func (s *TestSuite) CreateTestUser(email, password, name string) *user.User {
 	u := &user.User{
 		BaseModel: common.BaseModel{},
 		Email:     email,
-		Password:  hashedPassword,
+		Password:  ptr.To(hashedPassword),
 		Name:      name,
 	}
 
@@ -182,7 +183,7 @@ func (s *TestSuite) CreateTestAdmin(email, password, name string) *user.User {
 	u := &user.User{
 		BaseModel: common.BaseModel{},
 		Email:     email,
-		Password:  hashedPassword,
+		Password:  ptr.To(hashedPassword),
 		Name:      name,
 	}
 

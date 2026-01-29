@@ -9,6 +9,8 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 - **Dependency Container**: Type-safe dependency injection with generics
 - **Generic Repository Pattern**: Maximum database abstraction using Go generics
 - **JWT Authentication**: Access and refresh tokens with Redis-based blacklisting
+- **Self-Registration**: Email verification and password reset via SMTP
+- **OAuth Authentication**: Google, Facebook, and Apple OAuth2 providers
 - **RBAC Authorization**: Casbin-powered role-based access control with multi-role users
 - **CLI with Cobra**: Professional CLI with subcommands (serve, migrate, seed, version)
 - **Database Seeders**: Separate seeder infrastructure with tracking and idempotency
@@ -148,6 +150,13 @@ Generated files:
 │       │   ├── specs.go             # Query specifications
 │       │   ├── validation.go        # Domain validator
 │       │   └── ...                  # model, dto, service, handler
+│       ├── auth/                    # Auth domain (self-registration, OAuth)
+│       │   ├── service.go           # Self-registration, password reset
+│       │   ├── oauth.go             # OAuth provider abstraction
+│       │   └── handler.go           # Public auth endpoints
+│       ├── email/                   # Email domain (SMTP)
+│       │   ├── service.go           # Email sending service
+│       │   └── templates.go         # Email templates
 │       ├── rbac/                    # RBAC domain (Casbin)
 │       │   ├── permissions.go       # Action constants & helpers
 │       │   ├── enforcer.go          # Casbin enforcer setup
@@ -263,6 +272,24 @@ go build -o api ./cmd/api
 | POST | `/api/v1/auth/logout` | Logout (requires auth) |
 | POST | `/api/v1/auth/refresh` | Refresh access token |
 
+### Self-Registration
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/auth/self/register` | Self-register with email |
+| POST | `/api/v1/auth/self/verify-email` | Verify email token |
+| POST | `/api/v1/auth/self/resend-verification` | Resend verification email |
+| POST | `/api/v1/auth/self/forgot-password` | Request password reset |
+| POST | `/api/v1/auth/self/reset-password` | Reset password with token |
+
+### OAuth
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/auth/oauth/:provider` | Redirect to OAuth provider |
+| GET | `/api/v1/auth/oauth/:provider/callback` | OAuth callback handler |
+| POST | `/api/v1/auth/oauth/:provider/token` | SPA token exchange |
+
 ### Users
 
 | Method | Endpoint | Description |
@@ -270,6 +297,10 @@ go build -o api ./cmd/api
 | GET | `/api/v1/users/me` | Get current user |
 | PUT | `/api/v1/users/me` | Update current user |
 | PUT | `/api/v1/users/me/password` | Change password |
+| POST | `/api/v1/users/me/set-password` | Set password (OAuth users without password) |
+| GET | `/api/v1/users/me/identities` | List linked OAuth accounts |
+| POST | `/api/v1/users/me/identities/:provider` | Link OAuth account |
+| DELETE | `/api/v1/users/me/identities/:provider` | Unlink OAuth account |
 | GET | `/api/v1/users` | List all users (admin) |
 | GET | `/api/v1/users/:id` | Get user by ID |
 | DELETE | `/api/v1/users/:id` | Delete user |
@@ -314,8 +345,11 @@ The template includes a comprehensive RBAC system powered by [Casbin](https://ca
 | `admin` | Super administrator | Full access to everything (`*:*`) |
 | `full_reader` | Read-only access | Read access to ALL domains |
 | `full_writer` | Write access | Full CRUD on non-protected domains, read-only on protected |
+| `self_registered` | Self-registered user | Limited read access to non-protected domains |
 
 **Protected domains**: `user`, `rbac` - These domains contain sensitive data and `full_writer` only gets read access.
+
+> **Note**: The `self_registered` role is automatically assigned to users who register via the self-registration flow. This role has restricted permissions compared to admin-created users.
 
 ### Actions
 
@@ -1160,6 +1194,48 @@ Configuration can be set via environment variables or `config.yaml` file. Enviro
 | `SEED_ADMIN_NAME` | Administrator | Admin user display name |
 
 > **Note**: In production, `SEED_ADMIN_PASSWORD` must be set via environment variable or secrets. The application will fail validation if not provided.
+
+### Self-Registration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SELF_REGISTRATION_ENABLED` | false | Enable self-registration |
+| `SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION` | true | Require email verification before login |
+| `SELF_REGISTRATION_VERIFICATION_TOKEN_EXPIRY` | 24h | Email verification token TTL |
+| `SELF_REGISTRATION_PASSWORD_RESET_TOKEN_EXPIRY` | 1h | Password reset token TTL |
+| `SELF_REGISTRATION_DEFAULT_ROLE` | self_registered | Default role for self-registered users |
+| `SELF_REGISTRATION_BASE_URL` | http://localhost:3000 | Base URL for email verification links |
+
+### SMTP
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SMTP_HOST` | localhost | SMTP server host |
+| `SMTP_PORT` | 587 | SMTP server port |
+| `SMTP_USERNAME` | | SMTP username |
+| `SMTP_PASSWORD` | | SMTP password |
+| `SMTP_FROM` | noreply@example.com | From email address |
+| `SMTP_FROM_NAME` | Go Template | From display name |
+| `SMTP_USE_TLS` | true | Use TLS for SMTP connection |
+
+### OAuth
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_GOOGLE_ENABLED` | false | Enable Google OAuth |
+| `OAUTH_GOOGLE_CLIENT_ID` | | Google OAuth client ID |
+| `OAUTH_GOOGLE_CLIENT_SECRET` | | Google OAuth client secret |
+| `OAUTH_GOOGLE_REDIRECT_URL` | | Google OAuth redirect URL |
+| `OAUTH_FACEBOOK_ENABLED` | false | Enable Facebook OAuth |
+| `OAUTH_FACEBOOK_CLIENT_ID` | | Facebook OAuth client ID |
+| `OAUTH_FACEBOOK_CLIENT_SECRET` | | Facebook OAuth client secret |
+| `OAUTH_FACEBOOK_REDIRECT_URL` | | Facebook OAuth redirect URL |
+| `OAUTH_APPLE_ENABLED` | false | Enable Apple OAuth |
+| `OAUTH_APPLE_CLIENT_ID` | | Apple OAuth client ID |
+| `OAUTH_APPLE_TEAM_ID` | | Apple team ID |
+| `OAUTH_APPLE_KEY_ID` | | Apple key ID |
+| `OAUTH_APPLE_PRIVATE_KEY` | | Apple private key (PEM format) |
+| `OAUTH_APPLE_REDIRECT_URL` | | Apple OAuth redirect URL |
 
 ### CORS
 

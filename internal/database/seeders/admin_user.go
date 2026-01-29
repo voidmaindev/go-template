@@ -45,7 +45,7 @@ func (s *AdminUserSeeder) Run(db *gorm.DB, cfg *config.Config) error {
 
 	admin := &user.User{
 		Email:    email,
-		Password: hashedPassword,
+		Password: &hashedPassword,
 		Name:     name,
 	}
 
