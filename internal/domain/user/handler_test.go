@@ -883,7 +883,9 @@ func TestHandler_List(t *testing.T) {
 func TestHandler_Delete(t *testing.T) {
 	cfg := getHandlerTestConfig()
 
-	t.Run("successful self-delete", func(t *testing.T) {
+	t.Run("successful delete", func(t *testing.T) {
+		// Note: Authorization (user:delete permission) is handled by RequirePermission
+		// middleware at route level. This test only verifies handler behavior.
 		svc := &mockService{}
 		handler := NewHandler(svc, getHandlerTestConfig())
 
@@ -906,30 +908,6 @@ func TestHandler_Delete(t *testing.T) {
 		if resp.StatusCode != http.StatusNoContent {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			t.Errorf("Expected status 204, got %d: %s", resp.StatusCode, string(bodyBytes))
-		}
-	})
-
-	t.Run("forbidden - cannot delete other users", func(t *testing.T) {
-		svc := &mockService{}
-		handler := NewHandler(svc, getHandlerTestConfig())
-
-		app := fiber.New()
-		app.Use(middleware.JWTMiddleware(cfg, nil))
-		app.Delete("/users/:id", handler.Delete)
-
-		token := generateHandlerTestToken(1, "test@example.com")
-
-		req := httptest.NewRequest(http.MethodDelete, "/users/2", nil) // Different user ID
-		req.Header.Set("Authorization", "Bearer "+token)
-
-		resp, err := app.Test(req)
-		if err != nil {
-			t.Fatalf("Test request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusForbidden {
-			t.Errorf("Expected status 403, got %d", resp.StatusCode)
 		}
 	})
 
