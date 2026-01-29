@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/casbin/casbin/v3"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
@@ -60,24 +59,17 @@ func (s *RBACSeeder) Run(db *gorm.DB, cfg *config.Config) error {
 
 	slog.Info("system roles created/verified")
 
-	// Create Casbin enforcer to add policies
-	adapter, err := gormadapter.NewAdapterByDB(db)
-	if err != nil {
-		return fmt.Errorf("failed to create Casbin adapter: %w", err)
+	// Insert admin wildcard policy directly via GORM (avoids Casbin's internal transaction)
+	adminPolicy := gormadapter.CasbinRule{
+		Ptype: "p",
+		V0:    rbac.RoleCodeAdmin,
+		V1:    "*",
+		V2:    "*",
 	}
-
-	enforcer, err := casbin.NewEnforcer(cfg.RBAC.ModelPath, adapter)
-	if err != nil {
-		return fmt.Errorf("failed to create Casbin enforcer: %w", err)
-	}
-
-	// Add admin wildcard policy
-	if _, err := enforcer.AddPolicy(rbac.RoleCodeAdmin, "*", "*"); err != nil {
-		slog.Warn("failed to add admin policy (may already exist)", "error", err)
-	}
-
-	if err := enforcer.SavePolicy(); err != nil {
-		return fmt.Errorf("failed to save Casbin policies: %w", err)
+	if err := db.Where("ptype = ? AND v0 = ? AND v1 = ? AND v2 = ?",
+		"p", rbac.RoleCodeAdmin, "*", "*").
+		FirstOrCreate(&adminPolicy).Error; err != nil {
+		return fmt.Errorf("failed to create admin policy: %w", err)
 	}
 
 	slog.Info("system role policies created")
@@ -94,20 +86,20 @@ func (s *RBACSeeder) Run(db *gorm.DB, cfg *config.Config) error {
 		return fmt.Errorf("failed to find admin user: %w", result.Error)
 	}
 
-	// Assign admin role to the admin user via Casbin
+	// Assign admin role to the admin user via direct GORM insert
 	subject := rbac.FormatUserSubject(adminUser.ID)
-	hasRole, _ := enforcer.HasRoleForUser(subject, rbac.RoleCodeAdmin)
-	if !hasRole {
-		if _, err := enforcer.AddRoleForUser(subject, rbac.RoleCodeAdmin); err != nil {
-			return fmt.Errorf("failed to assign admin role: %w", err)
-		}
-		if err := enforcer.SavePolicy(); err != nil {
-			return fmt.Errorf("failed to save admin role assignment: %w", err)
-		}
-		slog.Info("admin role assigned to admin user", "email", adminEmail)
-	} else {
-		slog.Info("admin user already has admin role", "email", adminEmail)
+	roleAssignment := gormadapter.CasbinRule{
+		Ptype: "g",
+		V0:    subject,
+		V1:    rbac.RoleCodeAdmin,
 	}
+	if err := db.Where("ptype = ? AND v0 = ? AND v1 = ?",
+		"g", subject, rbac.RoleCodeAdmin).
+		FirstOrCreate(&roleAssignment).Error; err != nil {
+		return fmt.Errorf("failed to assign admin role: %w", err)
+	}
+
+	slog.Info("admin role assigned to admin user", "email", adminEmail)
 
 	return nil
 }
