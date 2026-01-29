@@ -169,7 +169,7 @@ export default function RBACPage() {
   }
 
   const domains = domainsData?.domains || []
-  const actions = actionsData?.actions || ['read', 'write', 'modify', 'delete']
+  const actions = actionsData?.actions || ['read', 'create', 'update', 'delete']
 
   return (
     <div>
