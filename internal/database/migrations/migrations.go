@@ -350,6 +350,7 @@ func DefaultMigrator(db *gorm.DB) *Migrator {
 		&CreateDocumentsTable{},
 		&CreateDocumentItemsTable{},
 		&DropUserRoleColumn{},
+		&RenameRBACActions{},
 	)
 	return m
 }

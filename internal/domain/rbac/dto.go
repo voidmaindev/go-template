@@ -15,7 +15,7 @@ type CreateRoleRequest struct {
 // PermissionInput represents a permission input in API requests
 type PermissionInput struct {
 	Domain  string   `json:"domain" validate:"required,min=1,max=50"`
-	Actions []string `json:"actions" validate:"required,min=1,dive,oneof=read write modify delete"`
+	Actions []string `json:"actions" validate:"required,min=1,dive,oneof=read create update delete"`
 }
 
 // UpdateRolePermissionsRequest is the request body for updating role permissions

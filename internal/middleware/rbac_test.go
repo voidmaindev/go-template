@@ -57,8 +57,8 @@ func createTestEnforcerWithPolicies(t *testing.T) *casbin.Enforcer {
 	e.AddPolicy("admin", "*", "*")
 	e.AddPolicy("reader", "item", "read")
 	e.AddPolicy("writer", "item", "read")
-	e.AddPolicy("writer", "item", "write")
-	e.AddPolicy("writer", "item", "modify")
+	e.AddPolicy("writer", "item", "create")
+	e.AddPolicy("writer", "item", "update")
 	e.AddPolicy("writer", "item", "delete")
 	e.AddPolicy("limited", "document", "read")
 
@@ -270,7 +270,7 @@ func TestRequireAnyPermission_SecondPermission(t *testing.T) {
 	app := fiber.New()
 	app.Use(JWTMiddleware(cfg, blacklist))
 	app.Get("/mixed", RequireAnyPermission(enforcer,
-		NewPermission("item", "write"),
+		NewPermission("item", "create"),
 		NewPermission("document", "read"),
 	), func(c *fiber.Ctx) error {
 		return c.SendString("success")
@@ -303,12 +303,12 @@ func TestRequireAnyPermission_NoMatchingPermission(t *testing.T) {
 	app.Use(JWTMiddleware(cfg, blacklist))
 	app.Get("/admin-only", RequireAnyPermission(enforcer,
 		NewPermission("user", "delete"),
-		NewPermission("rbac", "write"),
+		NewPermission("rbac", "create"),
 	), func(c *fiber.Ctx) error {
 		return c.SendString("success")
 	})
 
-	// User 2 has reader role - no user:delete or rbac:write
+	// User 2 has reader role - no user:delete or rbac:create
 	token := generateTestRBACToken(2, "reader@example.com", cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/admin-only", nil)
@@ -357,12 +357,12 @@ func TestRequireAllPermissions_AllGranted(t *testing.T) {
 	app.Use(JWTMiddleware(cfg, blacklist))
 	app.Post("/items", RequireAllPermissions(enforcer,
 		NewPermission("item", "read"),
-		NewPermission("item", "write"),
+		NewPermission("item", "create"),
 	), func(c *fiber.Ctx) error {
 		return c.SendString("created")
 	})
 
-	// User 3 has writer role with item:read and item:write
+	// User 3 has writer role with item:read and item:create
 	token := generateTestRBACToken(3, "writer@example.com", cfg)
 
 	req := httptest.NewRequest(http.MethodPost, "/items", nil)
@@ -389,12 +389,12 @@ func TestRequireAllPermissions_PartiallyDenied(t *testing.T) {
 	app.Use(JWTMiddleware(cfg, blacklist))
 	app.Post("/items", RequireAllPermissions(enforcer,
 		NewPermission("item", "read"),
-		NewPermission("item", "write"),
+		NewPermission("item", "create"),
 	), func(c *fiber.Ctx) error {
 		return c.SendString("created")
 	})
 
-	// User 2 has reader role - only has item:read, not item:write
+	// User 2 has reader role - only has item:read, not item:create
 	token := generateTestRBACToken(2, "reader@example.com", cfg)
 
 	req := httptest.NewRequest(http.MethodPost, "/items", nil)
@@ -417,7 +417,7 @@ func TestRequireAllPermissions_NotAuthenticated(t *testing.T) {
 	app := fiber.New()
 	app.Post("/items", RequireAllPermissions(enforcer,
 		NewPermission("item", "read"),
-		NewPermission("item", "write"),
+		NewPermission("item", "create"),
 	), func(c *fiber.Ctx) error {
 		return c.SendString("created")
 	})
@@ -444,7 +444,7 @@ func TestRequireAllPermissions_AdminWildcard(t *testing.T) {
 	app.Use(JWTMiddleware(cfg, blacklist))
 	app.Delete("/sensitive", RequireAllPermissions(enforcer,
 		NewPermission("user", "delete"),
-		NewPermission("rbac", "modify"),
+		NewPermission("rbac", "update"),
 		NewPermission("item", "delete"),
 	), func(c *fiber.Ctx) error {
 		return c.SendString("deleted")

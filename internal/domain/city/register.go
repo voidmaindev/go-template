@@ -67,8 +67,8 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	cities.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.List)
 	cities.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.GetByID)
 	// Write endpoints - api_write tier (60 req/min)
-	cities.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionWrite), handler.Create)
-	cities.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionModify), handler.Update)
+	cities.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionCreate), handler.Create)
+	cities.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionUpdate), handler.Update)
 	cities.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionDelete), handler.Delete)
 
 	// Nested route for cities by country (uses city read permission)

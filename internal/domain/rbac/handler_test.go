@@ -232,7 +232,7 @@ func TestHandler_CreateRole(t *testing.T) {
 			Name:        "Editor",
 			Description: "Can edit content",
 			Permissions: []PermissionInput{
-				{Domain: "item", Actions: []string{"read", "write", "modify"}},
+				{Domain: "item", Actions: []string{"read", "create", "update"}},
 			},
 		}
 		bodyBytes, _ := json.Marshal(body)
@@ -363,7 +363,7 @@ func TestHandler_UpdateRolePermissions(t *testing.T) {
 
 		body := UpdateRolePermissionsRequest{
 			Permissions: []PermissionInput{
-				{Domain: "item", Actions: []string{"read", "write"}},
+				{Domain: "item", Actions: []string{"read", "create"}},
 			},
 		}
 		bodyBytes, _ := json.Marshal(body)

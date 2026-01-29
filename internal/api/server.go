@@ -337,9 +337,9 @@ func (s *Server) DeleteUser(ctx context.Context, request DeleteUserRequestObject
 		return DeleteUser401JSONResponse{}, nil
 	}
 
-	// Authorization: self-delete always allowed, admin delete requires user:write permission
+	// Authorization: self-delete always allowed, admin delete requires user:create permission
 	if uint(request.Id) != currentUserID {
-		hasPermission, err := s.rbacService.CheckPermission(ctx, currentUserID, "user", "write")
+		hasPermission, err := s.rbacService.CheckPermission(ctx, currentUserID, "user", "create")
 		if err != nil || !hasPermission {
 			return DeleteUser403JSONResponse{
 				Error:   ptr.To("forbidden"),

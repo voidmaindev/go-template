@@ -1,22 +1,22 @@
 package rbac
 
-// Action constants for RBAC
+// Action constants for RBAC (standard CRUD terminology)
 const (
 	ActionRead   = "read"
-	ActionWrite  = "write"
-	ActionModify = "modify"
+	ActionCreate = "create"
+	ActionUpdate = "update"
 	ActionDelete = "delete"
 )
 
 // AllActions returns all available actions
 func AllActions() []string {
-	return []string{ActionRead, ActionWrite, ActionModify, ActionDelete}
+	return []string{ActionRead, ActionCreate, ActionUpdate, ActionDelete}
 }
 
 // IsValidAction checks if the given action is valid
 func IsValidAction(action string) bool {
 	switch action {
-	case ActionRead, ActionWrite, ActionModify, ActionDelete:
+	case ActionRead, ActionCreate, ActionUpdate, ActionDelete:
 		return true
 	default:
 		return false

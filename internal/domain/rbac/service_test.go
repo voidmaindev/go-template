@@ -208,8 +208,8 @@ func TestPermissions(t *testing.T) {
 
 		expected := map[string]bool{
 			ActionRead:   true,
-			ActionWrite:  true,
-			ActionModify: true,
+			ActionCreate: true,
+			ActionUpdate: true,
 			ActionDelete: true,
 		}
 
@@ -226,8 +226,8 @@ func TestPermissions(t *testing.T) {
 			valid  bool
 		}{
 			{ActionRead, true},
-			{ActionWrite, true},
-			{ActionModify, true},
+			{ActionCreate, true},
+			{ActionUpdate, true},
 			{ActionDelete, true},
 			{"invalid", false},
 			{"", false},
@@ -567,7 +567,7 @@ func TestRoleWithPermissions(t *testing.T) {
 	role.ID = 1
 
 	permissions := []Permission{
-		{Domain: "item", Actions: []string{"read", "write"}},
+		{Domain: "item", Actions: []string{"read", "create"}},
 		{Domain: "document", Actions: []string{"read"}},
 	}
 
@@ -630,7 +630,7 @@ func TestRoleWithPermissionsResponse(t *testing.T) {
 		Description: "Test role",
 		IsSystem:    false,
 		Permissions: []PermissionResponse{
-			{Domain: "item", Actions: []string{"read", "write"}},
+			{Domain: "item", Actions: []string{"read", "create"}},
 		},
 	}
 

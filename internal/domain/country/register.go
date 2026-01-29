@@ -63,7 +63,7 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	countries.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "country", rbac.ActionRead), handler.List)
 	countries.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "country", rbac.ActionRead), handler.GetByID)
 	// Write endpoints - api_write tier (60 req/min)
-	countries.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "country", rbac.ActionWrite), handler.Create)
-	countries.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "country", rbac.ActionModify), handler.Update)
+	countries.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "country", rbac.ActionCreate), handler.Create)
+	countries.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "country", rbac.ActionUpdate), handler.Update)
 	countries.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "country", rbac.ActionDelete), handler.Delete)
 }

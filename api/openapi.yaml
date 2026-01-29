@@ -704,8 +704,8 @@ components:
           description: Allowed actions on the domain
           items:
             type: string
-            enum: [read, write, delete]
-          example: [read, write]
+            enum: [read, create, update, delete]
+          example: [read, create]
 
     UpdateRolePermissionsRequest:
       type: object
@@ -861,7 +861,7 @@ components:
           type: array
           items:
             type: string
-          example: [read, write, delete]
+          example: [read, create, update, delete]
 
   parameters:
     PageParam:
