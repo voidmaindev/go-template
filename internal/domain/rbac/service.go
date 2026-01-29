@@ -28,6 +28,7 @@ type Service interface {
 	// User-role management
 	GetUserRoles(ctx context.Context, userID uint) ([]UserRoleResponse, error)
 	AssignRole(ctx context.Context, userID uint, roleCode string) error
+	AssignRoleInTx(tx *casbin.Transaction, ctx context.Context, userID uint, roleCode string) error
 	RemoveRole(ctx context.Context, userID uint, roleCode string) error
 
 	// Permission checking
@@ -42,16 +43,19 @@ type Service interface {
 
 	// Admin check
 	CountAdminUsers(ctx context.Context) (int, error)
+
+	// Transaction support
+	GetTransactionalEnforcer() *casbin.TransactionalEnforcer
 }
 
 type service struct {
 	repo           Repository
-	enforcer       *casbin.Enforcer
+	enforcer       *casbin.TransactionalEnforcer
 	domainProvider DomainProvider
 }
 
 // NewService creates a new RBAC service
-func NewService(repo Repository, enforcer *casbin.Enforcer, domainProvider DomainProvider) Service {
+func NewService(repo Repository, enforcer *casbin.TransactionalEnforcer, domainProvider DomainProvider) Service {
 	return &service{
 		repo:           repo,
 		enforcer:       enforcer,
@@ -573,6 +577,42 @@ func (s *service) isValidDomain(domain string, validDomains map[string]bool) boo
 }
 
 // GetEnforcer returns the Casbin enforcer (for middleware use)
-func (s *service) GetEnforcer() *casbin.Enforcer {
+func (s *service) GetEnforcer() *casbin.TransactionalEnforcer {
 	return s.enforcer
+}
+
+// GetTransactionalEnforcer returns the enforcer for transaction coordination
+func (s *service) GetTransactionalEnforcer() *casbin.TransactionalEnforcer {
+	return s.enforcer
+}
+
+// AssignRoleInTx assigns a role without calling SavePolicy.
+// Used when the caller manages the transaction via TransactionalEnforcer.
+func (s *service) AssignRoleInTx(tx *casbin.Transaction, ctx context.Context, userID uint, roleCode string) error {
+	// Check if role exists
+	_, err := s.repo.FindByCode(ctx, roleCode)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return ErrRoleNotFound
+		}
+		return errors.Internal(domainName, err).WithOperation("AssignRoleInTx")
+	}
+
+	subject := FormatUserSubject(userID)
+
+	// Check if already assigned (using main enforcer for read)
+	hasRole, err := s.enforcer.HasRoleForUser(subject, roleCode)
+	if err != nil {
+		return errors.Internal(domainName, err).WithOperation("AssignRoleInTx.HasRole")
+	}
+	if hasRole {
+		return ErrRoleAlreadyAssigned
+	}
+
+	// Add role using transaction (no SavePolicy - transaction handles commit)
+	if _, err := tx.AddGroupingPolicy(subject, roleCode); err != nil {
+		return errors.Internal(domainName, err).WithOperation("AssignRoleInTx.AddRole")
+	}
+
+	return nil
 }

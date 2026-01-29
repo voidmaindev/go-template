@@ -45,11 +45,12 @@ func (d *domain) Register(c *container.Container) {
 	repo := NewRepository(c.DB)
 	RepositoryKey.Set(c, repo)
 
-	// Get RBAC service (must be registered before user domain)
+	// Get RBAC service and enforcer (must be registered before user domain)
 	rbacSvc := rbac.ServiceKey.MustGet(c)
+	enforcer := rbac.EnforcerKey.MustGet(c)
 
-	// Initialize service
-	service := NewService(repo, tokenStore, &c.Config.JWT, c.Config.App.IsProduction(), rbacSvc)
+	// Initialize service with enforcer for transactional role assignment
+	service := NewService(repo, tokenStore, &c.Config.JWT, c.Config.App.IsProduction(), rbacSvc, enforcer)
 	ServiceKey.Set(c, service)
 
 	// Initialize handler

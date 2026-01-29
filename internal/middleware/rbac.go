@@ -11,7 +11,7 @@ import (
 // RequirePermission creates middleware that checks RBAC permission
 // using Casbin. The user must be authenticated (via JWTMiddleware)
 // before this middleware runs.
-func RequirePermission(enforcer *casbin.Enforcer, domain, action string) fiber.Handler {
+func RequirePermission(enforcer *casbin.TransactionalEnforcer, domain, action string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID, ok := GetUserIDFromContext(c)
 		if !ok {
@@ -34,7 +34,7 @@ func RequirePermission(enforcer *casbin.Enforcer, domain, action string) fiber.H
 
 // RequireAnyPermission creates middleware that passes if the user has
 // ANY of the specified permissions
-func RequireAnyPermission(enforcer *casbin.Enforcer, permissions ...Permission) fiber.Handler {
+func RequireAnyPermission(enforcer *casbin.TransactionalEnforcer, permissions ...Permission) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID, ok := GetUserIDFromContext(c)
 		if !ok {
@@ -58,7 +58,7 @@ func RequireAnyPermission(enforcer *casbin.Enforcer, permissions ...Permission) 
 }
 
 // RequireAllPermissions creates middleware that requires ALL specified permissions
-func RequireAllPermissions(enforcer *casbin.Enforcer, permissions ...Permission) fiber.Handler {
+func RequireAllPermissions(enforcer *casbin.TransactionalEnforcer, permissions ...Permission) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID, ok := GetUserIDFromContext(c)
 		if !ok {
@@ -94,7 +94,7 @@ func NewPermission(domain, action string) Permission {
 
 // HasPermission checks if the current user has a specific permission.
 // Returns false if the user is not authenticated or doesn't have the permission.
-func HasPermission(c *fiber.Ctx, enforcer *casbin.Enforcer, domain, action string) bool {
+func HasPermission(c *fiber.Ctx, enforcer *casbin.TransactionalEnforcer, domain, action string) bool {
 	userID, ok := GetUserIDFromContext(c)
 	if !ok {
 		return false

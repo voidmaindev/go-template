@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/casbin/casbin/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
@@ -158,6 +159,14 @@ func (m *mockService) SyncGlobalRoles(ctx context.Context) error {
 
 func (m *mockService) CountAdminUsers(ctx context.Context) (int, error) {
 	return m.adminCount, nil
+}
+
+func (m *mockService) AssignRoleInTx(tx *casbin.Transaction, ctx context.Context, userID uint, roleCode string) error {
+	return m.AssignRole(ctx, userID, roleCode)
+}
+
+func (m *mockService) GetTransactionalEnforcer() *casbin.TransactionalEnforcer {
+	return nil
 }
 
 func setupTestApp(svc Service) *fiber.App {

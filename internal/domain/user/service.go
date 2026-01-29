@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/casbin/casbin/v3"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
@@ -45,16 +46,18 @@ type service struct {
 	jwtConfig    *config.JWTConfig
 	isProduction bool
 	rbacSvc      rbac.Service
+	enforcer     *casbin.TransactionalEnforcer
 }
 
 // NewService creates a new user service
-func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, isProduction bool, rbacSvc rbac.Service) Service {
+func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, isProduction bool, rbacSvc rbac.Service, enforcer *casbin.TransactionalEnforcer) Service {
 	return &service{
 		repo:         repo,
 		tokenStore:   tokenStore,
 		jwtConfig:    jwtConfig,
 		isProduction: isProduction,
 		rbacSvc:      rbacSvc,
+		enforcer:     enforcer,
 	}
 }
 
@@ -88,16 +91,21 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 		Name:     req.Name,
 	}
 
-	err = s.repo.Transaction(ctx, func(txRepo common.Repository[User]) error {
-		// Create user within transaction
-		if err := txRepo.Create(ctx, user); err != nil {
+	// Use Casbin's WithTransaction for atomic user creation and role assignment.
+	// This ensures both the GORM user creation and Casbin policy changes
+	// are committed or rolled back together.
+	err = s.enforcer.WithTransaction(ctx, func(tx *casbin.Transaction) error {
+		// Create user within GORM transaction (nested inside Casbin transaction)
+		if err := s.repo.Transaction(ctx, func(txRepo common.Repository[User]) error {
+			return txRepo.Create(ctx, user)
+		}); err != nil {
 			return err
 		}
 
-		// Assign RBAC roles - if any fails, the transaction will be rolled back
+		// Assign RBAC roles using transaction - if any fails, everything rolls back
 		for _, roleCode := range roleCodes {
-			if err := s.rbacSvc.AssignRole(ctx, user.ID, roleCode); err != nil {
-				slog.Error("failed to assign role during registration, rolling back user creation",
+			if err := s.rbacSvc.AssignRoleInTx(tx, ctx, user.ID, roleCode); err != nil {
+				slog.Error("failed to assign role during registration, rolling back",
 					"role", roleCode, "userID", user.ID, "error", err)
 				return err
 			}

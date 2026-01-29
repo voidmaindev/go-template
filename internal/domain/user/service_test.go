@@ -6,6 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/casbin/casbin/v3"
+	"github.com/casbin/casbin/v3/model"
+	gormadapter "github.com/casbin/gorm-adapter/v3"
+	"github.com/glebarez/sqlite"
 	"github.com/voidmaindev/go-template/internal/common"
 	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
@@ -273,6 +277,14 @@ func (m *mockRbacService) CountAdminUsers(ctx context.Context) (int, error) {
 	return 0, nil
 }
 
+func (m *mockRbacService) AssignRoleInTx(tx *casbin.Transaction, ctx context.Context, userID uint, roleCode string) error {
+	return m.AssignRole(ctx, userID, roleCode)
+}
+
+func (m *mockRbacService) GetTransactionalEnforcer() *casbin.TransactionalEnforcer {
+	return nil
+}
+
 func getTestConfig() *config.JWTConfig {
 	return &config.JWTConfig{
 		SecretKey:          "test-secret-key-at-least-32-chars!!",
@@ -282,10 +294,60 @@ func getTestConfig() *config.JWTConfig {
 	}
 }
 
+// testCasbinModel is a basic RBAC model for testing
+const testCasbinModel = `
+[request_definition]
+r = sub, dom, act
+
+[policy_definition]
+p = sub, dom, act
+
+[role_definition]
+g = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && (p.dom == "*" || r.dom == p.dom) && (p.act == "*" || r.act == p.act)
+`
+
+func createTestEnforcer(t *testing.T) *casbin.TransactionalEnforcer {
+	t.Helper()
+
+	// Create in-memory SQLite database for transactional adapter
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Failed to create in-memory database: %v", err)
+	}
+
+	m, err := model.NewModelFromString(testCasbinModel)
+	if err != nil {
+		t.Fatalf("Failed to create Casbin model: %v", err)
+	}
+
+	// Create transactional adapter
+	adapter, err := gormadapter.NewTransactionalAdapterByDB(db)
+	if err != nil {
+		t.Fatalf("Failed to create Casbin adapter: %v", err)
+	}
+
+	e, err := casbin.NewTransactionalEnforcer(m, adapter)
+	if err != nil {
+		t.Fatalf("Failed to create Casbin enforcer: %v", err)
+	}
+
+	// Add user role for testing
+	e.AddPolicy("user", "*", "*")
+
+	return e
+}
+
 func TestService_Register(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
 	rbacSvc := newMockRbacService()
+	enforcer := createTestEnforcer(t)
 
 	// Create a custom service with our mock
 	customSvc := &service{
@@ -293,6 +355,7 @@ func TestService_Register(t *testing.T) {
 		tokenStore: &TokenStore{},
 		jwtConfig:  cfg,
 		rbacSvc:    rbacSvc,
+		enforcer:   enforcer,
 	}
 
 	t.Run("successful registration", func(t *testing.T) {

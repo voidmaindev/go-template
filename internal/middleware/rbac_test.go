@@ -32,7 +32,7 @@ e = some(where (p.eft == allow))
 m = g(r.sub, p.sub) && (p.dom == "*" || r.dom == p.dom) && (p.act == "*" || r.act == p.act)
 `
 
-func createTestEnforcer(t *testing.T) *casbin.Enforcer {
+func createTestEnforcer(t *testing.T) *casbin.TransactionalEnforcer {
 	t.Helper()
 
 	m, err := model.NewModelFromString(testCasbinModel)
@@ -40,7 +40,7 @@ func createTestEnforcer(t *testing.T) *casbin.Enforcer {
 		t.Fatalf("Failed to create Casbin model: %v", err)
 	}
 
-	e, err := casbin.NewEnforcer(m)
+	e, err := casbin.NewTransactionalEnforcer(m)
 	if err != nil {
 		t.Fatalf("Failed to create Casbin enforcer: %v", err)
 	}
@@ -48,7 +48,7 @@ func createTestEnforcer(t *testing.T) *casbin.Enforcer {
 	return e
 }
 
-func createTestEnforcerWithPolicies(t *testing.T) *casbin.Enforcer {
+func createTestEnforcerWithPolicies(t *testing.T) *casbin.TransactionalEnforcer {
 	t.Helper()
 
 	e := createTestEnforcer(t)

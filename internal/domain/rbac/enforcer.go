@@ -11,18 +11,18 @@ import (
 )
 
 // EnforcerKey is the typed key used to store the enforcer in the container
-var EnforcerKey = container.Key[*casbin.Enforcer]("rbac.enforcer")
+var EnforcerKey = container.Key[*casbin.TransactionalEnforcer]("rbac.enforcer")
 
-// NewEnforcer creates a new Casbin enforcer with GORM adapter
-func NewEnforcer(db *gorm.DB, cfg *config.RBACConfig) (*casbin.Enforcer, error) {
-	// Create GORM adapter (auto-creates casbin_rule table)
-	adapter, err := gormadapter.NewAdapterByDB(db)
+// NewEnforcer creates a new Casbin transactional enforcer with GORM adapter
+func NewEnforcer(db *gorm.DB, cfg *config.RBACConfig) (*casbin.TransactionalEnforcer, error) {
+	// Create transactional GORM adapter (auto-creates casbin_rule table)
+	adapter, err := gormadapter.NewTransactionalAdapterByDB(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Casbin adapter: %w", err)
 	}
 
-	// Create enforcer with model file and adapter
-	enforcer, err := casbin.NewEnforcer(cfg.ModelPath, adapter)
+	// Create transactional enforcer with model file and adapter
+	enforcer, err := casbin.NewTransactionalEnforcer(cfg.ModelPath, adapter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Casbin enforcer: %w", err)
 	}
