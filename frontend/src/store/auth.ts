@@ -8,8 +8,10 @@ interface AuthState {
   expiresAt: number | null
   user: User | null
   isAuthenticated: boolean
+  pendingVerificationEmail: string | null
   setAuth: (data: TokenResponse) => void
   updateUser: (user: User) => void
+  setPendingVerificationEmail: (email: string | null) => void
   logout: () => void
 }
 
@@ -21,6 +23,7 @@ export const useAuthStore = create<AuthState>()(
       expiresAt: null,
       user: null,
       isAuthenticated: false,
+      pendingVerificationEmail: null,
       setAuth: (data: TokenResponse) =>
         set({
           accessToken: data.access_token,
@@ -28,12 +31,15 @@ export const useAuthStore = create<AuthState>()(
           expiresAt: data.expires_at,
           user: data.user,
           isAuthenticated: true,
+          pendingVerificationEmail: null,
         }),
       updateUser: (user: User) =>
         set((state) => ({
           ...state,
           user,
         })),
+      setPendingVerificationEmail: (email: string | null) =>
+        set({ pendingVerificationEmail: email }),
       logout: () =>
         set({
           accessToken: null,
@@ -41,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
           expiresAt: null,
           user: null,
           isAuthenticated: false,
+          pendingVerificationEmail: null,
         }),
     }),
     {
@@ -51,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
         expiresAt: state.expiresAt,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        pendingVerificationEmail: state.pendingVerificationEmail,
       }),
     }
   )

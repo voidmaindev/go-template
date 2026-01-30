@@ -34,6 +34,9 @@ export interface User {
   id: number
   email: string
   name: string
+  email_verified_at: string | null
+  is_self_registered: boolean
+  has_password: boolean
   created_at: string
   updated_at: string
 }
@@ -68,6 +71,58 @@ export interface UpdateProfileRequest {
 export interface ChangePasswordRequest {
   current_password: string
   new_password: string
+}
+
+// Self-registration & OAuth types
+export interface SelfRegisterRequest {
+  email: string
+  password: string
+  name: string
+}
+
+export interface SelfRegisterResponse {
+  message: string
+  user_id: number
+}
+
+export interface VerifyEmailRequest {
+  token: string
+}
+
+export interface ResendVerificationRequest {
+  email: string
+}
+
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  token: string
+  new_password: string
+}
+
+export interface SetPasswordRequest {
+  new_password: string
+}
+
+export type OAuthProvider = 'google' | 'facebook' | 'apple'
+
+export interface OAuthTokenRequest {
+  code: string
+  state: string
+  provider: OAuthProvider
+}
+
+export interface ExternalIdentity {
+  id: number
+  provider: OAuthProvider
+  email: string
+  created_at: string
+}
+
+export interface IdentitiesResponse {
+  identities: ExternalIdentity[]
 }
 
 // Item types

@@ -1,0 +1,148 @@
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { useOAuthCallback } from '../hooks/useSelfAuth'
+import type { OAuthProvider } from '../types'
+
+type CallbackState = 'loading' | 'success' | 'error'
+
+export default function OAuthCallbackPage() {
+  const [searchParams] = useSearchParams()
+  const [state, setState] = useState<CallbackState>('loading')
+  const [errorMessage, setErrorMessage] = useState<string>('')
+  const { mutate: exchangeToken } = useOAuthCallback()
+
+  useEffect(() => {
+    const code = searchParams.get('code')
+    const stateParam = searchParams.get('state')
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+    const isLinking = searchParams.get('link') === 'true'
+
+    // Handle OAuth error
+    if (error) {
+      setState('error')
+      setErrorMessage(errorDescription || error || 'Authentication failed')
+
+      // Notify opener if exists
+      if (window.opener) {
+        window.opener.postMessage(
+          { type: 'oauth-error', error: errorDescription || error },
+          window.location.origin
+        )
+      }
+      return
+    }
+
+    // Check for required params
+    if (!code || !stateParam) {
+      setState('error')
+      setErrorMessage('Missing authentication parameters')
+      return
+    }
+
+    // Extract provider from state (format: provider:random_string)
+    const [provider] = stateParam.split(':')
+    if (!['google', 'facebook', 'apple'].includes(provider)) {
+      setState('error')
+      setErrorMessage('Invalid OAuth provider')
+      return
+    }
+
+    // If linking, just send success message to opener
+    if (isLinking) {
+      setState('success')
+      if (window.opener) {
+        window.opener.postMessage(
+          { type: 'link-success', provider },
+          window.location.origin
+        )
+        setTimeout(() => window.close(), 1500)
+      }
+      return
+    }
+
+    // Exchange code for tokens
+    exchangeToken(
+      { code, state: stateParam, provider: provider as OAuthProvider },
+      {
+        onSuccess: () => {
+          setState('success')
+          // The hook already handles postMessage and closing
+        },
+        onError: (err) => {
+          setState('error')
+          setErrorMessage((err as Error)?.message || 'Authentication failed')
+        },
+      }
+    )
+  }, [searchParams, exchangeToken])
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-cyber-black">
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-green/5 rounded-full blur-3xl" />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-sm relative z-10"
+      >
+        <div className="cyber-card p-8 text-center">
+          {state === 'loading' && (
+            <>
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-neon-cyan/20 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-neon-cyan animate-spin" />
+              </div>
+              <h1 className="font-display font-bold text-xl text-white tracking-wider mb-2">
+                AUTHENTICATING
+              </h1>
+              <p className="text-gray-400 text-sm">
+                Please wait...
+              </p>
+            </>
+          )}
+
+          {state === 'success' && (
+            <>
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-neon-green/20 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-neon-green" />
+              </div>
+              <h1 className="font-display font-bold text-xl text-white tracking-wider mb-2">
+                SUCCESS
+              </h1>
+              <p className="text-gray-400 text-sm">
+                This window will close automatically...
+              </p>
+            </>
+          )}
+
+          {state === 'error' && (
+            <>
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-neon-pink/20 flex items-center justify-center">
+                <XCircle className="w-8 h-8 text-neon-pink" />
+              </div>
+              <h1 className="font-display font-bold text-xl text-white tracking-wider mb-2">
+                AUTHENTICATION FAILED
+              </h1>
+              <p className="text-gray-400 text-sm mb-4">
+                {errorMessage}
+              </p>
+              <button
+                type="button"
+                onClick={() => window.close()}
+                className="cyber-button-pink"
+              >
+                CLOSE WINDOW
+              </button>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  )
+}

@@ -1,22 +1,72 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { Terminal, Eye, EyeOff, Loader2 } from 'lucide-react'
-import { useRegister } from '../hooks/useAuth'
-import type { RegisterRequest } from '../types'
+import toast from 'react-hot-toast'
+import { useSelfRegister, useOAuthLogin } from '../hooks/useSelfAuth'
+import { useAuthStore } from '../store/auth'
+import OAuthButton from '../components/OAuthButton'
+import type { SelfRegisterRequest, OAuthProvider } from '../types'
 
 export default function RegisterPage() {
+  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
-  const { mutate: registerUser, isPending } = useRegister()
+  const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null)
+  const { mutate: registerUser, isPending } = useSelfRegister()
+  const setAuth = useAuthStore((state) => state.setAuth)
+  const { openOAuthPopup: openGooglePopup } = useOAuthLogin('google')
+  const { openOAuthPopup: openFacebookPopup } = useOAuthLogin('facebook')
+  const { openOAuthPopup: openApplePopup } = useOAuthLogin('apple')
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<RegisterRequest>()
+  } = useForm<SelfRegisterRequest>()
 
-  const onSubmit = (data: RegisterRequest) => {
+  // Handle OAuth message from popup
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+
+      if (event.data?.type === 'oauth-success') {
+        setAuth(event.data.data)
+        toast.success('ACCOUNT CREATED // ACCESS GRANTED')
+        navigate('/dashboard')
+      } else if (event.data?.type === 'oauth-error') {
+        toast.error(event.data.error || 'OAuth authentication failed')
+      }
+      setOauthLoading(null)
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [setAuth, navigate])
+
+  const handleOAuthLogin = (provider: OAuthProvider) => {
+    setOauthLoading(provider)
+    const popup = provider === 'google'
+      ? openGooglePopup()
+      : provider === 'facebook'
+      ? openFacebookPopup()
+      : openApplePopup()
+
+    if (!popup) {
+      toast.error('Popup was blocked. Please allow popups for this site.')
+      setOauthLoading(null)
+      return
+    }
+
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkClosed)
+        setOauthLoading(null)
+      }
+    }, 500)
+  }
+
+  const onSubmit = (data: SelfRegisterRequest) => {
     registerUser(data)
   }
 
@@ -141,7 +191,7 @@ export default function RegisterPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || !!oauthLoading}
               className="cyber-button-green w-full flex items-center justify-center gap-2"
             >
               {isPending ? (
@@ -154,6 +204,32 @@ export default function RegisterPage() {
               )}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="my-6 flex items-center gap-4">
+            <div className="flex-1 border-t border-cyber-border" />
+            <span className="text-gray-500 text-sm font-mono">OR</span>
+            <div className="flex-1 border-t border-cyber-border" />
+          </div>
+
+          {/* OAuth Buttons */}
+          <div className="space-y-3">
+            <OAuthButton
+              provider="google"
+              onClick={() => handleOAuthLogin('google')}
+              isLoading={oauthLoading === 'google'}
+            />
+            <OAuthButton
+              provider="facebook"
+              onClick={() => handleOAuthLogin('facebook')}
+              isLoading={oauthLoading === 'facebook'}
+            />
+            <OAuthButton
+              provider="apple"
+              onClick={() => handleOAuthLogin('apple')}
+              isLoading={oauthLoading === 'apple'}
+            />
+          </div>
 
           {/* Login Link */}
           <div className="mt-6 text-center">
