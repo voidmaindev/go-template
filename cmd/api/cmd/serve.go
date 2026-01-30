@@ -16,6 +16,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/database"
+	"github.com/voidmaindev/go-template/internal/database/seeders"
 	"github.com/voidmaindev/go-template/internal/docs"
 	"github.com/voidmaindev/go-template/internal/health"
 	"github.com/voidmaindev/go-template/internal/logger"
@@ -124,7 +125,17 @@ func runServe(cmd *cobra.Command, args []string) {
 	}
 
 	// Register all domain components (repos, services, handlers)
+	// This must happen before seeders because RBAC seeders need the casbin_rule table
+	// which is created by the Casbin enforcer during registration
 	c.RegisterAll()
+
+	// Run pending seeders (ensures self_registered role exists for new user registration)
+	slog.Info("Running pending seeders...")
+	seederManager := seeders.DefaultSeederManager(db, cfg)
+	if err := seederManager.Run(context.Background()); err != nil {
+		slog.Error("Failed to run seeders", "error", err)
+		os.Exit(1)
+	}
 
 	// Initialize Fiber app
 	fiberApp := fiber.New(fiber.Config{
