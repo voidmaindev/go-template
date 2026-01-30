@@ -19,6 +19,12 @@ func Migrate(db *gorm.DB, models ...any) error {
 		return err
 	}
 
+	// Create partial unique index on users.email (GORM can't express this via tags)
+	// Only applies to non-deleted records, allowing soft-deleted emails to be reused
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email) WHERE deleted_at IS NULL").Error; err != nil {
+		slog.Warn("Failed to create users email index", "error", err)
+	}
+
 	slog.Info("Database migrations completed successfully")
 	return nil
 }

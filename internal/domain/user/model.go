@@ -10,7 +10,7 @@ import (
 // User represents a user entity
 type User struct {
 	common.BaseModel
-	Email            string     `gorm:"size:255;not null;uniqueIndex" json:"email"`
+	Email            string     `gorm:"size:255;not null" json:"email"`
 	Password         *string    `gorm:"size:255" json:"-"`                          // nullable for OAuth-only users
 	Name             string     `gorm:"size:100;not null" json:"name"`
 	EmailVerifiedAt  *time.Time `gorm:"index" json:"email_verified_at,omitempty"`
