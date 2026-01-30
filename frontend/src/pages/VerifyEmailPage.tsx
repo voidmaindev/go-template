@@ -70,7 +70,7 @@ export default function VerifyEmailPage() {
                 EMAIL VERIFIED
               </h1>
               <p className="text-gray-400 mb-6">
-                Your email has been verified. Redirecting to dashboard...
+                Your email has been verified. Redirecting to login...
               </p>
             </>
           ) : isError ? (

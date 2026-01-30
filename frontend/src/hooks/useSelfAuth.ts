@@ -43,17 +43,15 @@ export function useSelfRegister() {
 
 export function useVerifyEmail() {
   const navigate = useNavigate()
-  const setAuth = useAuthStore((state) => state.setAuth)
 
   return useMutation({
     mutationFn: async (data: VerifyEmailRequest) => {
-      const response = await api.post<ApiResponse<TokenResponse>>('/auth/self/verify-email', data)
-      return response.data.data
+      const response = await api.post<ApiResponse<{ message: string }>>('/auth/self/verify-email', data)
+      return response.data
     },
-    onSuccess: (data) => {
-      setAuth(data)
-      toast.success('EMAIL VERIFIED // ACCESS GRANTED')
-      navigate('/dashboard')
+    onSuccess: () => {
+      toast.success('EMAIL VERIFIED // PLEASE LOGIN')
+      setTimeout(() => navigate('/login'), 2000)
     },
     onError: (error) => {
       toast.error(getErrorMessage(error))
