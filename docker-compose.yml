@@ -66,21 +66,15 @@ services:
       - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID:-}
       - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET:-}
       - OAUTH_GOOGLE_REDIRECT_URL=${OAUTH_GOOGLE_REDIRECT_URL:-http://localhost:3000/api/v1/auth/oauth/google/callback}
-      # SMTP (Mailpit for development)
-      - SMTP_HOST=${SMTP_HOST:-mailpit}
-      - SMTP_PORT=${SMTP_PORT:-1025}
-      - SMTP_USERNAME=${SMTP_USERNAME:-}
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-      - SMTP_FROM=${SMTP_FROM:-noreply@go-template.local}
-      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Go Template}
-      - SMTP_USE_TLS=${SMTP_USE_TLS:-false}
+      # Email Provider (SendGrid)
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@go-template.local}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Go Template}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mailpit:
-        condition: service_started
     restart: unless-stopped
     networks:
       - go-template-network
@@ -124,16 +118,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-    networks:
-      - go-template-network
-
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: go-template-mailpit
-    ports:
-      - "8025:8025"   # Web UI
-      - "1025:1025"   # SMTP
     restart: unless-stopped
     networks:
       - go-template-network

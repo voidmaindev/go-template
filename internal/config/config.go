@@ -23,7 +23,7 @@ type Config struct {
 	RateLimit        RateLimitConfig        `mapstructure:"ratelimit"`
 	Pagination       PaginationConfig       `mapstructure:"pagination"`
 	SelfRegistration SelfRegistrationConfig `mapstructure:"self_registration"`
-	SMTP             SMTPConfig             `mapstructure:"smtp"`
+	Email            EmailConfig            `mapstructure:"email"`
 	OAuth            OAuthConfig            `mapstructure:"oauth"`
 }
 
@@ -134,15 +134,16 @@ type SelfRegistrationConfig struct {
 	BaseURL                  string        `mapstructure:"base_url"` // Frontend URL for email links
 }
 
-// SMTPConfig holds SMTP email settings
-type SMTPConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	From     string `mapstructure:"from"`
-	FromName string `mapstructure:"from_name"`
-	UseTLS   bool   `mapstructure:"use_tls"`
+// EmailConfig holds email provider settings
+type EmailConfig struct {
+	From     string         `mapstructure:"from"`
+	FromName string         `mapstructure:"from_name"`
+	SendGrid SendGridConfig `mapstructure:"sendgrid"`
+}
+
+// SendGridConfig holds SendGrid-specific settings
+type SendGridConfig struct {
+	APIKey string `mapstructure:"api_key"`
 }
 
 // OAuthConfig holds OAuth provider settings
@@ -307,14 +308,10 @@ func setDefaults() {
 	viper.SetDefault("self_registration.default_role", "self_registered")
 	viper.SetDefault("self_registration.base_url", "http://localhost:5173")
 
-	// SMTP defaults
-	viper.SetDefault("smtp.host", "localhost")
-	viper.SetDefault("smtp.port", 587)
-	viper.SetDefault("smtp.username", "")
-	viper.SetDefault("smtp.password", "")
-	viper.SetDefault("smtp.from", "noreply@example.com")
-	viper.SetDefault("smtp.from_name", "Go Template")
-	viper.SetDefault("smtp.use_tls", true)
+	// Email provider defaults (SendGrid only)
+	viper.SetDefault("email.from", "noreply@example.com")
+	viper.SetDefault("email.from_name", "Go Template")
+	viper.SetDefault("email.sendgrid.api_key", "")
 
 	// OAuth defaults (all disabled by default)
 	viper.SetDefault("oauth.google.enabled", false)
@@ -419,14 +416,10 @@ func bindEnvVars() {
 	viper.BindEnv("self_registration.default_role", "SELF_REGISTRATION_DEFAULT_ROLE")
 	viper.BindEnv("self_registration.base_url", "SELF_REGISTRATION_BASE_URL")
 
-	// SMTP
-	viper.BindEnv("smtp.host", "SMTP_HOST")
-	viper.BindEnv("smtp.port", "SMTP_PORT")
-	viper.BindEnv("smtp.username", "SMTP_USERNAME")
-	viper.BindEnv("smtp.password", "SMTP_PASSWORD")
-	viper.BindEnv("smtp.from", "SMTP_FROM")
-	viper.BindEnv("smtp.from_name", "SMTP_FROM_NAME")
-	viper.BindEnv("smtp.use_tls", "SMTP_USE_TLS")
+	// Email provider (SendGrid only)
+	viper.BindEnv("email.from", "EMAIL_FROM")
+	viper.BindEnv("email.from_name", "EMAIL_FROM_NAME")
+	viper.BindEnv("email.sendgrid.api_key", "SENDGRID_API_KEY")
 
 	// OAuth - Google
 	viper.BindEnv("oauth.google.enabled", "OAUTH_GOOGLE_ENABLED")

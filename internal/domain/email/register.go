@@ -1,13 +1,16 @@
 package email
 
 import (
+	"log/slog"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
 )
 
 // Component keys for this domain
 var (
-	ServiceKey = container.Key[Service]("email.service")
+	ServiceKey  = container.Key[Service]("email.service")
+	ProviderKey = container.Key[Provider]("email.provider")
 )
 
 // domain implements container.Domain interface
@@ -28,14 +31,32 @@ func (d *domain) Models() []any {
 	return nil
 }
 
-// Register initializes the email service
+// Register initializes the email service with SendGrid provider
 func (d *domain) Register(c *container.Container) {
-	service := NewSMTPService(
-		&c.Config.SMTP,
+	cfg := &c.Config.Email
+
+	provider, err := NewProvider(cfg)
+	if err != nil {
+		slog.Warn("email provider not configured", "error", err)
+		// Don't set provider or service - email functionality will be disabled
+		return
+	}
+	ProviderKey.Set(c, provider)
+
+	from := Address{
+		Email: cfg.From,
+		Name:  cfg.FromName,
+	}
+
+	service := NewService(
+		provider,
+		from,
 		c.Config.App.Name,
 		c.Config.SelfRegistration.BaseURL,
 	)
 	ServiceKey.Set(c, service)
+
+	slog.Info("email service initialized", "provider", provider.Name())
 }
 
 // Routes registers HTTP routes for this domain (email domain has no routes)

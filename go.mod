@@ -17,6 +17,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.7.3
+	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 	github.com/testcontainers/testcontainers-go v0.40.0
@@ -119,6 +120,7 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/shirou/gopsutil/v4 v4.25.6 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
