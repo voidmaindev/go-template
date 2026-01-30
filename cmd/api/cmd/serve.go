@@ -18,6 +18,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/database"
 	"github.com/voidmaindev/go-template/internal/database/seeders"
 	"github.com/voidmaindev/go-template/internal/docs"
+	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/health"
 	"github.com/voidmaindev/go-template/internal/logger"
 	"github.com/voidmaindev/go-template/internal/middleware"
@@ -135,6 +136,15 @@ func runServe(cmd *cobra.Command, args []string) {
 	if err := seederManager.Run(context.Background()); err != nil {
 		slog.Error("Failed to run seeders", "error", err)
 		os.Exit(1)
+	}
+
+	// Reload RBAC policies after seeding (policies were seeded after enforcer init)
+	if enforcer, ok := rbac.EnforcerKey.Get(c); ok {
+		if err := enforcer.LoadPolicy(); err != nil {
+			slog.Error("Failed to reload RBAC policies", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("RBAC policies reloaded after seeding")
 	}
 
 	// Initialize Fiber app
