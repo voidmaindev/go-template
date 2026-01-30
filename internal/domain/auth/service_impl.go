@@ -388,22 +388,29 @@ func (s *service) findOrCreateOAuthUser(ctx context.Context, provider string, us
 
 	// Create user and identity atomically
 	err = s.enforcer.WithTransaction(ctx, func(tx *casbin.Transaction) error {
-		if err := s.db.WithContext(ctx).Create(newUser).Error; err != nil {
+		// Wrap GORM operations in a database transaction for atomicity
+		if err := s.db.WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
+			if err := gormTx.Create(newUser).Error; err != nil {
+				return err
+			}
+
+			// Create external identity
+			identity := &user.ExternalIdentity{
+				UserID:     newUser.ID,
+				Provider:   provider,
+				ProviderID: userInfo.ID,
+				Email:      userInfo.Email,
+			}
+			if err := gormTx.Create(identity).Error; err != nil {
+				return err
+			}
+
+			return nil
+		}); err != nil {
 			return err
 		}
 
-		// Create external identity
-		identity := &user.ExternalIdentity{
-			UserID:     newUser.ID,
-			Provider:   provider,
-			ProviderID: userInfo.ID,
-			Email:      userInfo.Email,
-		}
-		if err := s.db.WithContext(ctx).Create(identity).Error; err != nil {
-			return err
-		}
-
-		// Assign self-registered role
+		// Assign self-registered role within the Casbin transaction
 		if err := s.rbacSvc.AssignRoleInTx(tx, ctx, newUser.ID, s.selfRegConfig.DefaultRole); err != nil {
 			return err
 		}
