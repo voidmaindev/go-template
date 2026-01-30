@@ -1200,11 +1200,13 @@ Configuration can be set via environment variables or `config.yaml` file. Enviro
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SELF_REGISTRATION_ENABLED` | false | Enable self-registration |
-| `SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION` | true | Require email verification before login |
+| `SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION` | true | Block login until email is verified (see note below) |
 | `SELF_REGISTRATION_VERIFICATION_TOKEN_EXPIRY` | 24h | Email verification token TTL |
 | `SELF_REGISTRATION_PASSWORD_RESET_TOKEN_EXPIRY` | 1h | Password reset token TTL |
 | `SELF_REGISTRATION_DEFAULT_ROLE` | self_registered | Default role for self-registered users |
 | `SELF_REGISTRATION_BASE_URL` | http://localhost:3000 | Base URL for email verification links |
+
+> **Email Verification Blocking**: When `SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION=true`, self-registered users cannot log in until they verify their email. Login attempts return HTTP 403 "email address not verified". Admin-created users are not affected by this restriction and can log in without email verification.
 
 ### SMTP
 

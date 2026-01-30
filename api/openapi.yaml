@@ -1128,6 +1128,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Email not verified (self-registered users only, when SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION=true)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /auth/refresh:
     post:

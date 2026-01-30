@@ -51,7 +51,7 @@ func (d *domain) Register(c *container.Container) {
 	enforcer := rbac.EnforcerKey.MustGet(c)
 
 	// Initialize service with enforcer for transactional role assignment
-	service := NewService(repo, tokenStore, &c.Config.JWT, c.Config.App.IsProduction(), rbacSvc, enforcer)
+	service := NewService(repo, tokenStore, &c.Config.JWT, &c.Config.SelfRegistration, c.Config.App.IsProduction(), rbacSvc, enforcer)
 	ServiceKey.Set(c, service)
 
 	// Initialize handler

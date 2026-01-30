@@ -68,6 +68,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // @Success 200 {object} common.Response{data=TokenResponse}
 // @Failure 400 {object} common.Response
 // @Failure 401 {object} common.Response
+// @Failure 403 {object} common.Response "Email not verified (self-registered users only)"
 // @Router /auth/login [post]
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
@@ -85,6 +86,9 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
 			return common.UnauthorizedResponse(c, "invalid email or password")
+		}
+		if errors.Is(err, ErrEmailNotVerified) {
+			return common.ForbiddenResponse(c, "email address not verified")
 		}
 		return common.HandleError(c, err)
 	}

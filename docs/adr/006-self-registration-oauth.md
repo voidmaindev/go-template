@@ -94,9 +94,28 @@ type ExternalIdentity struct {
 2. System sends verification email with token
 3. User clicks link, token is validated
 4. User's `email_verified_at` is set
-5. If verification required, user can now log in
+5. User can now log in
 
 **Rationale**: Standard security practice to verify email ownership before granting access.
+
+### Login Blocking for Unverified Users
+
+When `SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION=true`:
+
+1. Self-registered users (`is_self_registered=true`) cannot log in until email is verified
+2. Login attempts return HTTP 403 Forbidden with message "email address not verified"
+3. Admin-created users (`is_self_registered=false`) are not affected by this check
+4. OAuth users auto-verify their email upon first OAuth login
+
+**Implementation**:
+- Check occurs in `user.Service.Login()` after password verification
+- Only blocks if all conditions are true:
+  - `user.IsSelfRegistered == true`
+  - `user.EmailVerifiedAt == nil`
+  - `config.SelfRegistration.RequireEmailVerification == true`
+- Telemetry tracks failures with reason `email_not_verified`
+
+**Rationale**: Ensures email ownership verification before granting access to self-registered users while allowing admin flexibility for trusted users.
 
 ## Consequences
 

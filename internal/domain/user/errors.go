@@ -40,4 +40,8 @@ var (
 	// ErrTokenBlacklisted is returned when a token has been revoked
 	ErrTokenBlacklisted = errors.New(domainName, errors.CodeUnauthorized).
 				WithMessage("token has been revoked")
+
+	// ErrEmailNotVerified is returned when a self-registered user tries to login without verifying email
+	ErrEmailNotVerified = errors.New(domainName, errors.CodeForbidden).
+				WithMessage("email address not verified")
 )

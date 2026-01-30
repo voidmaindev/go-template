@@ -306,6 +306,13 @@ func getTestConfig() *config.JWTConfig {
 	}
 }
 
+func getTestSelfRegConfig() *config.SelfRegistrationConfig {
+	return &config.SelfRegistrationConfig{
+		Enabled:                  true,
+		RequireEmailVerification: false, // Disabled by default for existing tests
+	}
+}
+
 // testCasbinModel is a basic RBAC model for testing
 const testCasbinModel = `
 [request_definition]
@@ -363,11 +370,12 @@ func TestService_Register(t *testing.T) {
 
 	// Create a custom service with our mock
 	customSvc := &service{
-		repo:       repo,
-		tokenStore: &TokenStore{},
-		jwtConfig:  cfg,
-		rbacSvc:    rbacSvc,
-		enforcer:   enforcer,
+		repo:          repo,
+		tokenStore:    &TokenStore{},
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       rbacSvc,
+		enforcer:      enforcer,
 	}
 
 	t.Run("successful registration", func(t *testing.T) {
@@ -414,10 +422,11 @@ func TestService_Login(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
 	svc := &service{
-		repo:       repo,
-		tokenStore: &TokenStore{},
-		jwtConfig:  cfg,
-		rbacSvc:    newMockRbacService(),
+		repo:          repo,
+		tokenStore:    &TokenStore{},
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       newMockRbacService(),
 	}
 
 	// Create a user first
@@ -470,16 +479,129 @@ func TestService_Login(t *testing.T) {
 			t.Errorf("Login() error = %v, want %v", err, ErrInvalidCredentials)
 		}
 	})
+
+	t.Run("self-registered user without email verification blocked", func(t *testing.T) {
+		// Create a new repo and service with email verification required
+		verifyRepo := newMockRepository()
+		verifySvc := &service{
+			repo:       verifyRepo,
+			tokenStore: &TokenStore{},
+			jwtConfig:  cfg,
+			selfRegConfig: &config.SelfRegistrationConfig{
+				Enabled:                  true,
+				RequireEmailVerification: true,
+			},
+			rbacSvc: newMockRbacService(),
+		}
+
+		// Create a self-registered user without email verification
+		hashedPwd, _ := utils.HashPassword("password123")
+		verifyRepo.Create(context.Background(), &User{
+			Email:            "selfregistered@example.com",
+			Password:         ptr.To(hashedPwd),
+			Name:             "Self Registered User",
+			IsSelfRegistered: true,
+			EmailVerifiedAt:  nil, // Not verified
+		})
+
+		req := &LoginRequest{
+			Email:    "selfregistered@example.com",
+			Password: "password123",
+		}
+
+		_, err := verifySvc.Login(context.Background(), req)
+		if !errors.Is(err, ErrEmailNotVerified) {
+			t.Errorf("Login() error = %v, want %v", err, ErrEmailNotVerified)
+		}
+	})
+
+	t.Run("self-registered user with email verification allowed", func(t *testing.T) {
+		// Create a new repo and service with email verification required
+		verifyRepo := newMockRepository()
+		verifySvc := &service{
+			repo:       verifyRepo,
+			tokenStore: &TokenStore{},
+			jwtConfig:  cfg,
+			selfRegConfig: &config.SelfRegistrationConfig{
+				Enabled:                  true,
+				RequireEmailVerification: true,
+			},
+			rbacSvc: newMockRbacService(),
+		}
+
+		// Create a self-registered user WITH email verification
+		hashedPwd, _ := utils.HashPassword("password123")
+		verifiedAt := time.Now()
+		verifyRepo.Create(context.Background(), &User{
+			Email:            "verified@example.com",
+			Password:         ptr.To(hashedPwd),
+			Name:             "Verified User",
+			IsSelfRegistered: true,
+			EmailVerifiedAt:  &verifiedAt,
+		})
+
+		req := &LoginRequest{
+			Email:    "verified@example.com",
+			Password: "password123",
+		}
+
+		response, err := verifySvc.Login(context.Background(), req)
+		if err != nil {
+			t.Fatalf("Login() error = %v, want nil", err)
+		}
+		if response.AccessToken == "" {
+			t.Error("AccessToken should not be empty")
+		}
+	})
+
+	t.Run("non-self-registered user allowed without verification", func(t *testing.T) {
+		// Create a new repo and service with email verification required
+		verifyRepo := newMockRepository()
+		verifySvc := &service{
+			repo:       verifyRepo,
+			tokenStore: &TokenStore{},
+			jwtConfig:  cfg,
+			selfRegConfig: &config.SelfRegistrationConfig{
+				Enabled:                  true,
+				RequireEmailVerification: true,
+			},
+			rbacSvc: newMockRbacService(),
+		}
+
+		// Create a non-self-registered user (admin-created) without email verification
+		hashedPwd, _ := utils.HashPassword("password123")
+		verifyRepo.Create(context.Background(), &User{
+			Email:            "admincreated@example.com",
+			Password:         ptr.To(hashedPwd),
+			Name:             "Admin Created User",
+			IsSelfRegistered: false, // Not self-registered
+			EmailVerifiedAt:  nil,   // Not verified, but shouldn't matter
+		})
+
+		req := &LoginRequest{
+			Email:    "admincreated@example.com",
+			Password: "password123",
+		}
+
+		response, err := verifySvc.Login(context.Background(), req)
+		if err != nil {
+			t.Fatalf("Login() error = %v, want nil", err)
+		}
+		if response.AccessToken == "" {
+			t.Error("AccessToken should not be empty")
+		}
+	})
 }
 
 func TestService_GetByID(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
 	svc := &service{
-		repo:       repo,
-		tokenStore: &TokenStore{},
-		jwtConfig:  cfg,
-		rbacSvc:    newMockRbacService(),
+		repo:          repo,
+		tokenStore:    &TokenStore{},
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       newMockRbacService(),
 	}
 
 	// Create a user
@@ -512,10 +634,11 @@ func TestService_GetByEmail(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
 	svc := &service{
-		repo:       repo,
-		tokenStore: &TokenStore{},
-		jwtConfig:  cfg,
-		rbacSvc:    newMockRbacService(),
+		repo:          repo,
+		tokenStore:    &TokenStore{},
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       newMockRbacService(),
 	}
 
 	repo.Create(context.Background(), &User{
@@ -547,10 +670,11 @@ func TestService_Update(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
 	svc := &service{
-		repo:       repo,
-		tokenStore: &TokenStore{},
-		jwtConfig:  cfg,
-		rbacSvc:    newMockRbacService(),
+		repo:          repo,
+		tokenStore:    &TokenStore{},
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       newMockRbacService(),
 	}
 
 	repo.Create(context.Background(), &User{
@@ -592,10 +716,11 @@ func TestService_ChangePassword(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
 	svc := &service{
-		repo:       repo,
-		tokenStore: &TokenStore{},
-		jwtConfig:  cfg,
-		rbacSvc:    newMockRbacService(),
+		repo:          repo,
+		tokenStore:    &TokenStore{},
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       newMockRbacService(),
 	}
 
 	hashedPassword, _ := utils.HashPassword("currentpassword")
@@ -662,10 +787,11 @@ func TestService_Delete(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
 	svc := &service{
-		repo:       repo,
-		tokenStore: &TokenStore{},
-		jwtConfig:  cfg,
-		rbacSvc:    newMockRbacService(),
+		repo:          repo,
+		tokenStore:    &TokenStore{},
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       newMockRbacService(),
 	}
 
 	repo.Create(context.Background(), &User{
@@ -741,10 +867,11 @@ func TestService_List(t *testing.T) {
 	repo := newMockRepository()
 	cfg := getTestConfig()
 	svc := &service{
-		repo:       repo,
-		tokenStore: &TokenStore{},
-		jwtConfig:  cfg,
-		rbacSvc:    newMockRbacService(),
+		repo:          repo,
+		tokenStore:    &TokenStore{},
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       newMockRbacService(),
 	}
 
 	// Create multiple users
@@ -785,10 +912,11 @@ func TestService_RefreshToken(t *testing.T) {
 	ts := &TokenStore{}
 
 	svc := &service{
-		repo:       repo,
-		tokenStore: ts,
-		jwtConfig:  cfg,
-		rbacSvc:    newMockRbacService(),
+		repo:          repo,
+		tokenStore:    ts,
+		jwtConfig:     cfg,
+		selfRegConfig: getTestSelfRegConfig(),
+		rbacSvc:       newMockRbacService(),
 	}
 
 	// Create a user

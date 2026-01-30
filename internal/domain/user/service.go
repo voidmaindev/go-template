@@ -41,23 +41,25 @@ type Service interface {
 
 // service implements the Service interface
 type service struct {
-	repo         Repository
-	tokenStore   *TokenStore
-	jwtConfig    *config.JWTConfig
-	isProduction bool
-	rbacSvc      rbac.Service
-	enforcer     *casbin.TransactionalEnforcer
+	repo          Repository
+	tokenStore    *TokenStore
+	jwtConfig     *config.JWTConfig
+	selfRegConfig *config.SelfRegistrationConfig
+	isProduction  bool
+	rbacSvc       rbac.Service
+	enforcer      *casbin.TransactionalEnforcer
 }
 
 // NewService creates a new user service
-func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, isProduction bool, rbacSvc rbac.Service, enforcer *casbin.TransactionalEnforcer) Service {
+func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, selfRegConfig *config.SelfRegistrationConfig, isProduction bool, rbacSvc rbac.Service, enforcer *casbin.TransactionalEnforcer) Service {
 	return &service{
-		repo:         repo,
-		tokenStore:   tokenStore,
-		jwtConfig:    jwtConfig,
-		isProduction: isProduction,
-		rbacSvc:      rbacSvc,
-		enforcer:     enforcer,
+		repo:          repo,
+		tokenStore:    tokenStore,
+		jwtConfig:     jwtConfig,
+		selfRegConfig: selfRegConfig,
+		isProduction:  isProduction,
+		rbacSvc:       rbacSvc,
+		enforcer:      enforcer,
 	}
 }
 
@@ -146,6 +148,12 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 	if !utils.CheckPassword(req.Password, *user.Password) {
 		telemetry.IncrementAuthFailures("invalid_password")
 		return nil, ErrInvalidCredentials
+	}
+
+	// Check email verification for self-registered users
+	if user.IsSelfRegistered && user.EmailVerifiedAt == nil && s.selfRegConfig != nil && s.selfRegConfig.RequireEmailVerification {
+		telemetry.IncrementAuthFailures("email_not_verified")
+		return nil, ErrEmailNotVerified
 	}
 
 	// Record metric
