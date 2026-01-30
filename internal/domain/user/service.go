@@ -325,13 +325,18 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswo
 	return nil
 }
 
-// Delete soft-deletes a user
+// Delete soft-deletes a user and cascades to external identities
 func (s *service) Delete(ctx context.Context, id uint) error {
 	_, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return ErrUserNotFound
 		}
+		return errors.Internal(domainName, err).WithOperation("Delete")
+	}
+
+	// Delete external identities first (cascade)
+	if err := s.repo.DeleteExternalIdentitiesByUserID(ctx, id); err != nil {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 

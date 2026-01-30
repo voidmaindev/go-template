@@ -16,6 +16,9 @@ type Repository interface {
 
 	// ExistsByEmail checks if a user with the given email exists
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
+
+	// DeleteExternalIdentitiesByUserID soft-deletes all external identities for a user
+	DeleteExternalIdentitiesByUserID(ctx context.Context, userID uint) error
 }
 
 // repository implements the Repository interface
@@ -38,4 +41,9 @@ func (r *repository) FindByEmail(ctx context.Context, email string) (*User, erro
 // ExistsByEmail checks if a user with the given email exists
 func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	return r.Exists(ctx, map[string]any{"email": email})
+}
+
+// DeleteExternalIdentitiesByUserID soft-deletes all external identities for a user
+func (r *repository) DeleteExternalIdentitiesByUserID(ctx context.Context, userID uint) error {
+	return r.DB().WithContext(ctx).Where("user_id = ?", userID).Delete(&ExternalIdentity{}).Error
 }

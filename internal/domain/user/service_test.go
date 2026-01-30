@@ -22,19 +22,22 @@ import (
 
 // mockRepository implements the Repository interface for testing
 type mockRepository struct {
-	users       map[uint]*User
-	emailIndex  map[string]*User
-	nextID      uint
-	findByIDErr error
-	createErr   error
-	updateErr   error
+	users                map[uint]*User
+	emailIndex           map[string]*User
+	externalIdentities   map[uint][]uint // userID -> list of identity IDs
+	nextID               uint
+	findByIDErr          error
+	createErr            error
+	updateErr            error
+	deleteExtIdentityErr error
 }
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
-		users:      make(map[uint]*User),
-		emailIndex: make(map[string]*User),
-		nextID:     1,
+		users:              make(map[uint]*User),
+		emailIndex:         make(map[string]*User),
+		externalIdentities: make(map[uint][]uint),
+		nextID:             1,
 	}
 }
 
@@ -176,6 +179,14 @@ func (m *mockRepository) FindByEmail(ctx context.Context, email string) (*User, 
 func (m *mockRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	_, exists := m.emailIndex[email]
 	return exists, nil
+}
+
+func (m *mockRepository) DeleteExternalIdentitiesByUserID(ctx context.Context, userID uint) error {
+	if m.deleteExtIdentityErr != nil {
+		return m.deleteExtIdentityErr
+	}
+	delete(m.externalIdentities, userID)
+	return nil
 }
 
 // mockTokenStore implements token store for testing
@@ -681,6 +692,48 @@ func TestService_Delete(t *testing.T) {
 		if !errors.Is(err, ErrUserNotFound) {
 			t.Errorf("Delete() error = %v, want %v", err, ErrUserNotFound)
 		}
+	})
+
+	t.Run("cascade deletes external identities", func(t *testing.T) {
+		// Create a new user with external identity
+		repo.Create(context.Background(), &User{
+			Email:    "oauth@example.com",
+			Password: nil,
+			Name:     "OAuth User",
+		})
+		userID := uint(2)
+		repo.externalIdentities[userID] = []uint{100, 101} // Simulate two identities
+
+		err := svc.Delete(context.Background(), userID)
+		if err != nil {
+			t.Fatalf("Delete() error = %v", err)
+		}
+
+		// Verify external identities are also deleted
+		if _, exists := repo.externalIdentities[userID]; exists {
+			t.Error("External identities should be deleted with user")
+		}
+	})
+
+	t.Run("handles external identity deletion error", func(t *testing.T) {
+		// Create a new user
+		repo.Create(context.Background(), &User{
+			Email:    "error@example.com",
+			Password: ptr.To("hashedpwd"),
+			Name:     "Error User",
+		})
+		userID := uint(3)
+
+		// Set up error for external identity deletion
+		repo.deleteExtIdentityErr = errors.New("database error")
+
+		err := svc.Delete(context.Background(), userID)
+		if err == nil {
+			t.Error("Delete() should return error when external identity deletion fails")
+		}
+
+		// Reset error
+		repo.deleteExtIdentityErr = nil
 	})
 }
 
