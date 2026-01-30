@@ -56,9 +56,23 @@ export default function LoginPage() {
 
     // Check if popup is closed
     const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosed)
-        setOauthLoading(null)
+      try {
+        if (popup.closed) {
+          clearInterval(checkClosed)
+          setOauthLoading(null)
+
+          // Check if auth was set in localStorage (workaround for COOP blocking postMessage)
+          const authStorage = localStorage.getItem('auth-storage')
+          if (authStorage) {
+            const parsed = JSON.parse(authStorage)
+            if (parsed?.state?.isAuthenticated) {
+              // Reload to sync Zustand state with localStorage
+              window.location.href = '/dashboard'
+            }
+          }
+        }
+      } catch {
+        // Ignore COOP errors when checking popup.closed
       }
     }, 500)
   }

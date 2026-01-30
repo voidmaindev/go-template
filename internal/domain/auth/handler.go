@@ -1,6 +1,10 @@
 package auth
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/url"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/config"
@@ -151,6 +155,11 @@ func (h *Handler) OAuthCallback(c *fiber.Ctx) error {
 
 	result, err := h.service.HandleOAuthCallback(c.Context(), provider, code, state)
 	if err != nil {
+		// If redirect URL was provided, redirect with error
+		if result != nil && result.RedirectURL != "" {
+			redirectURL := result.RedirectURL + "?error=" + url.QueryEscape(err.Error())
+			return c.Redirect(redirectURL, fiber.StatusTemporaryRedirect)
+		}
 		return common.HandleError(c, err)
 	}
 
@@ -160,12 +169,30 @@ func (h *Handler) OAuthCallback(c *fiber.Ctx) error {
 		return common.HandleError(c, err)
 	}
 
-	// Generate JWT tokens
 	tokenPair, err := utils.GenerateTokenPair(u.ID, u.Email, toUtilsJWTConfig(h.jwtConfig))
 	if err != nil {
 		return common.InternalServerErrorResponse(c)
 	}
 
+	// If redirect URL was provided (SPA popup flow), redirect to frontend with tokens in URL hash
+	if result.RedirectURL != "" {
+		// Prepare auth data as JSON
+		authData := map[string]any{
+			"access_token":  tokenPair.AccessToken,
+			"refresh_token": tokenPair.RefreshToken,
+			"expires_at":    tokenPair.ExpiresAt,
+			"user":          u.ToResponse(),
+		}
+		authJSON, err := json.Marshal(authData)
+		if err != nil {
+			return common.InternalServerErrorResponse(c)
+		}
+		// Redirect with tokens in URL fragment (not sent to server, safe from logs)
+		redirectURL := result.RedirectURL + "#auth=" + url.QueryEscape(string(authJSON))
+		return c.Redirect(redirectURL, fiber.StatusTemporaryRedirect)
+	}
+
+	// No redirect URL - return JSON response (direct API flow)
 	return common.SuccessResponse(c, user.TokenResponse{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
@@ -294,4 +321,57 @@ func toUtilsJWTConfig(cfg *config.JWTConfig) *utils.JWTConfig {
 		RefreshTokenExpiry: cfg.RefreshTokenExpiry,
 		Issuer:             cfg.Issuer,
 	}
+}
+
+// renderOAuthSuccessHTML renders an HTML page that stores tokens in localStorage and closes the popup
+func renderOAuthSuccessHTML(c *fiber.Ctx, tokenPair *utils.TokenPair, u *user.User) error {
+	// Create the auth data structure matching the frontend's Zustand store format
+	authData := map[string]any{
+		"state": map[string]any{
+			"accessToken":              tokenPair.AccessToken,
+			"refreshToken":             tokenPair.RefreshToken,
+			"expiresAt":                tokenPair.ExpiresAt,
+			"user":                     u.ToResponse(),
+			"isAuthenticated":          true,
+			"pendingVerificationEmail": nil,
+		},
+		"version": 0,
+	}
+
+	authJSON, err := json.Marshal(authData)
+	if err != nil {
+		return common.InternalServerErrorResponse(c)
+	}
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication Successful</title>
+    <style>
+        body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0a0a0f; color: #fff; }
+        .container { text-align: center; }
+        .success { color: #00ffaa; font-size: 24px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success">✓ Authentication Successful</div>
+        <p>Closing window...</p>
+    </div>
+    <script>
+        try {
+            localStorage.setItem('auth-storage', %s);
+            if (window.opener) {
+                window.opener.postMessage({ type: 'oauth-success' }, '*');
+            }
+        } catch (e) {
+            console.error('Failed to store auth data:', e);
+        }
+        setTimeout(function() { window.close(); }, 500);
+    </script>
+</body>
+</html>`, string(authJSON))
+
+	c.Set("Content-Type", "text/html; charset=utf-8")
+	return c.SendString(html)
 }

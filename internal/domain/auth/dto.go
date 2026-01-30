@@ -72,9 +72,10 @@ type OAuthTokens struct {
 
 // OAuthResult represents the result of OAuth authentication
 type OAuthResult struct {
-	IsNewUser bool   `json:"is_new_user"`
-	UserID    uint   `json:"user_id"`
-	Email     string `json:"email"`
+	IsNewUser   bool   `json:"is_new_user"`
+	UserID      uint   `json:"user_id"`
+	Email       string `json:"email"`
+	RedirectURL string `json:"-"` // Frontend redirect URL (not serialized)
 }
 
 // LinkIdentityRequest represents a request to link an OAuth identity

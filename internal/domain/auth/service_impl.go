@@ -329,7 +329,14 @@ func (s *service) HandleOAuthCallback(ctx context.Context, provider, code, state
 	}
 
 	// Find or create user
-	return s.findOrCreateOAuthUser(ctx, provider, userInfo)
+	result, err := s.findOrCreateOAuthUser(ctx, provider, userInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	// Include redirect URL from state
+	result.RedirectURL = stateData.RedirectURL
+	return result, nil
 }
 
 // findOrCreateOAuthUser finds an existing user or creates a new one from OAuth info

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -111,8 +112,11 @@ type OAuthStateData struct {
 // StoreOAuthState stores OAuth state for CSRF protection
 func (s *TokenStore) StoreOAuthState(ctx context.Context, state string, data *OAuthStateData, expiry time.Duration) error {
 	key := keyPrefixOAuthState + state
-	// Store as simple format: provider:userID:redirectURL
-	value := fmt.Sprintf("%s:%d:%s", data.Provider, data.UserID, data.RedirectURL)
+	// Store as JSON to properly handle URLs with colons
+	value, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
 	return s.redis.Set(ctx, key, value, expiry).Err()
 }
 
@@ -127,12 +131,17 @@ func (s *TokenStore) GetOAuthState(ctx context.Context, state string) (*OAuthSta
 		return nil, err
 	}
 
-	// Parse: provider:userID:redirectURL
+	// Try JSON format first (new format)
+	var data OAuthStateData
+	if err := json.Unmarshal([]byte(result), &data); err == nil {
+		return &data, nil
+	}
+
+	// Fallback to old colon-separated format for backwards compatibility
 	var provider, redirectURL string
 	var userID uint64
 	_, err = fmt.Sscanf(result, "%s:%d:%s", &provider, &userID, &redirectURL)
 	if err != nil {
-		// Fallback to simple split
 		parts := splitOAuthState(result)
 		provider = parts[0]
 		if len(parts) > 1 {

@@ -55,7 +55,7 @@ services:
       - OTLP_INSECURE=${OTLP_INSECURE:-true}
       - TELEMETRY_SAMPLING_RATIO=${TELEMETRY_SAMPLING_RATIO:-1.0}
       # CORS
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:5178,http://localhost:5179}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:5178,http://localhost:5179,http://localhost:5181}
       # Rate Limiting (higher limits for development)
       - RATELIMIT_AUTH_LIMIT=${RATELIMIT_AUTH_LIMIT:-30}
       # Self Registration

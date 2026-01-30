@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Loader2, CheckCircle, XCircle } from 'lucide-react'
-import { useOAuthCallback } from '../hooks/useSelfAuth'
+import { useAuthStore } from '../store/auth'
 import type { OAuthProvider } from '../types'
 
 type CallbackState = 'loading' | 'success' | 'error'
@@ -11,14 +11,52 @@ export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams()
   const [state, setState] = useState<CallbackState>('loading')
   const [errorMessage, setErrorMessage] = useState<string>('')
-  const { mutate: exchangeToken } = useOAuthCallback()
+  const setAuth = useAuthStore((state) => state.setAuth)
 
   useEffect(() => {
-    const code = searchParams.get('code')
-    const stateParam = searchParams.get('state')
+    // Check for auth data in URL hash (backend redirect flow)
+    const hash = window.location.hash
+    if (hash.startsWith('#auth=')) {
+      try {
+        const authJSON = decodeURIComponent(hash.slice(6)) // Remove '#auth='
+        const authData = JSON.parse(authJSON)
+
+        // Store auth data in Zustand store
+        setAuth({
+          accessToken: authData.access_token,
+          refreshToken: authData.refresh_token,
+          expiresAt: authData.expires_at,
+          user: authData.user,
+        })
+
+        setState('success')
+
+        // Notify opener and close popup
+        if (window.opener) {
+          try {
+            window.opener.postMessage(
+              { type: 'oauth-success', data: authData },
+              window.location.origin
+            )
+          } catch {
+            // COOP may block postMessage, but auth is already in localStorage
+          }
+        }
+
+        // Close popup after brief delay
+        setTimeout(() => window.close(), 1500)
+        return
+      } catch (err) {
+        setState('error')
+        setErrorMessage('Failed to parse authentication data')
+        return
+      }
+    }
+
     const error = searchParams.get('error')
     const errorDescription = searchParams.get('error_description')
     const isLinking = searchParams.get('link') === 'true'
+    const provider = searchParams.get('provider')
 
     // Handle OAuth error
     if (error) {
@@ -35,23 +73,8 @@ export default function OAuthCallbackPage() {
       return
     }
 
-    // Check for required params
-    if (!code || !stateParam) {
-      setState('error')
-      setErrorMessage('Missing authentication parameters')
-      return
-    }
-
-    // Extract provider from state (format: provider:random_string)
-    const [provider] = stateParam.split(':')
-    if (!['google', 'facebook', 'apple'].includes(provider)) {
-      setState('error')
-      setErrorMessage('Invalid OAuth provider')
-      return
-    }
-
     // If linking, just send success message to opener
-    if (isLinking) {
+    if (isLinking && provider) {
       setState('success')
       if (window.opener) {
         window.opener.postMessage(
@@ -63,21 +86,10 @@ export default function OAuthCallbackPage() {
       return
     }
 
-    // Exchange code for tokens
-    exchangeToken(
-      { code, state: stateParam, provider: provider as OAuthProvider },
-      {
-        onSuccess: () => {
-          setState('success')
-          // The hook already handles postMessage and closing
-        },
-        onError: (err) => {
-          setState('error')
-          setErrorMessage((err as Error)?.message || 'Authentication failed')
-        },
-      }
-    )
-  }, [searchParams, exchangeToken])
+    // If no hash auth data and no error, something went wrong
+    setState('error')
+    setErrorMessage('Missing authentication data')
+  }, [searchParams, setAuth])
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-cyber-black">
