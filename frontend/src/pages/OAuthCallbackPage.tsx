@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Loader2, CheckCircle, XCircle } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
-import type { OAuthProvider } from '../types'
 
 type CallbackState = 'loading' | 'success' | 'error'
 
@@ -21,13 +20,8 @@ export default function OAuthCallbackPage() {
         const authJSON = decodeURIComponent(hash.slice(6)) // Remove '#auth='
         const authData = JSON.parse(authJSON)
 
-        // Store auth data in Zustand store
-        setAuth({
-          accessToken: authData.access_token,
-          refreshToken: authData.refresh_token,
-          expiresAt: authData.expires_at,
-          user: authData.user,
-        })
+        // Store auth data in Zustand store (authData already has snake_case from backend)
+        setAuth(authData)
 
         setState('success')
 
