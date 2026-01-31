@@ -2,14 +2,19 @@ package auth
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -20,16 +25,52 @@ const (
 	appleAuthURL     = "https://appleid.apple.com/auth/authorize"
 	appleTokenURL    = "https://appleid.apple.com/auth/token"
 	appleKeysURL     = "https://appleid.apple.com/auth/keys"
+	appleIssuer      = "https://appleid.apple.com"
+	jwksCacheTTL     = 24 * time.Hour
 )
+
+// appleJWKS represents Apple's JWKS response
+type appleJWKS struct {
+	Keys []appleJWK `json:"keys"`
+}
+
+// appleJWK represents a single JSON Web Key
+type appleJWK struct {
+	Kty string `json:"kty"` // Key type (RSA, EC)
+	Kid string `json:"kid"` // Key ID
+	Use string `json:"use"` // Key use (sig)
+	Alg string `json:"alg"` // Algorithm (RS256, ES256)
+	N   string `json:"n"`   // RSA modulus (for RSA keys)
+	E   string `json:"e"`   // RSA exponent (for RSA keys)
+	Crv string `json:"crv"` // Curve (for EC keys)
+	X   string `json:"x"`   // X coordinate (for EC keys)
+	Y   string `json:"y"`   // Y coordinate (for EC keys)
+}
+
+// jwksCache caches Apple's public keys
+type jwksCache struct {
+	mu        sync.RWMutex
+	keys      map[string]*ecdsa.PublicKey
+	fetchedAt time.Time
+}
 
 // appleProvider implements OAuthProvider for Apple Sign-In
 type appleProvider struct {
-	cfg *config.OAuthProviderConfig
+	cfg   *config.OAuthProviderConfig
+	cache *jwksCache
+}
+
+// Global JWKS cache shared across Apple provider instances
+var globalAppleJWKSCache = &jwksCache{
+	keys: make(map[string]*ecdsa.PublicKey),
 }
 
 // NewAppleProvider creates a new Apple OAuth provider
 func NewAppleProvider(cfg *config.OAuthProviderConfig) OAuthProvider {
-	return &appleProvider{cfg: cfg}
+	return &appleProvider{
+		cfg:   cfg,
+		cache: globalAppleJWKSCache,
+	}
 }
 
 // Name returns the provider name
@@ -37,8 +78,14 @@ func (p *appleProvider) Name() string {
 	return "apple"
 }
 
+// SupportsPKCE returns whether this provider supports PKCE
+// Note: Apple has limited PKCE support with form_post response mode
+func (p *appleProvider) SupportsPKCE() bool {
+	return false
+}
+
 // GetAuthURL returns the Apple authorization URL
-func (p *appleProvider) GetAuthURL(state string) string {
+func (p *appleProvider) GetAuthURL(state string, pkce *PKCEChallenge) string {
 	params := url.Values{
 		"client_id":     {p.cfg.ClientID},
 		"redirect_uri":  {p.cfg.RedirectURL},
@@ -47,12 +94,13 @@ func (p *appleProvider) GetAuthURL(state string) string {
 		"state":         {state},
 		"response_mode": {"form_post"},
 	}
+	// Apple doesn't support PKCE with form_post response mode
 	return appleAuthURL + "?" + params.Encode()
 }
 
 // ExchangeCode exchanges an authorization code for tokens
 // Note: Apple's client_secret is a JWT signed with your private key
-func (p *appleProvider) ExchangeCode(ctx context.Context, code string) (*OAuthTokens, error) {
+func (p *appleProvider) ExchangeCode(ctx context.Context, code, verifier string) (*OAuthTokens, error) {
 	clientSecret, err := p.generateClientSecret()
 	if err != nil {
 		return nil, fmt.Errorf("generate client secret: %w", err)
@@ -66,13 +114,16 @@ func (p *appleProvider) ExchangeCode(ctx context.Context, code string) (*OAuthTo
 		"redirect_uri":  {p.cfg.RedirectURL},
 	}
 
+	// Note: verifier is ignored as Apple doesn't support PKCE with form_post
+	_ = verifier
+
 	req, err := http.NewRequestWithContext(ctx, "POST", appleTokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("exchange code: %w", err)
 	}
@@ -93,17 +144,36 @@ func (p *appleProvider) ExchangeCode(ctx context.Context, code string) (*OAuthTo
 }
 
 // GetUserInfo retrieves user information from Apple's ID token
-// Apple doesn't have a userinfo endpoint, so we parse the ID token
-func (p *appleProvider) GetUserInfo(ctx context.Context, accessToken string) (*OAuthUserInfo, error) {
-	// For Apple, we need to get the ID token from the token response
-	// The accessToken parameter here would be the id_token
-	// This is a simplification - in production you'd want to verify the JWT signature
+// Apple doesn't have a userinfo endpoint, so we parse and verify the ID token
+func (p *appleProvider) GetUserInfo(ctx context.Context, idToken string) (*OAuthUserInfo, error) {
+	// Parse and verify the ID token using Apple's public keys
+	token, err := jwt.Parse(idToken, func(token *jwt.Token) (interface{}, error) {
+		// Validate signing method
+		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 
-	// Parse the ID token without verification for now
-	// In production, you should verify the signature using Apple's public keys
-	token, _, err := new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{})
+		// Get key ID from token header
+		kid, ok := token.Header["kid"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing kid in token header")
+		}
+
+		// Get public key for this key ID
+		publicKey, err := p.getPublicKey(ctx, kid)
+		if err != nil {
+			return nil, fmt.Errorf("get public key: %w", err)
+		}
+
+		return publicKey, nil
+	}, jwt.WithValidMethods([]string{"ES256"}),
+		jwt.WithIssuer(appleIssuer),
+		jwt.WithAudience(p.cfg.ClientID),
+		jwt.WithExpirationRequired(),
+	)
+
 	if err != nil {
-		return nil, fmt.Errorf("parse id token: %w", err)
+		return nil, fmt.Errorf("verify id token: %w", err)
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
@@ -111,8 +181,13 @@ func (p *appleProvider) GetUserInfo(ctx context.Context, accessToken string) (*O
 		return nil, fmt.Errorf("invalid token claims")
 	}
 
+	sub, ok := claims["sub"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing sub claim")
+	}
+
 	userInfo := &OAuthUserInfo{
-		ID: claims["sub"].(string),
+		ID: sub,
 	}
 
 	if email, ok := claims["email"].(string); ok {
@@ -128,6 +203,107 @@ func (p *appleProvider) GetUserInfo(ctx context.Context, accessToken string) (*O
 	// Apple only provides name on first authorization
 	// You should store it when received in the callback
 	return userInfo, nil
+}
+
+// getPublicKey retrieves the public key for a given key ID
+func (p *appleProvider) getPublicKey(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
+	// Try cache first
+	p.cache.mu.RLock()
+	if key, ok := p.cache.keys[kid]; ok && time.Since(p.cache.fetchedAt) < jwksCacheTTL {
+		p.cache.mu.RUnlock()
+		return key, nil
+	}
+	p.cache.mu.RUnlock()
+
+	// Fetch fresh keys
+	if err := p.fetchJWKS(ctx); err != nil {
+		return nil, err
+	}
+
+	// Try again after refresh
+	p.cache.mu.RLock()
+	key, ok := p.cache.keys[kid]
+	p.cache.mu.RUnlock()
+
+	if !ok {
+		return nil, fmt.Errorf("key not found: %s", kid)
+	}
+
+	return key, nil
+}
+
+// fetchJWKS fetches Apple's public keys from the JWKS endpoint
+func (p *appleProvider) fetchJWKS(ctx context.Context) error {
+	p.cache.mu.Lock()
+	defer p.cache.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if time.Since(p.cache.fetchedAt) < jwksCacheTTL && len(p.cache.keys) > 0 {
+		return nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", appleKeysURL, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := oauthHTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("fetch JWKS: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("JWKS request failed with status: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read JWKS response: %w", err)
+	}
+
+	var jwks appleJWKS
+	if err := json.Unmarshal(body, &jwks); err != nil {
+		return fmt.Errorf("parse JWKS: %w", err)
+	}
+
+	// Parse and cache keys
+	newKeys := make(map[string]*ecdsa.PublicKey)
+	for _, jwk := range jwks.Keys {
+		if jwk.Kty != "EC" || jwk.Crv != "P-256" {
+			continue // Apple uses ES256 (P-256 curve)
+		}
+
+		key, err := parseECPublicKey(jwk)
+		if err != nil {
+			continue // Skip invalid keys
+		}
+		newKeys[jwk.Kid] = key
+	}
+
+	p.cache.keys = newKeys
+	p.cache.fetchedAt = time.Now()
+
+	return nil
+}
+
+// parseECPublicKey parses an EC public key from JWK format
+func parseECPublicKey(jwk appleJWK) (*ecdsa.PublicKey, error) {
+	xBytes, err := base64.RawURLEncoding.DecodeString(jwk.X)
+	if err != nil {
+		return nil, fmt.Errorf("decode x: %w", err)
+	}
+
+	yBytes, err := base64.RawURLEncoding.DecodeString(jwk.Y)
+	if err != nil {
+		return nil, fmt.Errorf("decode y: %w", err)
+	}
+
+	return &ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     new(big.Int).SetBytes(xBytes),
+		Y:     new(big.Int).SetBytes(yBytes),
+	}, nil
 }
 
 // generateClientSecret generates a JWT client secret for Apple

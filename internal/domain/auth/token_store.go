@@ -104,9 +104,10 @@ func (s *TokenStore) DeletePasswordResetToken(ctx context.Context, token string)
 
 // OAuthStateData holds data for OAuth state validation
 type OAuthStateData struct {
-	Provider    string `json:"provider"`
-	RedirectURL string `json:"redirect_url,omitempty"`
-	UserID      uint   `json:"user_id,omitempty"` // For linking flow
+	Provider     string `json:"provider"`
+	RedirectURL  string `json:"redirect_url,omitempty"`
+	UserID       uint   `json:"user_id,omitempty"`        // For linking flow
+	PKCEVerifier string `json:"pkce_verifier,omitempty"` // PKCE code verifier
 }
 
 // StoreOAuthState stores OAuth state for CSRF protection

@@ -25,12 +25,12 @@ func MainApp() *App {
 
 func mainDomains() []container.Domain {
 	return []container.Domain{
-		// Core domains (no dependencies)
+		// Core domains (order matters for dependencies)
 		rbac.NewDomain(),  // must be registered first (user depends on rbac.Service)
 		user.NewDomain(),  // depends on: rbac
 		email.NewDomain(), // standalone, no dependencies
-		auth.NewDomain(),  // depends on: user, email, rbac
 		audit.NewDomain(), // depends on: user (for tokenStore)
+		auth.NewDomain(),  // depends on: user, email, rbac, audit
 		item.NewDomain(),
 		country.NewDomain(),
 

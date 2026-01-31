@@ -42,13 +42,17 @@ OAuth providers implement a common interface:
 
 ```go
 type OAuthProvider interface {
-    GetAuthURL(state string) string
-    Exchange(ctx context.Context, code string) (*oauth2.Token, error)
-    GetUserInfo(ctx context.Context, token *oauth2.Token) (*OAuthUserInfo, error)
+    Name() string
+    GetAuthURL(state string, pkce *PKCEChallenge) string
+    ExchangeCode(ctx context.Context, code, verifier string) (*OAuthTokens, error)
+    GetUserInfo(ctx context.Context, accessToken string) (*OAuthUserInfo, error)
+    SupportsPKCE() bool
 }
 ```
 
 **Rationale**: Allows easy addition of new providers without modifying core authentication logic.
+
+> **Security Note**: See [ADR-007: OAuth Security Hardening](007-oauth-security-hardening.md) for PKCE implementation details, JWT signature verification, and other security measures.
 
 ### Auto-Link Behavior for Matching Emails
 
@@ -142,3 +146,4 @@ When `SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION=true`:
 
 - ADR-003: RBAC with Casbin (role management)
 - ADR-005: Type-Safe Dependency Injection (service registration)
+- ADR-007: OAuth Security Hardening (PKCE, JWT verification, audit logging)

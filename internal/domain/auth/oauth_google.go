@@ -33,8 +33,13 @@ func (p *googleProvider) Name() string {
 	return "google"
 }
 
+// SupportsPKCE returns whether this provider supports PKCE
+func (p *googleProvider) SupportsPKCE() bool {
+	return true
+}
+
 // GetAuthURL returns the Google authorization URL
-func (p *googleProvider) GetAuthURL(state string) string {
+func (p *googleProvider) GetAuthURL(state string, pkce *PKCEChallenge) string {
 	params := url.Values{
 		"client_id":     {p.cfg.ClientID},
 		"redirect_uri":  {p.cfg.RedirectURL},
@@ -44,11 +49,18 @@ func (p *googleProvider) GetAuthURL(state string) string {
 		"access_type":   {"offline"},
 		"prompt":        {"consent"},
 	}
+
+	// Add PKCE parameters if provided
+	if pkce != nil {
+		params.Set("code_challenge", pkce.Challenge)
+		params.Set("code_challenge_method", pkce.Method)
+	}
+
 	return googleAuthURL + "?" + params.Encode()
 }
 
 // ExchangeCode exchanges an authorization code for tokens
-func (p *googleProvider) ExchangeCode(ctx context.Context, code string) (*OAuthTokens, error) {
+func (p *googleProvider) ExchangeCode(ctx context.Context, code, verifier string) (*OAuthTokens, error) {
 	data := url.Values{
 		"client_id":     {p.cfg.ClientID},
 		"client_secret": {p.cfg.ClientSecret},
@@ -57,13 +69,18 @@ func (p *googleProvider) ExchangeCode(ctx context.Context, code string) (*OAuthT
 		"redirect_uri":  {p.cfg.RedirectURL},
 	}
 
+	// Add PKCE verifier if provided
+	if verifier != "" {
+		data.Set("code_verifier", verifier)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "POST", googleTokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("exchange code: %w", err)
 	}
@@ -91,7 +108,7 @@ func (p *googleProvider) GetUserInfo(ctx context.Context, accessToken string) (*
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get user info: %w", err)
 	}

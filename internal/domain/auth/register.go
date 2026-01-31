@@ -3,6 +3,7 @@ package auth
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/domain/email"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
@@ -45,6 +46,7 @@ func (d *domain) Register(c *container.Container) {
 	userSvc := user.ServiceKey.MustGet(c)
 	emailSvc := email.ServiceKey.MustGet(c)
 	rbacSvc := rbac.ServiceKey.MustGet(c)
+	auditSvc := audit.ServiceKey.MustGet(c)
 	enforcer := rbac.EnforcerKey.MustGet(c)
 
 	// Initialize service
@@ -54,6 +56,7 @@ func (d *domain) Register(c *container.Container) {
 		tokenStore,
 		emailSvc,
 		rbacSvc,
+		auditSvc,
 		enforcer,
 		&c.Config.SelfRegistration,
 		&c.Config.OAuth,

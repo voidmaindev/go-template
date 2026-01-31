@@ -8,6 +8,7 @@ import (
 	"github.com/casbin/casbin/v3"
 	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/domain/email"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
@@ -21,7 +22,7 @@ const (
 	verificationRateLimit    = 3  // per hour
 	passwordResetRateLimit   = 5  // per hour
 	rateLimitWindow          = time.Hour
-	oauthStateExpiry         = 10 * time.Minute
+	oauthStateExpiry         = 30 * time.Minute // Increased for real-world user flows
 )
 
 // service implements the Service interface
@@ -31,6 +32,7 @@ type service struct {
 	tokenStore    *TokenStore
 	emailSvc      email.Service
 	rbacSvc       rbac.Service
+	auditLogger   audit.Logger
 	enforcer      *casbin.TransactionalEnforcer
 	selfRegConfig *config.SelfRegistrationConfig
 	oauthConfig   *config.OAuthConfig
@@ -44,6 +46,7 @@ func NewService(
 	tokenStore *TokenStore,
 	emailSvc email.Service,
 	rbacSvc rbac.Service,
+	auditLogger audit.Logger,
 	enforcer *casbin.TransactionalEnforcer,
 	selfRegConfig *config.SelfRegistrationConfig,
 	oauthConfig *config.OAuthConfig,
@@ -54,6 +57,7 @@ func NewService(
 		tokenStore:    tokenStore,
 		emailSvc:      emailSvc,
 		rbacSvc:       rbacSvc,
+		auditLogger:   auditLogger,
 		enforcer:      enforcer,
 		selfRegConfig: selfRegConfig,
 		oauthConfig:   oauthConfig,
@@ -278,16 +282,28 @@ func (s *service) GetOAuthURL(ctx context.Context, provider, redirectURL string)
 		return "", "", errors.Internal(domainName, err).WithOperation("GetOAuthURL")
 	}
 
-	// Store state for verification
+	// Generate PKCE challenge if provider supports it
+	var pkce *PKCEChallenge
+	var verifier string
+	if p.SupportsPKCE() {
+		pkce, err = GeneratePKCE()
+		if err != nil {
+			return "", "", errors.Internal(domainName, err).WithOperation("GetOAuthURL")
+		}
+		verifier = pkce.Verifier
+	}
+
+	// Store state for verification (including PKCE verifier)
 	stateData := &OAuthStateData{
-		Provider:    provider,
-		RedirectURL: redirectURL,
+		Provider:     provider,
+		RedirectURL:  redirectURL,
+		PKCEVerifier: verifier,
 	}
 	if err := s.tokenStore.StoreOAuthState(ctx, state, stateData, oauthStateExpiry); err != nil {
 		return "", "", errors.Internal(domainName, err).WithOperation("GetOAuthURL")
 	}
 
-	return p.GetAuthURL(state), state, nil
+	return p.GetAuthURL(state, pkce), state, nil
 }
 
 // HandleOAuthCallback handles the OAuth callback
@@ -314,8 +330,8 @@ func (s *service) HandleOAuthCallback(ctx context.Context, provider, code, state
 		return nil, ErrOAuthDisabled
 	}
 
-	// Exchange code for tokens
-	tokens, err := p.ExchangeCode(ctx, code)
+	// Exchange code for tokens (pass PKCE verifier from state)
+	tokens, err := p.ExchangeCode(ctx, code, stateData.PKCEVerifier)
 	if err != nil {
 		slog.Error("OAuth code exchange failed", "provider", provider, "error", err)
 		return nil, ErrOAuthCodeExchange
@@ -364,6 +380,20 @@ func (s *service) findOrCreateOAuthUser(ctx context.Context, provider string, us
 			if err := s.createExternalIdentity(ctx, existingUser.ID, provider, userInfo); err != nil {
 				return nil, err
 			}
+
+			// Log auto-linked identity
+			s.auditLogger.LogAsync(ctx, &audit.AuditEntry{
+				UserID:     &existingUser.ID,
+				Action:     audit.ActionOAuthLinked,
+				Resource:   "identity",
+				ResourceID: &existingUser.ID,
+				Success:    true,
+				Details: map[string]any{
+					"provider":  provider,
+					"auto_link": true,
+				},
+			})
+
 			return &OAuthResult{
 				IsNewUser: false,
 				UserID:    existingUser.ID,
@@ -423,6 +453,19 @@ func (s *service) findOrCreateOAuthUser(ctx context.Context, provider string, us
 
 	telemetry.IncrementUsersRegistered()
 
+	// Log OAuth registration
+	s.auditLogger.LogAsync(ctx, &audit.AuditEntry{
+		UserID:   &newUser.ID,
+		Action:   audit.ActionSelfRegistered,
+		Resource: "user",
+		Success:  true,
+		Details: map[string]any{
+			"provider": provider,
+			"email":    userInfo.Email,
+			"method":   "oauth",
+		},
+	})
+
 	return &OAuthResult{
 		IsNewUser: true,
 		UserID:    newUser.ID,
@@ -463,8 +506,8 @@ func (s *service) LinkIdentity(ctx context.Context, userID uint, provider, code,
 		return ErrOAuthDisabled
 	}
 
-	// Exchange code for tokens
-	tokens, err := p.ExchangeCode(ctx, code)
+	// Exchange code for tokens (pass PKCE verifier from state)
+	tokens, err := p.ExchangeCode(ctx, code, stateData.PKCEVerifier)
 	if err != nil {
 		return ErrOAuthCodeExchange
 	}
@@ -484,7 +527,23 @@ func (s *service) LinkIdentity(ctx context.Context, userID uint, provider, code,
 		return ErrIdentityAlreadyLinked
 	}
 
-	return s.createExternalIdentity(ctx, userID, provider, userInfo)
+	if err := s.createExternalIdentity(ctx, userID, provider, userInfo); err != nil {
+		return err
+	}
+
+	// Log identity linking
+	s.auditLogger.LogAsync(ctx, &audit.AuditEntry{
+		UserID:     &userID,
+		Action:     audit.ActionOAuthLinked,
+		Resource:   "identity",
+		ResourceID: &userID,
+		Success:    true,
+		Details: map[string]any{
+			"provider": provider,
+		},
+	})
+
+	return nil
 }
 
 // UnlinkIdentity unlinks an OAuth identity from a user
@@ -518,6 +577,18 @@ func (s *service) UnlinkIdentity(ctx context.Context, userID uint, provider stri
 	if result.RowsAffected == 0 {
 		return ErrIdentityNotFound
 	}
+
+	// Log identity unlinking
+	s.auditLogger.LogAsync(ctx, &audit.AuditEntry{
+		UserID:     &userID,
+		Action:     audit.ActionOAuthUnlinked,
+		Resource:   "identity",
+		ResourceID: &userID,
+		Success:    true,
+		Details: map[string]any{
+			"provider": provider,
+		},
+	})
 
 	return nil
 }

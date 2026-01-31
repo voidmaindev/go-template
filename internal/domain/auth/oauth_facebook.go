@@ -33,8 +33,13 @@ func (p *facebookProvider) Name() string {
 	return "facebook"
 }
 
+// SupportsPKCE returns whether this provider supports PKCE
+func (p *facebookProvider) SupportsPKCE() bool {
+	return true
+}
+
 // GetAuthURL returns the Facebook authorization URL
-func (p *facebookProvider) GetAuthURL(state string) string {
+func (p *facebookProvider) GetAuthURL(state string, pkce *PKCEChallenge) string {
 	params := url.Values{
 		"client_id":     {p.cfg.ClientID},
 		"redirect_uri":  {p.cfg.RedirectURL},
@@ -42,16 +47,28 @@ func (p *facebookProvider) GetAuthURL(state string) string {
 		"scope":         {"email,public_profile"},
 		"state":         {state},
 	}
+
+	// Add PKCE parameters if provided
+	if pkce != nil {
+		params.Set("code_challenge", pkce.Challenge)
+		params.Set("code_challenge_method", pkce.Method)
+	}
+
 	return facebookAuthURL + "?" + params.Encode()
 }
 
 // ExchangeCode exchanges an authorization code for tokens
-func (p *facebookProvider) ExchangeCode(ctx context.Context, code string) (*OAuthTokens, error) {
+func (p *facebookProvider) ExchangeCode(ctx context.Context, code, verifier string) (*OAuthTokens, error) {
 	data := url.Values{
 		"client_id":     {p.cfg.ClientID},
 		"client_secret": {p.cfg.ClientSecret},
 		"code":          {code},
 		"redirect_uri":  {p.cfg.RedirectURL},
+	}
+
+	// Add PKCE verifier if provided
+	if verifier != "" {
+		data.Set("code_verifier", verifier)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", facebookTokenURL, strings.NewReader(data.Encode()))
@@ -60,7 +77,7 @@ func (p *facebookProvider) ExchangeCode(ctx context.Context, code string) (*OAut
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("exchange code: %w", err)
 	}
@@ -83,14 +100,16 @@ func (p *facebookProvider) ExchangeCode(ctx context.Context, code string) (*OAut
 // GetUserInfo retrieves user information from Facebook
 func (p *facebookProvider) GetUserInfo(ctx context.Context, accessToken string) (*OAuthUserInfo, error) {
 	// Facebook requires specifying the fields to retrieve
-	reqURL := facebookUserInfoURL + "?fields=id,name,email,picture&access_token=" + url.QueryEscape(accessToken)
+	// Use Authorization header instead of query parameter for security
+	reqURL := facebookUserInfoURL + "?fields=id,name,email,picture"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get user info: %w", err)
 	}

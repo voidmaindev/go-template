@@ -23,6 +23,7 @@ Each ADR follows this structure:
 | [005](005-type-safe-dependency-injection.md) | Type-Safe Dependency Injection | Accepted |
 | [006a](006-self-registration-oauth.md) | Self-Registration and OAuth | Accepted |
 | [006b](006-pluggable-email-provider.md) | SendGrid Email Provider | Accepted |
+| [007](007-oauth-security-hardening.md) | OAuth Security Hardening | Accepted |
 
 ## Creating New ADRs
 

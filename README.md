@@ -10,7 +10,7 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 - **Generic Repository Pattern**: Maximum database abstraction using Go generics
 - **JWT Authentication**: Access and refresh tokens with Redis-based blacklisting
 - **Self-Registration**: Email verification and password reset via SMTP
-- **OAuth Authentication**: Google, Facebook, and Apple OAuth2 providers
+- **OAuth Authentication**: Google, Facebook, and Apple OAuth2 with PKCE and JWT verification
 - **RBAC Authorization**: Casbin-powered role-based access control with multi-role users
 - **CLI with Cobra**: Professional CLI with subcommands (serve, migrate, seed, version)
 - **Database Seeders**: Separate seeder infrastructure with tracking and idempotency
@@ -1441,6 +1441,15 @@ All domain routes (items, cities, countries, documents) are rate-limited by tier
 - **Graceful Shutdown**: Configurable timeout for connection draining
 - **Request Correlation**: All error responses include `request_id` for debugging
 - **Rate Limiting**: Standard headers for client-side rate limit awareness
+
+### OAuth Security
+
+- **PKCE (RFC 7636)**: Proof Key for Code Exchange prevents authorization code interception (Google, Facebook)
+- **Apple JWT Verification**: ID tokens verified against Apple's JWKS public keys with 24h key caching
+- **Token Protection**: Facebook access tokens sent via Authorization header (not URL parameters)
+- **OAuth Audit Logging**: All identity linking/unlinking operations logged to audit trail
+- **HTTP Timeouts**: All OAuth HTTP requests use 30-second timeout to prevent hanging
+- **Extended State Expiry**: 30-minute OAuth state validity for real-world user flows
 
 ## License
 
