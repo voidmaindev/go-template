@@ -25,6 +25,7 @@ type Config struct {
 	SelfRegistration SelfRegistrationConfig `mapstructure:"self_registration"`
 	Email            EmailConfig            `mapstructure:"email"`
 	OAuth            OAuthConfig            `mapstructure:"oauth"`
+	Security         SecurityConfig         `mapstructure:"security"`
 }
 
 // AppConfig holds application-level configuration
@@ -159,6 +160,13 @@ type OAuthProviderConfig struct {
 	ClientID     string `mapstructure:"client_id"`
 	ClientSecret string `mapstructure:"client_secret"`
 	RedirectURL  string `mapstructure:"redirect_url"`
+}
+
+// SecurityConfig holds security-related settings
+type SecurityConfig struct {
+	LoginRateLimitPerEmail int           `mapstructure:"login_rate_limit_per_email"` // Max failed login attempts per email
+	LoginRateLimitPerIP    int           `mapstructure:"login_rate_limit_per_ip"`    // Max failed login attempts per IP
+	LoginLockoutDuration   time.Duration `mapstructure:"login_lockout_duration"`     // Lockout duration after max attempts
 }
 
 // Load loads configuration from config file and environment variables
@@ -313,6 +321,11 @@ func setDefaults() {
 	viper.SetDefault("email.from_name", "Go Template")
 	viper.SetDefault("email.sendgrid.api_key", "")
 
+	// Security defaults
+	viper.SetDefault("security.login_rate_limit_per_email", 5)      // 5 failed attempts per email
+	viper.SetDefault("security.login_rate_limit_per_ip", 20)        // 20 failed attempts per IP
+	viper.SetDefault("security.login_lockout_duration", 15*time.Minute) // 15 minute lockout
+
 	// OAuth defaults (all disabled by default)
 	viper.SetDefault("oauth.google.enabled", false)
 	viper.SetDefault("oauth.google.client_id", "")
@@ -438,6 +451,11 @@ func bindEnvVars() {
 	viper.BindEnv("oauth.apple.client_id", "OAUTH_APPLE_CLIENT_ID")
 	viper.BindEnv("oauth.apple.client_secret", "OAUTH_APPLE_CLIENT_SECRET")
 	viper.BindEnv("oauth.apple.redirect_url", "OAUTH_APPLE_REDIRECT_URL")
+
+	// Security
+	viper.BindEnv("security.login_rate_limit_per_email", "SECURITY_LOGIN_RATE_LIMIT_PER_EMAIL")
+	viper.BindEnv("security.login_rate_limit_per_ip", "SECURITY_LOGIN_RATE_LIMIT_PER_IP")
+	viper.BindEnv("security.login_lockout_duration", "SECURITY_LOGIN_LOCKOUT_DURATION")
 }
 
 // DSN returns the PostgreSQL connection string

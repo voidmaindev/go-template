@@ -87,7 +87,7 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	oauth.Post("/:provider/token", handler.OAuthToken)
 
 	// Identity management routes (authenticated)
-	userRoutes := api.Group("/users", middleware.JWTMiddleware(jwtConfig, userTokenStore))
+	userRoutes := api.Group("/users", middleware.JWTMiddlewareWithInvalidator(jwtConfig, userTokenStore, userTokenStore))
 	userRoutes.Get("/me/identities", rateLimiter.ForTier(middleware.TierAPIRead), handler.GetUserIdentities)
 	userRoutes.Post("/me/identities/:provider", rateLimiter.ForTier(middleware.TierAPIWrite), handler.LinkIdentity)
 	userRoutes.Delete("/me/identities/:provider", rateLimiter.ForTier(middleware.TierAPIWrite), handler.UnlinkIdentity)

@@ -443,7 +443,7 @@ func TestService_Login(t *testing.T) {
 			Password: "correctpassword",
 		}
 
-		response, err := svc.Login(context.Background(), req)
+		response, err := svc.Login(context.Background(), req, nil)
 		if err != nil {
 			t.Fatalf("Login() error = %v", err)
 		}
@@ -462,7 +462,7 @@ func TestService_Login(t *testing.T) {
 			Password: "wrongpassword",
 		}
 
-		_, err := svc.Login(context.Background(), req)
+		_, err := svc.Login(context.Background(), req, nil)
 		if !errors.Is(err, ErrInvalidCredentials) {
 			t.Errorf("Login() error = %v, want %v", err, ErrInvalidCredentials)
 		}
@@ -474,7 +474,7 @@ func TestService_Login(t *testing.T) {
 			Password: "password123",
 		}
 
-		_, err := svc.Login(context.Background(), req)
+		_, err := svc.Login(context.Background(), req, nil)
 		if !errors.Is(err, ErrInvalidCredentials) {
 			t.Errorf("Login() error = %v, want %v", err, ErrInvalidCredentials)
 		}
@@ -509,7 +509,7 @@ func TestService_Login(t *testing.T) {
 			Password: "password123",
 		}
 
-		_, err := verifySvc.Login(context.Background(), req)
+		_, err := verifySvc.Login(context.Background(), req, nil)
 		if !errors.Is(err, ErrEmailNotVerified) {
 			t.Errorf("Login() error = %v, want %v", err, ErrEmailNotVerified)
 		}
@@ -545,7 +545,7 @@ func TestService_Login(t *testing.T) {
 			Password: "password123",
 		}
 
-		response, err := verifySvc.Login(context.Background(), req)
+		response, err := verifySvc.Login(context.Background(), req, nil)
 		if err != nil {
 			t.Fatalf("Login() error = %v, want nil", err)
 		}
@@ -583,7 +583,7 @@ func TestService_Login(t *testing.T) {
 			Password: "password123",
 		}
 
-		response, err := verifySvc.Login(context.Background(), req)
+		response, err := verifySvc.Login(context.Background(), req, nil)
 		if err != nil {
 			t.Fatalf("Login() error = %v, want nil", err)
 		}

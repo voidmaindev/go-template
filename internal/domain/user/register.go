@@ -3,6 +3,7 @@ package user
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
@@ -38,7 +39,7 @@ func (d *domain) Models() []any {
 
 // Register initializes repositories, services, and handlers
 func (d *domain) Register(c *container.Container) {
-	// Initialize token store (uses Redis)
+	// Initialize token store (uses Redis) - handles token blacklisting, login rate limiting, and token invalidation
 	tokenStore := NewTokenStore(c.Redis)
 	TokenStoreKey.Set(c, tokenStore)
 
@@ -51,7 +52,7 @@ func (d *domain) Register(c *container.Container) {
 	enforcer := rbac.EnforcerKey.MustGet(c)
 
 	// Initialize service with enforcer for transactional role assignment
-	service := NewService(repo, tokenStore, &c.Config.JWT, &c.Config.SelfRegistration, c.Config.App.IsProduction(), rbacSvc, enforcer)
+	service := NewService(repo, tokenStore, &c.Config.JWT, &c.Config.SelfRegistration, &c.Config.Security, c.Config.App.IsProduction(), rbacSvc, enforcer)
 	ServiceKey.Set(c, service)
 
 	// Initialize handler
@@ -67,6 +68,11 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
+	// Wire up audit logger if available (audit domain may not be registered)
+	if auditSvc, ok := audit.ServiceKey.Get(c); ok {
+		handler.SetAuditLogger(auditSvc)
+	}
+
 	// Auth routes (public) - with strict rate limiting to prevent brute force
 	auth := api.Group("/auth", rateLimiter.ForTier(middleware.TierAuth))
 	auth.Post("/login", handler.Login)
@@ -75,18 +81,18 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	// Register requires authentication and user:write permission (admin-only)
 	// Apply JWT middleware directly to the route to avoid affecting other /auth/* routes
 	auth.Post("/register",
-		middleware.JWTMiddleware(jwtConfig, tokenStore),
+		middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenStore),
 		middleware.RequirePermission(enforcer, "user", rbac.ActionCreate),
 		handler.Register)
 
 	// Logout requires authentication
 	auth.Post("/logout",
-		middleware.JWTMiddleware(jwtConfig, tokenStore),
+		middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenStore),
 		rateLimiter.ForTier(middleware.TierAuthUser),
 		handler.Logout)
 
 	// User routes (protected)
-	users := api.Group("/users", middleware.JWTMiddleware(jwtConfig, tokenStore))
+	users := api.Group("/users", middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenStore))
 	// Self-management routes (any authenticated user)
 	users.Get("/me", rateLimiter.ForTier(middleware.TierAPIRead), handler.GetMe)
 	users.Put("/me", rateLimiter.ForTier(middleware.TierAPIWrite), handler.UpdateMe)

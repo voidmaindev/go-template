@@ -62,7 +62,7 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
-	cities := api.Group("/cities", middleware.JWTMiddleware(jwtConfig, tokenStore))
+	cities := api.Group("/cities", middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenStore))
 	// GET endpoints - api_read tier (200 req/min)
 	cities.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.List)
 	cities.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.GetByID)
@@ -72,6 +72,6 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	cities.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite), middleware.RequirePermission(enforcer, "city", rbac.ActionDelete), handler.Delete)
 
 	// Nested route for cities by country (uses city read permission)
-	countries := api.Group("/countries", middleware.JWTMiddleware(jwtConfig, tokenStore))
+	countries := api.Group("/countries", middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenStore))
 	countries.Get("/:countryId/cities", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.ListByCountry)
 }

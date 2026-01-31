@@ -1,22 +1,66 @@
 package rbac
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
+	"github.com/voidmaindev/go-template/internal/middleware"
+	"github.com/voidmaindev/go-template/pkg/ptr"
 	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
+// AuditEntry mirrors audit.AuditEntry to avoid import cycle
+type AuditEntry struct {
+	UserID     *uint
+	Action     string
+	Resource   string
+	ResourceID *uint
+	IP         string
+	UserAgent  string
+	Success    bool
+	Details    map[string]any
+}
+
+// AuditLogger is a minimal interface for audit logging (mirrors audit.Logger)
+type AuditLogger interface {
+	LogAsync(ctx context.Context, entry *AuditEntry)
+}
+
 // Handler handles RBAC HTTP requests
 type Handler struct {
-	service Service
+	service     Service
+	auditLogger AuditLogger
 }
 
 // NewHandler creates a new RBAC handler
 func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
+}
+
+// SetAuditLogger sets the audit logger (optional, for audit logging)
+func (h *Handler) SetAuditLogger(logger AuditLogger) {
+	h.auditLogger = logger
+}
+
+// logAudit safely logs an audit event (no-op if auditLogger is nil)
+func (h *Handler) logAudit(c *fiber.Ctx, action string, resourceID *uint, success bool, details map[string]any) {
+	if h.auditLogger == nil {
+		return
+	}
+	userID, _ := middleware.GetUserIDFromContext(c)
+	h.auditLogger.LogAsync(c.Context(), &AuditEntry{
+		UserID:     ptr.To(userID),
+		Action:     action,
+		Resource:   "rbac",
+		ResourceID: resourceID,
+		IP:         c.IP(),
+		UserAgent:  c.Get("User-Agent"),
+		Success:    success,
+		Details:    details,
+	})
 }
 
 // ListRoles lists all roles
@@ -307,6 +351,11 @@ func (h *Handler) AssignRole(c *fiber.Ctx) error {
 		return common.InternalServerErrorResponse(c)
 	}
 
+	// Log role assignment
+	h.logAudit(c, "role_assigned", ptr.To(uint(userID)), true, map[string]any{
+		"role": req.RoleCode,
+	})
+
 	return common.SuccessResponseWithMessage(c, "role assigned successfully", nil)
 }
 
@@ -346,6 +395,11 @@ func (h *Handler) RemoveRole(c *fiber.Ctx) error {
 		}
 		return common.InternalServerErrorResponse(c)
 	}
+
+	// Log role removal
+	h.logAudit(c, "role_removed", ptr.To(uint(userID)), true, map[string]any{
+		"role": code,
+	})
 
 	return common.DeletedResponse(c)
 }

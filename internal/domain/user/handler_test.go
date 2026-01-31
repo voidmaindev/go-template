@@ -49,7 +49,7 @@ func (m *mockService) Register(ctx context.Context, req *RegisterRequest) (*Toke
 	return m.registerResponse, nil
 }
 
-func (m *mockService) Login(ctx context.Context, req *LoginRequest) (*TokenResponse, error) {
+func (m *mockService) Login(ctx context.Context, req *LoginRequest, loginCtx *LoginContext) (*TokenResponse, error) {
 	if m.loginErr != nil {
 		return nil, m.loginErr
 	}

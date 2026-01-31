@@ -58,7 +58,7 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
-	items := api.Group("/items", middleware.JWTMiddleware(jwtConfig, tokenStore))
+	items := api.Group("/items", middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenStore))
 	// GET endpoints - api_read tier (200 req/min)
 	items.Get("/", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.List)
 	items.Get("/:id", rateLimiter.ForTier(middleware.TierAPIRead), middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.GetByID)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
@@ -13,6 +14,24 @@ import (
 const (
 	userTokenStoreKey = "user.tokenStore"
 )
+
+// auditAdapter adapts audit.Service to rbac.AuditLogger interface
+type auditAdapter struct {
+	svc audit.Service
+}
+
+func (a *auditAdapter) LogAsync(ctx context.Context, entry *AuditEntry) {
+	a.svc.LogAsync(ctx, &audit.AuditEntry{
+		UserID:     entry.UserID,
+		Action:     entry.Action,
+		Resource:   entry.Resource,
+		ResourceID: entry.ResourceID,
+		IP:         entry.IP,
+		UserAgent:  entry.UserAgent,
+		Success:    entry.Success,
+		Details:    entry.Details,
+	})
+}
 
 // Component keys for this domain (typed for compile-time safety)
 var (
@@ -77,8 +96,16 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
 
+	// Get tokenStore as TokenInvalidator too (same underlying type)
+	tokenInvalidator := container.MustGetAs[middleware.TokenInvalidator](c, userTokenStoreKey)
+
+	// Wire up audit logger if available (audit domain may not be registered)
+	if auditSvc, ok := audit.ServiceKey.Get(c); ok {
+		handler.SetAuditLogger(&auditAdapter{svc: auditSvc})
+	}
+
 	// All RBAC routes require authentication and admin-tier rate limiting
-	rbacGroup := api.Group("/rbac", middleware.JWTMiddleware(jwtConfig, tokenStore), rateLimiter.ForTier(middleware.TierRBACAdmin))
+	rbacGroup := api.Group("/rbac", middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenInvalidator), rateLimiter.ForTier(middleware.TierRBACAdmin))
 
 	// Role management (admin only via RBAC)
 	roles := rbacGroup.Group("/roles", middleware.RequirePermission(enforcer, "rbac", ActionRead))

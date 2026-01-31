@@ -8,14 +8,17 @@ import (
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/middleware"
+	"github.com/voidmaindev/go-template/pkg/ptr"
 	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // Handler handles HTTP requests for users
 type Handler struct {
-	service   Service
-	jwtConfig *config.JWTConfig
+	service     Service
+	jwtConfig   *config.JWTConfig
+	auditLogger audit.Logger
 }
 
 // NewHandler creates a new user handler
@@ -24,6 +27,27 @@ func NewHandler(service Service, jwtConfig *config.JWTConfig) *Handler {
 		service:   service,
 		jwtConfig: jwtConfig,
 	}
+}
+
+// SetAuditLogger sets the audit logger (optional, for audit logging)
+func (h *Handler) SetAuditLogger(logger audit.Logger) {
+	h.auditLogger = logger
+}
+
+// logAudit safely logs an audit event (no-op if auditLogger is nil)
+func (h *Handler) logAudit(c *fiber.Ctx, action string, userID *uint, success bool, details map[string]any) {
+	if h.auditLogger == nil {
+		return
+	}
+	h.auditLogger.LogAsync(c.Context(), &audit.AuditEntry{
+		UserID:    userID,
+		Action:    action,
+		Resource:  "user",
+		IP:        c.IP(),
+		UserAgent: c.Get("User-Agent"),
+		Success:   success,
+		Details:   details,
+	})
 }
 
 // Register handles user registration
@@ -69,6 +93,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // @Failure 400 {object} common.Response
 // @Failure 401 {object} common.Response
 // @Failure 403 {object} common.Response "Email not verified (self-registered users only)"
+// @Failure 429 {object} common.Response "Too many login attempts"
 // @Router /auth/login [post]
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
@@ -81,17 +106,45 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		return common.ValidationErrorResponse(c, errs)
 	}
 
+	// Build login context with client IP and user agent
+	loginCtx := &LoginContext{
+		IP:        c.IP(),
+		UserAgent: c.Get("User-Agent"),
+	}
+
 	// Login user
-	response, err := h.service.Login(c.Context(), &req)
+	response, err := h.service.Login(c.Context(), &req, loginCtx)
 	if err != nil {
+		// Log failed login attempt
+		reason := "unknown"
+		if errors.Is(err, ErrInvalidCredentials) {
+			reason = "invalid_credentials"
+		} else if errors.Is(err, ErrEmailNotVerified) {
+			reason = "email_not_verified"
+		} else if errors.Is(err, ErrTooManyLoginAttempts) {
+			reason = "rate_limited"
+		}
+		h.logAudit(c, audit.ActionLoginFailed, nil, false, map[string]any{
+			"email":  req.Email,
+			"reason": reason,
+		})
+
 		if errors.Is(err, ErrInvalidCredentials) {
 			return common.UnauthorizedResponse(c, "invalid email or password")
 		}
 		if errors.Is(err, ErrEmailNotVerified) {
 			return common.ForbiddenResponse(c, "email address not verified")
 		}
+		if errors.Is(err, ErrTooManyLoginAttempts) {
+			return common.TooManyRequestsResponse(c, "too many login attempts, please try again later")
+		}
 		return common.HandleError(c, err)
 	}
+
+	// Log successful login
+	h.logAudit(c, audit.ActionLoginSuccess, ptr.To(response.User.ID), true, map[string]any{
+		"email": req.Email,
+	})
 
 	return common.SuccessResponse(c, response)
 }
@@ -110,6 +163,8 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		return common.UnauthorizedResponse(c, "no token provided")
 	}
 
+	userID, _ := middleware.GetUserIDFromContext(c)
+
 	// Try to extract refresh token from body (optional)
 	var req LogoutRequest
 	_ = c.BodyParser(&req) // Ignore error - refresh token is optional
@@ -117,6 +172,9 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	if err := h.service.Logout(c.Context(), accessToken, req.RefreshToken); err != nil {
 		return common.HandleError(c, err)
 	}
+
+	// Log logout
+	h.logAudit(c, audit.ActionLogout, ptr.To(userID), true, nil)
 
 	return common.SuccessResponseWithMessage(c, "logged out successfully", nil)
 }
@@ -267,6 +325,9 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 			return common.HandleError(c, err)
 		}
 	}
+
+	// Log password change
+	h.logAudit(c, audit.ActionPasswordChange, ptr.To(userID), true, nil)
 
 	return common.SuccessResponseWithMessage(c, "password changed successfully", nil)
 }

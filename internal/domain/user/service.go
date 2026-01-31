@@ -19,11 +19,17 @@ const (
 	blacklistMaxRetries = 3
 )
 
+// LoginContext contains additional context for login (IP address, user agent)
+type LoginContext struct {
+	IP        string
+	UserAgent string
+}
+
 // Service defines the user service interface
 type Service interface {
 	// Authentication
 	Register(ctx context.Context, req *RegisterRequest) (*TokenResponse, error)
-	Login(ctx context.Context, req *LoginRequest) (*TokenResponse, error)
+	Login(ctx context.Context, req *LoginRequest, loginCtx *LoginContext) (*TokenResponse, error)
 	Logout(ctx context.Context, accessToken, refreshToken string) error
 	RefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, error)
 
@@ -41,25 +47,27 @@ type Service interface {
 
 // service implements the Service interface
 type service struct {
-	repo          Repository
-	tokenStore    *TokenStore
-	jwtConfig     *config.JWTConfig
-	selfRegConfig *config.SelfRegistrationConfig
-	isProduction  bool
-	rbacSvc       rbac.Service
-	enforcer      *casbin.TransactionalEnforcer
+	repo           Repository
+	tokenStore     *TokenStore
+	jwtConfig      *config.JWTConfig
+	selfRegConfig  *config.SelfRegistrationConfig
+	securityConfig *config.SecurityConfig
+	isProduction   bool
+	rbacSvc        rbac.Service
+	enforcer       *casbin.TransactionalEnforcer
 }
 
 // NewService creates a new user service
-func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, selfRegConfig *config.SelfRegistrationConfig, isProduction bool, rbacSvc rbac.Service, enforcer *casbin.TransactionalEnforcer) Service {
+func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, selfRegConfig *config.SelfRegistrationConfig, securityConfig *config.SecurityConfig, isProduction bool, rbacSvc rbac.Service, enforcer *casbin.TransactionalEnforcer) Service {
 	return &service{
-		repo:          repo,
-		tokenStore:    tokenStore,
-		jwtConfig:     jwtConfig,
-		selfRegConfig: selfRegConfig,
-		isProduction:  isProduction,
-		rbacSvc:       rbacSvc,
-		enforcer:      enforcer,
+		repo:           repo,
+		tokenStore:     tokenStore,
+		jwtConfig:      jwtConfig,
+		selfRegConfig:  selfRegConfig,
+		securityConfig: securityConfig,
+		isProduction:   isProduction,
+		rbacSvc:        rbacSvc,
+		enforcer:       enforcer,
 	}
 }
 
@@ -127,12 +135,28 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 }
 
 // Login authenticates a user and returns tokens
-func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse, error) {
+func (s *service) Login(ctx context.Context, req *LoginRequest, loginCtx *LoginContext) (*TokenResponse, error) {
+	// Check login rate limits if security config is set
+	if s.securityConfig != nil && loginCtx != nil {
+		if err := s.tokenStore.CheckLoginRateLimit(
+			ctx,
+			req.Email,
+			loginCtx.IP,
+			s.securityConfig.LoginRateLimitPerEmail,
+			s.securityConfig.LoginRateLimitPerIP,
+			s.securityConfig.LoginLockoutDuration,
+		); err != nil {
+			telemetry.IncrementAuthFailures("rate_limited")
+			return nil, ErrTooManyLoginAttempts
+		}
+	}
+
 	// Find user by email
 	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			telemetry.IncrementAuthFailures("user_not_found")
+			s.recordFailedLogin(ctx, req.Email, loginCtx)
 			return nil, ErrInvalidCredentials
 		}
 		return nil, errors.Internal(domainName, err).WithOperation("Login")
@@ -141,12 +165,14 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 	// Check if user has a password (OAuth-only users cannot login with password)
 	if user.Password == nil || *user.Password == "" {
 		telemetry.IncrementAuthFailures("no_password")
+		s.recordFailedLogin(ctx, req.Email, loginCtx)
 		return nil, ErrInvalidCredentials
 	}
 
 	// Verify password
 	if !utils.CheckPassword(req.Password, *user.Password) {
 		telemetry.IncrementAuthFailures("invalid_password")
+		s.recordFailedLogin(ctx, req.Email, loginCtx)
 		return nil, ErrInvalidCredentials
 	}
 
@@ -156,11 +182,28 @@ func (s *service) Login(ctx context.Context, req *LoginRequest) (*TokenResponse,
 		return nil, ErrEmailNotVerified
 	}
 
+	// Clear rate limit counter on successful login
+	if s.securityConfig != nil {
+		if err := s.tokenStore.ClearLoginRateLimit(ctx, req.Email); err != nil {
+			slog.Warn("failed to clear login rate limit", "email", req.Email, "error", err)
+		}
+	}
+
 	// Record metric
 	telemetry.IncrementUsersLoggedIn()
 
 	// Generate tokens
 	return s.generateTokenResponse(user)
+}
+
+// recordFailedLogin records a failed login attempt for rate limiting
+func (s *service) recordFailedLogin(ctx context.Context, email string, loginCtx *LoginContext) {
+	if s.securityConfig == nil || loginCtx == nil {
+		return
+	}
+	if err := s.tokenStore.RecordFailedLogin(ctx, email, loginCtx.IP, s.securityConfig.LoginLockoutDuration); err != nil {
+		slog.Warn("failed to record failed login attempt", "email", email, "error", err)
+	}
 }
 
 // Logout invalidates both access and refresh tokens
@@ -330,6 +373,13 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswo
 	}); err != nil {
 		return errors.Internal(domainName, err).WithOperation("ChangePassword")
 	}
+
+	// Invalidate all existing tokens for this user (security: revoke sessions on password change)
+	if err := s.tokenStore.InvalidateAllUserTokens(ctx, id); err != nil {
+		slog.Error("failed to invalidate tokens after password change", "userID", id, "error", err)
+		// Don't fail the password change, but log the error
+	}
+
 	return nil
 }
 

@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	jwtware "github.com/gofiber/contrib/jwt"
@@ -17,8 +18,18 @@ type TokenBlacklist interface {
 	IsBlacklisted(ctx context.Context, token string) (bool, error)
 }
 
+// TokenInvalidator interface for checking if user's tokens have been invalidated
+type TokenInvalidator interface {
+	GetTokensInvalidatedAt(ctx context.Context, userID uint) (time.Time, error)
+}
+
 // JWTMiddleware creates JWT authentication middleware
 func JWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist) fiber.Handler {
+	return JWTMiddlewareWithInvalidator(cfg, blacklist, nil)
+}
+
+// JWTMiddlewareWithInvalidator creates JWT authentication middleware with token invalidation support
+func JWTMiddlewareWithInvalidator(cfg *config.JWTConfig, blacklist TokenBlacklist, invalidator TokenInvalidator) fiber.Handler {
 	return jwtware.New(jwtware.Config{
 		SigningKey: jwtware.SigningKey{Key: []byte(cfg.SecretKey)},
 		ContextKey: "user",
@@ -67,10 +78,32 @@ func JWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist) fiber.Handle
 				}
 			}
 
-			// Store user_id in context for rate limiting and other middleware
-			if userIDFloat, ok := claims["user_id"].(float64); ok {
-				c.Locals(UserIDKey, uint(userIDFloat))
+			// Extract user_id from claims
+			userIDFloat, ok := claims["user_id"].(float64)
+			if !ok {
+				return common.UnauthorizedResponse(c, "invalid token claims")
 			}
+			userID := uint(userIDFloat)
+
+			// Check if token was issued before user's tokens were invalidated (e.g., password change)
+			if invalidator != nil {
+				invalidatedAt, err := invalidator.GetTokensInvalidatedAt(c.Context(), userID)
+				if err != nil {
+					return common.InternalServerErrorResponse(c)
+				}
+				if !invalidatedAt.IsZero() {
+					// Get token's issued-at time
+					if iatFloat, ok := claims["iat"].(float64); ok {
+						issuedAt := time.Unix(int64(iatFloat), 0)
+						if issuedAt.Before(invalidatedAt) {
+							return common.UnauthorizedResponse(c, "session expired, please login again")
+						}
+					}
+				}
+			}
+
+			// Store user_id in context for rate limiting and other middleware
+			c.Locals(UserIDKey, userID)
 
 			return c.Next()
 		},

@@ -63,4 +63,8 @@ var (
 
 	// ErrPasswordRequired is returned when password is required but not provided
 	ErrPasswordRequired = errors.Validation(domainName, "password is required for email registration")
+
+	// ErrTooManyLoginAttempts is returned when login rate limit is exceeded
+	ErrTooManyLoginAttempts = errors.New(domainName, errors.CodeTooManyRequests).
+				WithMessage("too many login attempts, please try again later")
 )

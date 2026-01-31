@@ -133,6 +133,14 @@ func ConflictResponse(c *fiber.Ctx, message string) error {
 	return ErrorResponse(c, fiber.StatusConflict, message)
 }
 
+// TooManyRequestsResponse sends a 429 Too Many Requests response
+func TooManyRequestsResponse(c *fiber.Ctx, message string) error {
+	if message == "" {
+		message = "too many requests"
+	}
+	return ErrorResponse(c, fiber.StatusTooManyRequests, message)
+}
+
 // InternalServerErrorResponse sends a 500 Internal Server Error response
 func InternalServerErrorResponse(c *fiber.Ctx) error {
 	return ErrorResponse(c, fiber.StatusInternalServerError, "internal server error")

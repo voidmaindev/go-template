@@ -82,12 +82,28 @@ func (s *Server) Login(ctx context.Context, request LoginRequestObject) (LoginRe
 		Password: request.Body.Password,
 	}
 
-	response, err := s.userService.Login(ctx, req)
+	// Build login context with client IP and user agent from Fiber context
+	var loginCtx *user.LoginContext
+	if fiberCtx := getFiberContext(ctx); fiberCtx != nil {
+		loginCtx = &user.LoginContext{
+			IP:        fiberCtx.IP(),
+			UserAgent: fiberCtx.Get("User-Agent"),
+		}
+	}
+
+	response, err := s.userService.Login(ctx, req, loginCtx)
 	if err != nil {
 		if errors.Is(err, user.ErrInvalidCredentials) || commonerrors.IsUnauthorized(err) {
 			return Login401JSONResponse{
 				Error:   ptr.To("unauthorized"),
 				Message: ptr.To("invalid email or password"),
+			}, nil
+		}
+		if errors.Is(err, user.ErrTooManyLoginAttempts) {
+			// Rate limited - return 401 with specific message (429 not in OpenAPI spec)
+			return Login401JSONResponse{
+				Error:   ptr.To("too_many_requests"),
+				Message: ptr.To("too many login attempts, please try again later"),
 			}, nil
 		}
 		return Login401JSONResponse{

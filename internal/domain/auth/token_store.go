@@ -171,14 +171,14 @@ func (s *TokenStore) CheckRateLimit(ctx context.Context, identifier, action stri
 	key := fmt.Sprintf("%s%s:%s", keyPrefixRateLimit, action, identifier)
 
 	// Increment counter
-	count, err := s.redis.Incr(ctx, key).Result()
+	count, err := s.redis.Incr(ctx, key)
 	if err != nil {
 		return false, err
 	}
 
 	// Set expiry on first request
 	if count == 1 {
-		s.redis.Expire(ctx, key, window)
+		s.redis.SetExpiry(ctx, key, window)
 	}
 
 	return count <= int64(limit), nil

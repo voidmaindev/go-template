@@ -85,7 +85,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 
 // SetWithExpiry sets a key with an expiry time
 func (c *Client) SetWithExpiry(ctx context.Context, key string, value any, expiry time.Duration) error {
-	return c.Set(ctx, key, value, expiry).Err()
+	return c.Client.Set(ctx, key, value, expiry).Err()
 }
 
 // GetString gets a string value
@@ -140,6 +140,40 @@ func (c *Client) SetMultipleWithExpiry(ctx context.Context, keys []string, value
 
 	_, err := pipe.Exec(ctx)
 	return err
+}
+
+// GetInt gets an integer value from a key
+func (c *Client) GetInt(ctx context.Context, key string) (int, error) {
+	val, err := c.Get(ctx, key).Int()
+	if err != nil {
+		return 0, err
+	}
+	return val, nil
+}
+
+// GetInt64 gets an int64 value from a key
+func (c *Client) GetInt64(ctx context.Context, key string) (int64, error) {
+	return c.Get(ctx, key).Int64()
+}
+
+// Incr increments a key by 1 and returns the new value
+func (c *Client) Incr(ctx context.Context, key string) (int64, error) {
+	return c.Client.Incr(ctx, key).Result()
+}
+
+// SetExpiry sets the expiry time for a key
+func (c *Client) SetExpiry(ctx context.Context, key string, expiry time.Duration) error {
+	return c.Expire(ctx, key, expiry).Err()
+}
+
+// IsNil checks if an error is a redis nil error (key not found)
+func (c *Client) IsNil(err error) bool {
+	return err == redis.Nil
+}
+
+// SetValue sets a key-value pair with optional expiry (0 means no expiry)
+func (c *Client) SetValue(ctx context.Context, key string, value any, expiry time.Duration) error {
+	return c.Client.Set(ctx, key, value, expiry).Err()
 }
 
 // RateLimitResult contains the result of a rate limit check

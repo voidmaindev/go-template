@@ -44,4 +44,8 @@ var (
 	// ErrEmailNotVerified is returned when a self-registered user tries to login without verifying email
 	ErrEmailNotVerified = errors.New(domainName, errors.CodeForbidden).
 				WithMessage("email address not verified")
+
+	// ErrTooManyLoginAttempts is returned when login rate limit is exceeded
+	ErrTooManyLoginAttempts = errors.New(domainName, errors.CodeTooManyRequests).
+				WithMessage("too many login attempts, please try again later")
 )

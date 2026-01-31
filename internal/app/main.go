@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/voidmaindev/go-template/internal/container"
+	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/domain/auth"
 	"github.com/voidmaindev/go-template/internal/domain/city"
 	"github.com/voidmaindev/go-template/internal/domain/country"
@@ -29,6 +30,7 @@ func mainDomains() []container.Domain {
 		user.NewDomain(),  // depends on: rbac
 		email.NewDomain(), // standalone, no dependencies
 		auth.NewDomain(),  // depends on: user, email, rbac
+		audit.NewDomain(), // depends on: user (for tokenStore)
 		item.NewDomain(),
 		country.NewDomain(),
 
