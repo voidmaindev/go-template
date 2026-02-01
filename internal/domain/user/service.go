@@ -14,10 +14,10 @@ import (
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
-// Token blacklist retry settings
-const (
-	blacklistMaxRetries = 3
-)
+// blacklistMaxRetries is the number of attempts for atomic token blacklist operations.
+// 3 retries provides resilience against transient Redis failures while preventing
+// indefinite blocking on persistent errors.
+const blacklistMaxRetries = 3
 
 // LoginContext contains additional context for login (IP address, user agent)
 type LoginContext struct {
@@ -45,6 +45,18 @@ type Service interface {
 	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[User], error)
 }
 
+// ServiceConfig holds all dependencies for the user service.
+type ServiceConfig struct {
+	Repo           Repository
+	TokenStore     *TokenStore
+	JWTConfig      *config.JWTConfig
+	SelfRegConfig  *config.SelfRegistrationConfig
+	SecurityConfig *config.SecurityConfig
+	IsProduction   bool
+	RBACService    rbac.Service
+	Enforcer       *casbin.TransactionalEnforcer
+}
+
 // service implements the Service interface
 type service struct {
 	repo           Repository
@@ -57,17 +69,17 @@ type service struct {
 	enforcer       *casbin.TransactionalEnforcer
 }
 
-// NewService creates a new user service
-func NewService(repo Repository, tokenStore *TokenStore, jwtConfig *config.JWTConfig, selfRegConfig *config.SelfRegistrationConfig, securityConfig *config.SecurityConfig, isProduction bool, rbacSvc rbac.Service, enforcer *casbin.TransactionalEnforcer) Service {
+// NewService creates a new user service.
+func NewService(cfg ServiceConfig) Service {
 	return &service{
-		repo:           repo,
-		tokenStore:     tokenStore,
-		jwtConfig:      jwtConfig,
-		selfRegConfig:  selfRegConfig,
-		securityConfig: securityConfig,
-		isProduction:   isProduction,
-		rbacSvc:        rbacSvc,
-		enforcer:       enforcer,
+		repo:           cfg.Repo,
+		tokenStore:     cfg.TokenStore,
+		jwtConfig:      cfg.JWTConfig,
+		selfRegConfig:  cfg.SelfRegConfig,
+		securityConfig: cfg.SecurityConfig,
+		isProduction:   cfg.IsProduction,
+		rbacSvc:        cfg.RBACService,
+		enforcer:       cfg.Enforcer,
 	}
 }
 
