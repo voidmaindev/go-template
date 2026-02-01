@@ -1,4 +1,4 @@
-package api
+package filter
 
 import (
 	"io"
@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/voidmaindev/go-template/internal/common/filter"
 )
 
 // TestFilterParsingIntegration tests that filter parameters are correctly parsed
@@ -17,8 +16,8 @@ func TestFilterParsingIntegration(t *testing.T) {
 		queryString    string
 		wantPage       int
 		wantLimit      int
-		wantFilters    []filter.FilterParam
-		wantSort       []filter.SortParam
+		wantFilters    []FilterParam
+		wantSort       []SortParam
 	}{
 		{
 			name:        "default pagination",
@@ -41,8 +40,8 @@ func TestFilterParsingIntegration(t *testing.T) {
 			queryString: "?name=Berlin",
 			wantPage:    1,
 			wantLimit:   10,
-			wantFilters: []filter.FilterParam{
-				{Field: "name", Operator: filter.OpEq, Value: "Berlin"},
+			wantFilters: []FilterParam{
+				{Field: "name", Operator: OpEq, Value: "Berlin"},
 			},
 			wantSort: nil,
 		},
@@ -51,8 +50,8 @@ func TestFilterParsingIntegration(t *testing.T) {
 			queryString: "?name__contains=new",
 			wantPage:    1,
 			wantLimit:   10,
-			wantFilters: []filter.FilterParam{
-				{Field: "name", Operator: filter.OpContains, Value: "new"},
+			wantFilters: []FilterParam{
+				{Field: "name", Operator: OpContains, Value: "new"},
 			},
 			wantSort: nil,
 		},
@@ -61,9 +60,9 @@ func TestFilterParsingIntegration(t *testing.T) {
 			queryString: "?price__gte=1000&price__lte=5000",
 			wantPage:    1,
 			wantLimit:   10,
-			wantFilters: []filter.FilterParam{
-				{Field: "price", Operator: filter.OpGte, Value: "1000"},
-				{Field: "price", Operator: filter.OpLte, Value: "5000"},
+			wantFilters: []FilterParam{
+				{Field: "price", Operator: OpGte, Value: "1000"},
+				{Field: "price", Operator: OpLte, Value: "5000"},
 			},
 			wantSort: nil,
 		},
@@ -72,8 +71,8 @@ func TestFilterParsingIntegration(t *testing.T) {
 			queryString: "?country.name__contains=germany",
 			wantPage:    1,
 			wantLimit:   10,
-			wantFilters: []filter.FilterParam{
-				{Field: "country.name", Operator: filter.OpContains, Value: "germany"},
+			wantFilters: []FilterParam{
+				{Field: "country.name", Operator: OpContains, Value: "germany"},
 			},
 			wantSort: nil,
 		},
@@ -83,7 +82,7 @@ func TestFilterParsingIntegration(t *testing.T) {
 			wantPage:    1,
 			wantLimit:   10,
 			wantFilters: nil,
-			wantSort: []filter.SortParam{
+			wantSort: []SortParam{
 				{Field: "name", Desc: false},
 			},
 		},
@@ -93,7 +92,7 @@ func TestFilterParsingIntegration(t *testing.T) {
 			wantPage:    1,
 			wantLimit:   10,
 			wantFilters: nil,
-			wantSort: []filter.SortParam{
+			wantSort: []SortParam{
 				{Field: "created_at", Desc: true},
 			},
 		},
@@ -102,11 +101,11 @@ func TestFilterParsingIntegration(t *testing.T) {
 			queryString: "?name__contains=test&price__gte=100&sort=name&order=asc&page=2&page_size=20",
 			wantPage:    2,
 			wantLimit:   20,
-			wantFilters: []filter.FilterParam{
-				{Field: "name", Operator: filter.OpContains, Value: "test"},
-				{Field: "price", Operator: filter.OpGte, Value: "100"},
+			wantFilters: []FilterParam{
+				{Field: "name", Operator: OpContains, Value: "test"},
+				{Field: "price", Operator: OpGte, Value: "100"},
 			},
-			wantSort: []filter.SortParam{
+			wantSort: []SortParam{
 				{Field: "name", Desc: false},
 			},
 		},
@@ -115,18 +114,18 @@ func TestFilterParsingIntegration(t *testing.T) {
 			queryString: "?a__eq=1&b__gt=2&c__lt=3&d__gte=4&e__lte=5&f__contains=x&g__starts_with=y&h__ends_with=z&i__in=1,2,3&j__is_null=true&k__is_not_null=true",
 			wantPage:    1,
 			wantLimit:   10,
-			wantFilters: []filter.FilterParam{
-				{Field: "a", Operator: filter.OpEq, Value: "1"},
-				{Field: "b", Operator: filter.OpGt, Value: "2"},
-				{Field: "c", Operator: filter.OpLt, Value: "3"},
-				{Field: "d", Operator: filter.OpGte, Value: "4"},
-				{Field: "e", Operator: filter.OpLte, Value: "5"},
-				{Field: "f", Operator: filter.OpContains, Value: "x"},
-				{Field: "g", Operator: filter.OpStartsWith, Value: "y"},
-				{Field: "h", Operator: filter.OpEndsWith, Value: "z"},
-				{Field: "i", Operator: filter.OpIn, Value: "1,2,3"},
-				{Field: "j", Operator: filter.OpIsNull, Value: "true"},
-				{Field: "k", Operator: filter.OpIsNotNull, Value: "true"},
+			wantFilters: []FilterParam{
+				{Field: "a", Operator: OpEq, Value: "1"},
+				{Field: "b", Operator: OpGt, Value: "2"},
+				{Field: "c", Operator: OpLt, Value: "3"},
+				{Field: "d", Operator: OpGte, Value: "4"},
+				{Field: "e", Operator: OpLte, Value: "5"},
+				{Field: "f", Operator: OpContains, Value: "x"},
+				{Field: "g", Operator: OpStartsWith, Value: "y"},
+				{Field: "h", Operator: OpEndsWith, Value: "z"},
+				{Field: "i", Operator: OpIn, Value: "1,2,3"},
+				{Field: "j", Operator: OpIsNull, Value: "true"},
+				{Field: "k", Operator: OpIsNotNull, Value: "true"},
 			},
 			wantSort: nil,
 		},
@@ -135,8 +134,8 @@ func TestFilterParsingIntegration(t *testing.T) {
 			queryString: "?city.country.code=DEU",
 			wantPage:    1,
 			wantLimit:   10,
-			wantFilters: []filter.FilterParam{
-				{Field: "city.country.code", Operator: filter.OpEq, Value: "DEU"},
+			wantFilters: []FilterParam{
+				{Field: "city.country.code", Operator: OpEq, Value: "DEU"},
 			},
 			wantSort: nil,
 		},
@@ -154,10 +153,10 @@ func TestFilterParsingIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a Fiber app with a test endpoint that parses filters
 			app := fiber.New()
-			var capturedParams *filter.Params
+			var capturedParams *Params
 
 			app.Get("/test", func(c *fiber.Ctx) error {
-				capturedParams = filter.ParseFromQuery(c)
+				capturedParams = ParseFromQuery(c)
 				return c.SendString("ok")
 			})
 
@@ -197,7 +196,7 @@ func TestFilterParsingIntegration(t *testing.T) {
 				t.Logf("Got filters: %+v", capturedParams.Filters)
 			} else if len(tt.wantFilters) > 0 {
 				// Build map of expected filters for order-independent comparison
-				wantMap := make(map[string]filter.FilterParam)
+				wantMap := make(map[string]FilterParam)
 				for _, f := range tt.wantFilters {
 					key := f.Field + "__" + string(f.Operator)
 					wantMap[key] = f
@@ -223,28 +222,28 @@ func TestFilterParsingIntegration(t *testing.T) {
 func TestFilterOperatorCoverage(t *testing.T) {
 	operators := []struct {
 		queryKey string
-		wantOp   filter.Operator
+		wantOp   Operator
 	}{
-		{"field__eq", filter.OpEq},
-		{"field__gt", filter.OpGt},
-		{"field__lt", filter.OpLt},
-		{"field__gte", filter.OpGte},
-		{"field__lte", filter.OpLte},
-		{"field__contains", filter.OpContains},
-		{"field__starts_with", filter.OpStartsWith},
-		{"field__ends_with", filter.OpEndsWith},
-		{"field__in", filter.OpIn},
-		{"field__is_null", filter.OpIsNull},
-		{"field__is_not_null", filter.OpIsNotNull},
+		{"field__eq", OpEq},
+		{"field__gt", OpGt},
+		{"field__lt", OpLt},
+		{"field__gte", OpGte},
+		{"field__lte", OpLte},
+		{"field__contains", OpContains},
+		{"field__starts_with", OpStartsWith},
+		{"field__ends_with", OpEndsWith},
+		{"field__in", OpIn},
+		{"field__is_null", OpIsNull},
+		{"field__is_not_null", OpIsNotNull},
 	}
 
 	for _, tt := range operators {
 		t.Run(string(tt.wantOp), func(t *testing.T) {
 			app := fiber.New()
-			var capturedParams *filter.Params
+			var capturedParams *Params
 
 			app.Get("/test", func(c *fiber.Ctx) error {
-				capturedParams = filter.ParseFromQuery(c)
+				capturedParams = ParseFromQuery(c)
 				return c.SendString("ok")
 			})
 
@@ -277,7 +276,7 @@ func TestFilterWithFiberContext(t *testing.T) {
 
 	// Simulate an API endpoint that uses filter parsing
 	app.Get("/api/items", func(c *fiber.Ctx) error {
-		params := filter.ParseFromQuery(c)
+		params := ParseFromQuery(c)
 
 		// Return parsed params as JSON for verification
 		return c.JSON(fiber.Map{
