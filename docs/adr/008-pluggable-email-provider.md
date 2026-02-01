@@ -1,4 +1,4 @@
-# ADR-006: SendGrid Email Provider
+# ADR-008: SendGrid Email Provider
 
 ## Status
 

@@ -1,4 +1,4 @@
-# ADR-007: OAuth Security Hardening
+# ADR-009: OAuth Security Hardening
 
 ## Status
 

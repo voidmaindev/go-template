@@ -233,6 +233,96 @@ return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 - **Metrics**: Prometheus at `/metrics`
 - **Health Checks**: `/healthz` (liveness), `/readyz` (readiness)
 
+## Rate Limiting
+
+The application uses a 6-tier rate limiting system backed by Redis sliding window:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Rate Limiting Tiers                          │
+├──────────────┬──────────────────────────────────────────────────┤
+│ auth         │ Public auth endpoints (login, register)          │
+│ auth_user    │ Authenticated auth ops (logout, password)        │
+│ rbac_admin   │ RBAC administration operations                   │
+│ api_write    │ POST, PUT, DELETE operations                     │
+│ api_read     │ GET operations                                   │
+│ global       │ Fallback catch-all                               │
+└──────────────┴──────────────────────────────────────────────────┘
+```
+
+Key features:
+- **Redis Sliding Window**: Accurate rate limiting using sorted sets
+- **Per-Tier Limits**: Different limits for different operation types
+- **Key Strategy**: Public endpoints by IP, authenticated by user+IP
+- **Fail-Open**: Allows requests if Redis check fails (availability over strictness)
+- **Standard Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+
+See [ADR-007: Rate Limiting Strategy](adr/007-rate-limiting.md) for details.
+
+## Token Invalidation
+
+Dual strategy for JWT invalidation:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Token Validation Flow                         │
+├─────────────────────────────────────────────────────────────────┤
+│  1. Parse JWT (signature, expiry, claims)                        │
+│  2. Check blacklist (single token) → token:blacklist:{hash}     │
+│  3. Check invalidation timestamp → auth:token:invalidated:{uid} │
+│  4. Compare token issued_at > invalidation timestamp            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- **Token Blacklist**: For single-token invalidation (logout)
+- **Timestamp-Based**: For bulk invalidation (password change, compromise)
+- **Atomic Operations**: Critical paths use Redis atomic operations
+
+See [ADR-011: Token Invalidation Strategy](adr/011-token-invalidation.md) for details.
+
+## Domain Lifecycle (Shutdowner)
+
+Domains can implement graceful shutdown via the `Shutdowner` interface:
+
+```go
+type Shutdowner interface {
+    Shutdown(ctx context.Context) error
+}
+```
+
+Shutdown flow:
+1. Signal received (SIGINT/SIGTERM)
+2. Stop accepting new requests
+3. Wait for in-flight requests
+4. Call `container.Shutdown()` - domains shut down in **reverse order (LIFO)**
+5. Close Redis and database connections
+
+See [ADR-010: Domain Lifecycle Management](adr/010-domain-lifecycle.md) for details.
+
+## Filtering System
+
+Django-style filtering with operator syntax:
+
+```
+?field__operator=value
+```
+
+Supported operators:
+| Operator | Example | SQL |
+|----------|---------|-----|
+| `eq` | `?status__eq=active` | `= value` |
+| `gt`, `lt`, `gte`, `lte` | `?price__gt=100` | `> value` |
+| `contains` | `?name__contains=smith` | `ILIKE %value%` |
+| `in` | `?status__in=a,b,c` | `IN (...)` |
+| `is_null`, `is_not_null` | `?deleted_at__is_null=true` | `IS NULL` |
+
+Features:
+- **Type-Safe Config**: `FilterConfig` defines allowed fields and operators
+- **Relation Filtering**: `?country.name__contains=United`
+- **SQL Injection Prevention**: Whitelist approach for columns and relations
+
+See [ADR-012: Django-Style Filtering](adr/012-filtering-system.md) for details.
+
 ## Key Patterns
 
 | Pattern | Location | Purpose |
@@ -246,9 +336,24 @@ return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 
 ## Related Documentation
 
+### Architecture Decision Records
 - [ADR-001: Domain-Driven Architecture](adr/001-domain-driven-architecture.md)
 - [ADR-002: Generic Repository Pattern](adr/002-generic-repository-pattern.md)
 - [ADR-003: RBAC with Casbin](adr/003-rbac-with-casbin.md)
+- [ADR-004: OpenAPI-First Design](adr/004-openapi-first-design.md)
 - [ADR-005: Type-Safe Dependency Injection](adr/005-type-safe-dependency-injection.md)
-- [Guide: Adding a New Domain](guides/adding-new-domain.md)
-- [Guide: Adding a New App](guides/adding-new-app.md)
+- [ADR-006: Self-Registration and OAuth](adr/006-self-registration-oauth.md)
+- [ADR-007: Rate Limiting Strategy](adr/007-rate-limiting.md)
+- [ADR-008: SendGrid Email Provider](adr/008-pluggable-email-provider.md)
+- [ADR-009: OAuth Security Hardening](adr/009-oauth-security-hardening.md)
+- [ADR-010: Domain Lifecycle Management](adr/010-domain-lifecycle.md)
+- [ADR-011: Token Invalidation Strategy](adr/011-token-invalidation.md)
+- [ADR-012: Django-Style Filtering](adr/012-filtering-system.md)
+
+### Developer Guides
+- [Adding a New Domain](guides/adding-new-domain.md)
+- [Adding a New App](guides/adding-new-app.md)
+- [Testing Guide](guides/testing.md)
+- [Migrations Guide](guides/migrations.md)
+- [Seeders Guide](guides/seeders.md)
+- [Removing Example Domains](guides/removing-domains.md)
