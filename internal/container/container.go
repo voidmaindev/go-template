@@ -1,6 +1,8 @@
 package container
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
@@ -181,4 +183,29 @@ func (c *Container) GetDomainNames() []string {
 		names[i] = d.Name()
 	}
 	return names
+}
+
+// Shutdowner is an optional interface that domains can implement
+// to perform cleanup during graceful shutdown.
+type Shutdowner interface {
+	Shutdown(ctx context.Context) error
+}
+
+// Shutdown gracefully shuts down all domains that implement Shutdowner.
+// Domains are shut down in reverse registration order (LIFO).
+// Returns an error combining all shutdown errors.
+func (c *Container) Shutdown(ctx context.Context) error {
+	var errs []error
+
+	// Shutdown in reverse order (last registered, first shutdown)
+	for i := len(c.domains) - 1; i >= 0; i-- {
+		d := c.domains[i]
+		if shutdowner, ok := d.(Shutdowner); ok {
+			if err := shutdowner.Shutdown(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("domain %q shutdown failed: %w", d.Name(), err))
+			}
+		}
+	}
+
+	return errors.Join(errs...)
 }
