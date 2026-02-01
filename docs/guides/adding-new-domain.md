@@ -148,6 +148,8 @@ func (r *repository) FindBySKU(ctx context.Context, sku string) (*Product, error
 
 ### 5. Create Service (`service.go`)
 
+For simple services with 1-3 dependencies, use direct constructor parameters:
+
 ```go
 package product
 
@@ -173,7 +175,39 @@ type service struct {
 func NewService(repo Repository) Service {
     return &service{repo: repo}
 }
+```
 
+For services with 4+ dependencies, use a config struct pattern for readability:
+
+```go
+// ServiceConfig holds all dependencies for the service.
+type ServiceConfig struct {
+    Repo           Repository
+    Cache          CacheService
+    EventPublisher EventPublisher
+    Config         *config.ProductConfig
+}
+
+type service struct {
+    repo           Repository
+    cache          CacheService
+    eventPublisher EventPublisher
+    config         *config.ProductConfig
+}
+
+func NewService(cfg ServiceConfig) Service {
+    return &service{
+        repo:           cfg.Repo,
+        cache:          cfg.Cache,
+        eventPublisher: cfg.EventPublisher,
+        config:         cfg.Config,
+    }
+}
+```
+
+Service method implementations:
+
+```go
 func (s *service) List(ctx context.Context, opts ...common.QueryOption) ([]*Product, int64, error) {
     return s.repo.FindAll(ctx, opts...)
 }
