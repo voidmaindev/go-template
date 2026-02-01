@@ -7,17 +7,22 @@ import (
 	"gorm.io/gorm"
 )
 
-// Repository defines the user repository interface
+// Repository defines the user repository interface.
+// It extends common.Repository[User] with domain-specific queries
+// for authentication and user management.
 type Repository interface {
 	common.Repository[User]
 
-	// FindByEmail finds a user by email
+	// FindByEmail retrieves a user by their unique email address.
+	// Returns a NotFound error if no user with the given email exists.
 	FindByEmail(ctx context.Context, email string) (*User, error)
 
-	// ExistsByEmail checks if a user with the given email exists
+	// ExistsByEmail checks if a user with the given email address exists.
+	// Useful for registration validation without loading the full user entity.
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 
-	// DeleteExternalIdentitiesByUserID soft-deletes all external identities for a user
+	// DeleteExternalIdentitiesByUserID soft-deletes all external OAuth identities
+	// associated with a user. Called during user deletion for cascade cleanup.
 	DeleteExternalIdentitiesByUserID(ctx context.Context, userID uint) error
 }
 

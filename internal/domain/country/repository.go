@@ -7,17 +7,20 @@ import (
 	"gorm.io/gorm"
 )
 
-// Repository defines the country repository interface
+// Repository defines the country repository interface.
+// It extends common.Repository[Country] with domain-specific queries.
 type Repository interface {
 	common.Repository[Country]
 
-	// FindByCode finds a country by code
+	// FindByCode retrieves a country by its unique ISO code (e.g., "US", "DE").
+	// Returns a NotFound error if no country with the given code exists.
 	FindByCode(ctx context.Context, code string) (*Country, error)
 
-	// FindByName finds a country by name
+	// FindByName retrieves a country by its unique name.
+	// Returns a NotFound error if no country with the given name exists.
 	FindByName(ctx context.Context, name string) (*Country, error)
 
-	// ExistsByCode checks if a country with the given code exists
+	// ExistsByCode checks if a country with the given ISO code exists.
 	ExistsByCode(ctx context.Context, code string) (bool, error)
 }
 

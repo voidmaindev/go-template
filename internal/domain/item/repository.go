@@ -7,11 +7,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// Repository defines the item repository interface
+// Repository defines the item repository interface.
+// It extends common.Repository[Item] with domain-specific queries.
 type Repository interface {
 	common.Repository[Item]
 
-	// FindByName finds an item by name
+	// FindByName retrieves an item by its unique name.
+	// Returns a NotFound error if no item with the given name exists.
 	FindByName(ctx context.Context, name string) (*Item, error)
 }
 
