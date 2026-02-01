@@ -33,6 +33,12 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 
 ## Documentation
 
+### Architecture
+
+| Document | Description |
+|----------|-------------|
+| [Architecture Overview](docs/ARCHITECTURE.md) | High-level system design, request flow, domain structure |
+
 ### Developer Guides
 
 | Guide | Description |
@@ -356,8 +362,8 @@ The template includes a comprehensive RBAC system powered by [Casbin](https://ca
 | Action | Description |
 |--------|-------------|
 | `read` | View/list resources |
-| `write` | Create new resources |
-| `modify` | Update existing resources |
+| `create` | Create new resources |
+| `update` | Update existing resources |
 | `delete` | Delete resources |
 
 ### RBAC API Endpoints
@@ -399,8 +405,8 @@ curl -X POST http://localhost:3000/api/v1/rbac/roles \
     "name": "Sales Person",
     "description": "Can manage items and documents",
     "permissions": [
-      {"domain": "item", "actions": ["read", "write", "modify"]},
-      {"domain": "document", "actions": ["read", "write", "modify", "delete"]}
+      {"domain": "item", "actions": ["read", "create", "update"]},
+      {"domain": "document", "actions": ["read", "create", "update", "delete"]}
     ]
   }'
 ```
@@ -422,12 +428,12 @@ All domain routes are protected by RBAC middleware:
 
 ```go
 // internal/domain/item/register.go
-enforcer := container.MustGetTyped[*casbin.Enforcer](c, rbac.EnforcerKey)
+enforcer := rbac.EnforcerKey.MustGet(c)  // Typed key pattern
 
 items := api.Group("/items", middleware.JWTMiddleware(cfg, tokenStore))
 items.Get("/", middleware.RequirePermission(enforcer, "item", rbac.ActionRead), handler.List)
-items.Post("/", middleware.RequirePermission(enforcer, "item", rbac.ActionWrite), handler.Create)
-items.Put("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionModify), handler.Update)
+items.Post("/", middleware.RequirePermission(enforcer, "item", rbac.ActionCreate), handler.Create)
+items.Put("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionUpdate), handler.Update)
 items.Delete("/:id", middleware.RequirePermission(enforcer, "item", rbac.ActionDelete), handler.Delete)
 ```
 
@@ -1032,11 +1038,13 @@ To add a new domain:
 ```go
 package product
 
-// Component keys for this domain
-const (
-    RepositoryKey = "product.repository"
-    ServiceKey    = "product.service"
-    HandlerKey    = "product.handler"
+import "github.com/voidmaindev/go-template/internal/container"
+
+// Component keys for this domain (typed for compile-time safety)
+var (
+    RepositoryKey = container.Key[Repository]("product.repository")
+    ServiceKey    = container.Key[Service]("product.service")
+    HandlerKey    = container.Key[*Handler]("product.handler")
 )
 
 type domain struct{}
@@ -1051,12 +1059,18 @@ func (d *domain) Models() []any {
 
 func (d *domain) Register(c *container.Container) {
     repo := NewRepository(c.DB)
-    c.Set(RepositoryKey, repo)
-    // ... service, handler
+    RepositoryKey.Set(c, repo)
+
+    service := NewService(repo)
+    ServiceKey.Set(c, service)
+
+    handler := NewHandler(service)
+    HandlerKey.Set(c, handler)
 }
 
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
-    // ... register routes
+    handler := HandlerKey.MustGet(c)
+    // ... register routes using handler
 }
 ```
 
@@ -1438,7 +1452,7 @@ All domain routes (items, cities, countries, documents) are rate-limited by tier
 - **Info Leakage Prevention**: Generic error messages for authentication failures
 - **SQL Injection Prevention**: Parameterized queries with field whitelisting
 - **Health Checks**: Kubernetes-ready liveness and readiness probes
-- **Graceful Shutdown**: Configurable timeout for connection draining
+- **Graceful Shutdown**: Configurable timeout with domain lifecycle hooks for cleanup
 - **Request Correlation**: All error responses include `request_id` for debugging
 - **Rate Limiting**: Standard headers for client-side rate limit awareness
 
