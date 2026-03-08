@@ -218,18 +218,31 @@ func runServe(cmd *cobra.Command, args []string) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	// Cleanup function that always runs before returning.
+	// This ensures DB, Redis, and domain resources are released
+	// regardless of whether shutdown was graceful or timed out.
+	cleanup := func(shutdownCtx context.Context) {
+		// Shutdown domain services (LIFO order) before closing infrastructure
+		if err := c.Shutdown(shutdownCtx); err != nil {
+			slog.Error("Error shutting down domains", "error", err)
+		}
+
+		if err := redisClient.Close(); err != nil {
+			slog.Error("Error closing Redis connection", "error", err)
+		}
+
+		if err := database.Close(db); err != nil {
+			slog.Error("Error closing database connection", "error", err)
+		}
+	}
+
 	// Wait for either shutdown signal or server error
 	select {
 	case err := <-serverErr:
 		slog.Error("Server failed to start", "error", err)
-		// Cleanup connections before exiting
-		if err := redisClient.Close(); err != nil {
-			slog.Error("Error closing Redis connection", "error", err)
-		}
-		if err := database.Close(db); err != nil {
-			slog.Error("Error closing database connection", "error", err)
-		}
-		os.Exit(1)
+		cleanup(context.Background())
+		slog.Info("Server shutdown complete")
+		return
 	case <-quit:
 		// Continue to graceful shutdown
 	}
@@ -254,22 +267,10 @@ func runServe(cmd *cobra.Command, args []string) {
 		slog.Info("Server shutdown completed gracefully")
 	case <-shutdownCtx.Done():
 		slog.Warn("Server shutdown timed out, forcing exit")
-		// Force kill entire process including orphaned goroutines
-		os.Exit(1)
 	}
 
-	// Shutdown domain services (LIFO order) before closing infrastructure
-	if err := c.Shutdown(shutdownCtx); err != nil {
-		slog.Error("Error shutting down domains", "error", err)
-	}
-
-	if err := redisClient.Close(); err != nil {
-		slog.Error("Error closing Redis connection", "error", err)
-	}
-
-	if err := database.Close(db); err != nil {
-		slog.Error("Error closing database connection", "error", err)
-	}
+	// Cleanup always runs — both on graceful shutdown and timeout
+	cleanup(shutdownCtx)
 
 	slog.Info("Server shutdown complete")
 }
