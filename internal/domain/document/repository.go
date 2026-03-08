@@ -64,7 +64,7 @@ type itemRepository struct {
 // NewRepository creates a new document repository
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{
-		BaseRepository: common.NewBaseRepository[Document](db),
+		BaseRepository: common.NewBaseRepository[Document](db, "document"),
 		db:             db,
 	}
 }
@@ -72,7 +72,7 @@ func NewRepository(db *gorm.DB) Repository {
 // NewItemRepository creates a new document item repository
 func NewItemRepository(db *gorm.DB) ItemRepository {
 	return &itemRepository{
-		BaseRepository: common.NewBaseRepository[DocumentItem](db),
+		BaseRepository: common.NewBaseRepository[DocumentItem](db, "document item"),
 		db:             db,
 	}
 }

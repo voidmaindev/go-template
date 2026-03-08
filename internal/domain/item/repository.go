@@ -25,7 +25,7 @@ type repository struct {
 // NewRepository creates a new item repository
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{
-		BaseRepository: common.NewBaseRepository[Item](db),
+		BaseRepository: common.NewBaseRepository[Item](db, "item"),
 	}
 }
 

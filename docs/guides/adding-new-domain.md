@@ -137,7 +137,7 @@ type repository struct {
 
 func NewRepository(db *gorm.DB) Repository {
     return &repository{
-        BaseRepository: common.NewBaseRepository[Product](db),
+        BaseRepository: common.NewBaseRepository[Product](db, "product"),
     }
 }
 

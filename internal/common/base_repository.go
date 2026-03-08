@@ -13,15 +13,17 @@ const repositoryDomain = "repository"
 
 // BaseRepository provides a generic implementation of Repository interface
 type BaseRepository[T any] struct {
-	db       *gorm.DB
-	preloads []string
+	db         *gorm.DB
+	preloads   []string
+	entityName string
 }
 
 // NewBaseRepository creates a new instance of BaseRepository
-func NewBaseRepository[T any](db *gorm.DB) *BaseRepository[T] {
+func NewBaseRepository[T any](db *gorm.DB, entityName string) *BaseRepository[T] {
 	return &BaseRepository[T]{
-		db:       db,
-		preloads: []string{},
+		db:         db,
+		preloads:   []string{},
+		entityName: entityName,
 	}
 }
 
@@ -45,7 +47,7 @@ func (r *BaseRepository[T]) FindByID(ctx context.Context, id uint) (*T, error) {
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.First(&entity, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, commonerrors.NotFound(repositoryDomain, "entity")
+			return nil, commonerrors.NotFound(repositoryDomain, r.entityName)
 		}
 		return nil, err
 	}
@@ -138,7 +140,7 @@ func (r *BaseRepository[T]) FindOne(ctx context.Context, condition map[string]an
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.Where(condition).First(&entity).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, commonerrors.NotFound(repositoryDomain, "entity")
+			return nil, commonerrors.NotFound(repositoryDomain, r.entityName)
 		}
 		return nil, err
 	}
@@ -190,8 +192,9 @@ func (r *BaseRepository[T]) Count(ctx context.Context, condition map[string]any)
 // WithTx returns a new repository instance using the provided transaction
 func (r *BaseRepository[T]) WithTx(tx *gorm.DB) Repository[T] {
 	return &BaseRepository[T]{
-		db:       tx,
-		preloads: r.preloads,
+		db:         tx,
+		preloads:   r.preloads,
+		entityName: r.entityName,
 	}
 }
 
@@ -201,8 +204,9 @@ func (r *BaseRepository[T]) WithPreload(preloads ...string) Repository[T] {
 	copy(newPreloads, r.preloads)
 	copy(newPreloads[len(r.preloads):], preloads)
 	return &BaseRepository[T]{
-		db:       r.db,
-		preloads: newPreloads,
+		db:         r.db,
+		preloads:   newPreloads,
+		entityName: r.entityName,
 	}
 }
 

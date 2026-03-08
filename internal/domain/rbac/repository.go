@@ -28,7 +28,7 @@ type repository struct {
 // NewRepository creates a new RBAC repository
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{
-		BaseRepository: common.NewBaseRepository[Role](db),
+		BaseRepository: common.NewBaseRepository[Role](db, "role"),
 	}
 }
 

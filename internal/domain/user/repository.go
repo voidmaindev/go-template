@@ -61,7 +61,7 @@ type repository struct {
 // NewRepository creates a new user repository
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{
-		BaseRepository: common.NewBaseRepository[User](db),
+		BaseRepository: common.NewBaseRepository[User](db, "user"),
 	}
 }
 
@@ -139,7 +139,7 @@ func (r *repository) BeginTx(ctx context.Context) (Repository, *gorm.DB, error) 
 		return nil, nil, tx.Error
 	}
 	txRepo := &repository{
-		BaseRepository: common.NewBaseRepository[User](tx),
+		BaseRepository: common.NewBaseRepository[User](tx, "user"),
 	}
 	return txRepo, tx, nil
 }

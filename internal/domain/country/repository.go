@@ -32,7 +32,7 @@ type repository struct {
 // NewRepository creates a new country repository
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{
-		BaseRepository: common.NewBaseRepository[Country](db),
+		BaseRepository: common.NewBaseRepository[Country](db, "country"),
 	}
 }
 
