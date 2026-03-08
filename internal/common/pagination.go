@@ -244,10 +244,6 @@ func NewPaginatedResult[T any](data []T, total int64, pagination *Pagination) *P
 	}
 }
 
-// FilteredResult is an alias for PaginatedResult.
-// Deprecated: Use PaginatedResult instead. This alias is kept for backward compatibility.
-type FilteredResult[T any] = PaginatedResult[T]
-
 // CalculateTotalPages computes the number of pages needed for the given total and page size.
 func CalculateTotalPages(total int64, pageSize int) int {
 	if pageSize <= 0 {
@@ -256,10 +252,8 @@ func CalculateTotalPages(total int64, pageSize int) int {
 	return int(math.Ceil(float64(total) / float64(pageSize)))
 }
 
-// NewFilteredResult creates a new filtered result from filter.Params.
-// Deprecated: Use NewPaginatedResult with filter.Params converted to Pagination instead.
-// This function is kept for backward compatibility.
-func NewFilteredResult[T any](data []T, total int64, params *filter.Params) *PaginatedResult[T] {
+// NewPaginatedResultFromFilter creates a PaginatedResult from filter.Params.
+func NewPaginatedResultFromFilter[T any](data []T, total int64, params *filter.Params) *PaginatedResult[T] {
 	if params == nil {
 		params = filter.DefaultParams()
 	}

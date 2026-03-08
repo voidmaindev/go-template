@@ -18,7 +18,7 @@ type Service interface {
 	Update(ctx context.Context, id uint, req *UpdateCityRequest) (*City, error)
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[City], error)
-	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[City], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[City], error)
 	ListByCountry(ctx context.Context, countryID uint, pagination *common.Pagination) (*common.PaginatedResult[City], error)
 }
 
@@ -148,13 +148,13 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 }
 
 // ListFiltered retrieves cities with dynamic filtering, sorting, and pagination
-func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[City], error) {
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[City], error) {
 	cities, total, err := s.repo.FindAllFilteredWithCountry(ctx, params)
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
-	return common.NewFilteredResult(cities, total, params), nil
+	return common.NewPaginatedResultFromFilter(cities, total, params), nil
 }
 
 // ListByCountry retrieves all cities for a specific country

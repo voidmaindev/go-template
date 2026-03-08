@@ -379,7 +379,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 // @Param email__contains query string false "Filter by email (contains)"
 // @Param sort query string false "Sort field"
 // @Param order query string false "Sort order (asc/desc)"
-// @Success 200 {object} common.Response{data=common.FilteredResult[UserResponse]}
+// @Success 200 {object} common.Response{data=common.PaginatedResult[UserResponse]}
 // @Failure 401 {object} common.Response
 // @Failure 403 {object} common.Response
 // @Router /users [get]
@@ -400,7 +400,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		responses[i] = *user.ToResponse()
 	}
 
-	return common.SuccessResponse(c, common.NewFilteredResult(responses, result.Total, params))
+	return common.SuccessResponse(c, common.NewPaginatedResultFromFilter(responses, result.Total, params))
 }
 
 // Delete handles deleting a user

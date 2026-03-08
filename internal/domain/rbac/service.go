@@ -20,7 +20,7 @@ type Service interface {
 	// Role management
 	CreateRole(ctx context.Context, req *CreateRoleRequest) (*Role, error)
 	GetRoleByCode(ctx context.Context, code string) (*RoleWithPermissions, error)
-	ListRoles(ctx context.Context, params *filter.Params) (*common.FilteredResult[Role], error)
+	ListRoles(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Role], error)
 	UpdateRolePermissions(ctx context.Context, code string, req *UpdateRolePermissionsRequest) (*RoleWithPermissions, error)
 	DeleteRole(ctx context.Context, code string) error
 
@@ -161,12 +161,12 @@ func (s *service) GetRoleByCode(ctx context.Context, code string) (*RoleWithPerm
 }
 
 // ListRoles lists all roles with filtering
-func (s *service) ListRoles(ctx context.Context, params *filter.Params) (*common.FilteredResult[Role], error) {
+func (s *service) ListRoles(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Role], error) {
 	roles, total, err := s.repo.FindAllFiltered(ctx, params)
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("ListRoles")
 	}
-	return common.NewFilteredResult(roles, total, params), nil
+	return common.NewPaginatedResultFromFilter(roles, total, params), nil
 }
 
 // UpdateRolePermissions updates the permissions of a role atomically

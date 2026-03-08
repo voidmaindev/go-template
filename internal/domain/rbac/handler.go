@@ -69,7 +69,7 @@ func (h *Handler) logAudit(c *fiber.Ctx, action string, resourceID *uint, succes
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} common.FilteredResult[RoleResponse]
+// @Success 200 {object} common.PaginatedResult[RoleResponse]
 // @Failure 401 {object} common.Response
 // @Failure 500 {object} common.Response
 // @Router /api/v1/rbac/roles [get]
@@ -87,7 +87,7 @@ func (h *Handler) ListRoles(c *fiber.Ctx) error {
 		responses[i] = *role.ToResponse()
 	}
 
-	return common.SuccessResponse(c, common.NewFilteredResult(responses, result.Total, params))
+	return common.SuccessResponse(c, common.NewPaginatedResultFromFilter(responses, result.Total, params))
 }
 
 // CreateRole creates a new role

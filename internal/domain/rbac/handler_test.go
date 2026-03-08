@@ -73,7 +73,7 @@ func (m *mockService) GetRoleByCode(ctx context.Context, code string) (*RoleWith
 	return rwp, nil
 }
 
-func (m *mockService) ListRoles(ctx context.Context, params *filter.Params) (*common.FilteredResult[Role], error) {
+func (m *mockService) ListRoles(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Role], error) {
 	if m.listRolesErr != nil {
 		return nil, m.listRolesErr
 	}
@@ -81,7 +81,7 @@ func (m *mockService) ListRoles(ctx context.Context, params *filter.Params) (*co
 	for _, rwp := range m.roles {
 		roles = append(roles, *rwp.Role)
 	}
-	return common.NewFilteredResult(roles, int64(len(roles)), params), nil
+	return common.NewPaginatedResultFromFilter(roles, int64(len(roles)), params), nil
 }
 
 func (m *mockService) UpdateRolePermissions(ctx context.Context, code string, req *UpdateRolePermissionsRequest) (*RoleWithPermissions, error) {

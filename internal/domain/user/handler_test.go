@@ -38,7 +38,7 @@ type mockService struct {
 	deleteErr              error
 	listResponse           *common.PaginatedResult[User]
 	listErr                error
-	listFilteredResponse   *common.FilteredResult[User]
+	listFilteredResponse   *common.PaginatedResult[User]
 	listFilteredErr        error
 }
 
@@ -103,7 +103,7 @@ func (m *mockService) List(ctx context.Context, pagination *common.Pagination) (
 	return m.listResponse, nil
 }
 
-func (m *mockService) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[User], error) {
+func (m *mockService) ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[User], error) {
 	if m.listFilteredErr != nil {
 		return nil, m.listFilteredErr
 	}
@@ -814,7 +814,7 @@ func TestHandler_List(t *testing.T) {
 	t.Run("successful list", func(t *testing.T) {
 		users := []User{*createTestUser()}
 		svc := &mockService{
-			listFilteredResponse: &common.FilteredResult[User]{
+			listFilteredResponse: &common.PaginatedResult[User]{
 				Data:       users,
 				Total:      1,
 				Page:       1,
@@ -848,7 +848,7 @@ func TestHandler_List(t *testing.T) {
 
 	t.Run("list with default pagination", func(t *testing.T) {
 		svc := &mockService{
-			listFilteredResponse: &common.FilteredResult[User]{
+			listFilteredResponse: &common.PaginatedResult[User]{
 				Data:       []User{},
 				Total:      0,
 				Page:       1,

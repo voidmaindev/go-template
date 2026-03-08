@@ -122,7 +122,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		responses[i] = *city.ToResponse()
 	}
 
-	return common.SuccessResponse(c, common.NewFilteredResult(responses, result.Total, params))
+	return common.SuccessResponse(c, common.NewPaginatedResultFromFilter(responses, result.Total, params))
 }
 
 // ListByCountry handles listing cities by country

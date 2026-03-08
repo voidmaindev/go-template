@@ -16,7 +16,7 @@ type Service interface {
 	Update(ctx context.Context, id uint, req *UpdateItemRequest) (*Item, error)
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Item], error)
-	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Item], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Item], error)
 }
 
 // service implements the Service interface
@@ -108,11 +108,11 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 }
 
 // ListFiltered retrieves items with dynamic filtering, sorting, and pagination
-func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Item], error) {
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Item], error) {
 	items, total, err := s.repo.FindAllFiltered(ctx, params)
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
-	return common.NewFilteredResult(items, total, params), nil
+	return common.NewPaginatedResultFromFilter(items, total, params), nil
 }

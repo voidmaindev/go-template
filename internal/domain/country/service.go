@@ -18,7 +18,7 @@ type Service interface {
 	Update(ctx context.Context, id uint, req *UpdateCountryRequest) (*Country, error)
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Country], error)
-	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Country], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Country], error)
 }
 
 // service implements the Service interface
@@ -146,11 +146,11 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 }
 
 // ListFiltered retrieves countries with dynamic filtering, sorting, and pagination
-func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Country], error) {
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Country], error) {
 	countries, total, err := s.repo.FindAllFiltered(ctx, params)
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
-	return common.NewFilteredResult(countries, total, params), nil
+	return common.NewPaginatedResultFromFilter(countries, total, params), nil
 }

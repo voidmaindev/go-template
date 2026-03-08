@@ -42,7 +42,7 @@ type Service interface {
 
 	// Listing
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[User], error)
-	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[User], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[User], error)
 }
 
 // ServiceConfig holds all dependencies for the user service.
@@ -437,13 +437,13 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 }
 
 // ListFiltered retrieves users with dynamic filtering, sorting, and pagination
-func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[User], error) {
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[User], error) {
 	users, total, err := s.repo.FindAllFiltered(ctx, params)
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
-	return common.NewFilteredResult(users, total, params), nil
+	return common.NewPaginatedResultFromFilter(users, total, params), nil
 }
 
 // toUtilsJWTConfig converts config.JWTConfig to utils.JWTConfig

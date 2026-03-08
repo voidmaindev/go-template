@@ -298,7 +298,7 @@ func (m *mockRbacService) GetRoleByCode(ctx context.Context, code string) (*rbac
 	return nil, nil
 }
 
-func (m *mockRbacService) ListRoles(ctx context.Context, params *filter.Params) (*common.FilteredResult[rbac.Role], error) {
+func (m *mockRbacService) ListRoles(ctx context.Context, params *filter.Params) (*common.PaginatedResult[rbac.Role], error) {
 	return nil, nil
 }
 

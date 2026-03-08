@@ -32,7 +32,7 @@ type Service interface {
 	Update(ctx context.Context, id uint, req *UpdateDocumentRequest) (*Document, error)
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[Document], error)
-	ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Document], error)
+	ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Document], error)
 
 	// Document item operations
 	AddItem(ctx context.Context, documentID uint, req *AddDocumentItemRequest) (*DocumentItem, error)
@@ -247,13 +247,13 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 }
 
 // ListFiltered retrieves documents with dynamic filtering, sorting, and pagination
-func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.FilteredResult[Document], error) {
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Document], error) {
 	docs, total, err := s.repo.FindAllFilteredWithCity(ctx, params)
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
-	return common.NewFilteredResult(docs, total, params), nil
+	return common.NewPaginatedResultFromFilter(docs, total, params), nil
 }
 
 // AddItem adds an item to a document
