@@ -27,16 +27,17 @@ const (
 
 // service implements the Service interface
 type service struct {
-	db            *gorm.DB
-	userRepo      user.Repository
-	tokenStore    *TokenStore
-	emailSvc      email.Service
-	rbacSvc       rbac.Service
-	auditLogger   audit.Logger
-	enforcer      *casbin.TransactionalEnforcer
-	selfRegConfig *config.SelfRegistrationConfig
-	oauthConfig   *config.OAuthConfig
-	oauthRegistry *OAuthRegistry
+	db             *gorm.DB
+	userRepo       user.Repository
+	tokenStore     *TokenStore
+	userTokenStore *user.TokenStore
+	emailSvc       email.Service
+	rbacSvc        rbac.Service
+	auditLogger    audit.Logger
+	enforcer       *casbin.TransactionalEnforcer
+	selfRegConfig  *config.SelfRegistrationConfig
+	oauthConfig    *config.OAuthConfig
+	oauthRegistry  *OAuthRegistry
 }
 
 // NewService creates a new auth service
@@ -44,6 +45,7 @@ func NewService(
 	db *gorm.DB,
 	userRepo user.Repository,
 	tokenStore *TokenStore,
+	userTokenStore *user.TokenStore,
 	emailSvc email.Service,
 	rbacSvc rbac.Service,
 	auditLogger audit.Logger,
@@ -52,16 +54,17 @@ func NewService(
 	oauthConfig *config.OAuthConfig,
 ) Service {
 	return &service{
-		db:            db,
-		userRepo:      userRepo,
-		tokenStore:    tokenStore,
-		emailSvc:      emailSvc,
-		rbacSvc:       rbacSvc,
-		auditLogger:   auditLogger,
-		enforcer:      enforcer,
-		selfRegConfig: selfRegConfig,
-		oauthConfig:   oauthConfig,
-		oauthRegistry: NewOAuthRegistry(oauthConfig),
+		db:             db,
+		userRepo:       userRepo,
+		tokenStore:     tokenStore,
+		userTokenStore: userTokenStore,
+		emailSvc:       emailSvc,
+		rbacSvc:        rbacSvc,
+		auditLogger:    auditLogger,
+		enforcer:       enforcer,
+		selfRegConfig:  selfRegConfig,
+		oauthConfig:    oauthConfig,
+		oauthRegistry:  NewOAuthRegistry(oauthConfig),
 	}
 }
 
@@ -100,7 +103,11 @@ func (s *service) SelfRegister(ctx context.Context, req *SelfRegisterRequest) (*
 
 	// Create user and assign self-registered role atomically
 	err = s.enforcer.WithTransaction(ctx, func(tx *casbin.Transaction) error {
-		if err := s.db.WithContext(ctx).Create(newUser).Error; err != nil {
+		// Wrap GORM create in a database transaction so it rolls back
+		// together with the Casbin transaction on failure
+		if err := s.db.WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
+			return gormTx.Create(newUser).Error
+		}); err != nil {
 			return err
 		}
 
@@ -259,6 +266,12 @@ func (s *service) ResetPassword(ctx context.Context, req *ResetPasswordRequest) 
 	if err := s.db.WithContext(ctx).Model(&user.User{}).Where("id = ?", userID).
 		Update("password", hashedPassword).Error; err != nil {
 		return errors.Internal(domainName, err).WithOperation("ResetPassword")
+	}
+
+	// Invalidate all existing sessions (security: revoke tokens on password reset)
+	if err := s.userTokenStore.InvalidateAllUserTokens(ctx, userID); err != nil {
+		slog.Error("failed to invalidate tokens after password reset", "userID", userID, "error", err)
+		// Don't fail the password reset, but log the error
 	}
 
 	return nil

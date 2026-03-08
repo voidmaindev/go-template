@@ -49,11 +49,15 @@ func (d *domain) Register(c *container.Container) {
 	auditSvc := audit.ServiceKey.MustGet(c)
 	enforcer := rbac.EnforcerKey.MustGet(c)
 
+	// Get user token store for session invalidation on password reset
+	userTokenStore := user.TokenStoreKey.MustGet(c)
+
 	// Initialize service
 	service := NewService(
 		c.DB,
 		userRepo,
 		tokenStore,
+		userTokenStore,
 		emailSvc,
 		rbacSvc,
 		auditSvc,

@@ -258,6 +258,11 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Shutdown domain services (LIFO order) before closing infrastructure
+	if err := c.Shutdown(shutdownCtx); err != nil {
+		slog.Error("Error shutting down domains", "error", err)
+	}
+
 	if err := redisClient.Close(); err != nil {
 		slog.Error("Error closing Redis connection", "error", err)
 	}
