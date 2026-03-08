@@ -3,7 +3,8 @@ package email
 import (
 	"context"
 	"fmt"
-	"log/slog"
+
+	"github.com/voidmaindev/go-template/internal/common/logging"
 )
 
 // serviceImpl implements the Service interface using a Provider
@@ -12,6 +13,7 @@ type serviceImpl struct {
 	from     Address
 	appName  string
 	baseURL  string
+	logger   *logging.Logger
 }
 
 // NewService creates a new email service with the given provider
@@ -21,6 +23,7 @@ func NewService(provider Provider, from Address, appName, baseURL string) Servic
 		from:     from,
 		appName:  appName,
 		baseURL:  baseURL,
+		logger:   logging.New(domainName),
 	}
 }
 
@@ -37,7 +40,7 @@ func (s *serviceImpl) SendVerificationEmail(ctx context.Context, email, name, to
 
 	htmlBody, err := renderVerificationEmail(data)
 	if err != nil {
-		slog.Error("failed to render verification email template", "error", err)
+		s.logger.Error(ctx, "failed to render verification email template", err)
 		return ErrTemplateRender
 	}
 
@@ -61,7 +64,7 @@ func (s *serviceImpl) SendPasswordResetEmail(ctx context.Context, email, name, t
 
 	htmlBody, err := renderPasswordResetEmail(data)
 	if err != nil {
-		slog.Error("failed to render password reset email template", "error", err)
+		s.logger.Error(ctx, "failed to render password reset email template", err)
 		return ErrTemplateRender
 	}
 
@@ -82,7 +85,7 @@ func (s *serviceImpl) SendWelcomeEmail(ctx context.Context, email, name string) 
 
 	htmlBody, err := renderWelcomeEmail(data)
 	if err != nil {
-		slog.Error("failed to render welcome email template", "error", err)
+		s.logger.Error(ctx, "failed to render welcome email template", err)
 		return ErrTemplateRender
 	}
 

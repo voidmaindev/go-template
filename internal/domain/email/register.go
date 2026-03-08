@@ -1,9 +1,10 @@
 package email
 
 import (
-	"log/slog"
+	"context"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/voidmaindev/go-template/internal/common/logging"
 	"github.com/voidmaindev/go-template/internal/container"
 )
 
@@ -33,11 +34,12 @@ func (d *domain) Models() []any {
 
 // Register initializes the email service with SendGrid provider
 func (d *domain) Register(c *container.Container) {
+	logger := logging.New(domainName)
 	cfg := &c.Config.Email
 
 	provider, err := NewProvider(cfg)
 	if err != nil {
-		slog.Warn("email provider not configured", "error", err)
+		logger.Warn(context.Background(), "email provider not configured", "error", err)
 		// Don't set provider or service - email functionality will be disabled
 		return
 	}
@@ -56,7 +58,7 @@ func (d *domain) Register(c *container.Container) {
 	)
 	ServiceKey.Set(c, service)
 
-	slog.Info("email service initialized", "provider", provider.Name())
+	logger.Info(context.Background(), "email service initialized", "provider", provider.Name())
 }
 
 // Routes registers HTTP routes for this domain (email domain has no routes)

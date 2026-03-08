@@ -2,12 +2,12 @@ package user
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/casbin/casbin/v3"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
+	"github.com/voidmaindev/go-template/internal/common/logging"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/telemetry"
@@ -67,6 +67,7 @@ type service struct {
 	isProduction   bool
 	rbacSvc        rbac.Service
 	enforcer       *casbin.TransactionalEnforcer
+	logger         *logging.Logger
 }
 
 // NewService creates a new user service.
@@ -80,6 +81,7 @@ func NewService(cfg ServiceConfig) Service {
 		isProduction:   cfg.IsProduction,
 		rbacSvc:        cfg.RBACService,
 		enforcer:       cfg.Enforcer,
+		logger:         logging.New(domainName),
 	}
 }
 
@@ -133,8 +135,8 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 		// Assign RBAC roles using transaction - if any fails, everything rolls back
 		for _, roleCode := range roleCodes {
 			if err = s.rbacSvc.AssignRoleInTx(tx, ctx, user.ID, roleCode); err != nil {
-				slog.Error("failed to assign role during registration, rolling back",
-					"role", roleCode, "userID", user.ID, "error", err)
+				s.logger.Error(ctx, "failed to assign role during registration, rolling back", err,
+					"role", roleCode, "userID", user.ID)
 				return err
 			}
 		}
@@ -204,7 +206,7 @@ func (s *service) Login(ctx context.Context, req *LoginRequest, loginCtx *LoginC
 	// Clear rate limit counter on successful login
 	if s.securityConfig != nil {
 		if err := s.tokenStore.ClearLoginRateLimit(ctx, req.Email); err != nil {
-			slog.Warn("failed to clear login rate limit", "email", req.Email, "error", err)
+			s.logger.Warn(ctx, "failed to clear login rate limit", "email", req.Email, "error", err)
 		}
 	}
 
@@ -221,7 +223,7 @@ func (s *service) recordFailedLogin(ctx context.Context, email string, loginCtx 
 		return
 	}
 	if err := s.tokenStore.RecordFailedLogin(ctx, email, loginCtx.IP, s.securityConfig.LoginLockoutDuration); err != nil {
-		slog.Warn("failed to record failed login attempt", "email", email, "error", err)
+		s.logger.Warn(ctx, "failed to record failed login attempt", "email", email, "error", err)
 	}
 }
 
@@ -244,9 +246,7 @@ func (s *service) Logout(ctx context.Context, accessToken, refreshToken string) 
 			refreshExpiry = s.jwtConfig.RefreshTokenExpiry
 		}
 		if err := s.tokenStore.Blacklist(ctx, refreshToken, refreshExpiry); err != nil {
-			slog.Error("failed to blacklist refresh token during logout",
-				"error", err,
-			)
+			s.logger.Error(ctx, "failed to blacklist refresh token during logout", err)
 			// Continue anyway - access token is already blacklisted
 		}
 	}
@@ -269,8 +269,7 @@ func (s *service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 	if expiry > 0 {
 		wasBlacklisted, err := s.tokenStore.BlacklistAtomicWithRetry(ctx, refreshToken, expiry, blacklistMaxRetries)
 		if err != nil {
-			slog.Error("failed to blacklist refresh token after retries",
-				"error", err,
+			s.logger.Error(ctx, "failed to blacklist refresh token after retries", err,
 				"retries", blacklistMaxRetries,
 				"userID", claims.UserID,
 			)
@@ -395,7 +394,7 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswo
 
 	// Invalidate all existing tokens for this user (security: revoke sessions on password change)
 	if err := s.tokenStore.InvalidateAllUserTokens(ctx, id); err != nil {
-		slog.Error("failed to invalidate tokens after password change", "userID", id, "error", err)
+		s.logger.Error(ctx, "failed to invalidate tokens after password change", err, "userID", id)
 		// Don't fail the password change, but log the error
 	}
 

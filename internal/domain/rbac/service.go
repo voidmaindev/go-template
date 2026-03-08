@@ -2,13 +2,12 @@ package rbac
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/casbin/casbin/v3"
 	"github.com/voidmaindev/go-template/internal/common"
-	"github.com/voidmaindev/go-template/internal/common/ctxutil"
 	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
+	"github.com/voidmaindev/go-template/internal/common/logging"
 )
 
 // DomainProvider is an interface for getting registered domain names
@@ -52,6 +51,7 @@ type service struct {
 	repo           Repository
 	enforcer       *casbin.TransactionalEnforcer
 	domainProvider DomainProvider
+	logger         *logging.Logger
 }
 
 // NewService creates a new RBAC service
@@ -60,6 +60,7 @@ func NewService(repo Repository, enforcer *casbin.TransactionalEnforcer, domainP
 		repo:           repo,
 		enforcer:       enforcer,
 		domainProvider: domainProvider,
+		logger:         logging.New(domainName),
 	}
 }
 
@@ -110,14 +111,10 @@ func (s *service) CreateRole(ctx context.Context, req *CreateRoleRequest) (*Role
 			for _, action := range perm.Actions {
 				added, err := s.enforcer.AddPolicy(req.Code, perm.Domain, action)
 				if err != nil {
-					ctxInfo := ctxutil.Extract(ctx)
-					slog.Error("failed to add policy",
-						append(ctxInfo.ToLogArgs(),
-							"role", req.Code,
-							"domain", perm.Domain,
-							"action", action,
-							"error", err,
-						)...,
+					s.logger.Error(ctx, "failed to add policy", err,
+						"role", req.Code,
+						"domain", perm.Domain,
+						"action", action,
 					)
 					return err
 				}
@@ -218,14 +215,10 @@ func (s *service) UpdateRolePermissions(ctx context.Context, code string, req *U
 			for _, action := range perm.Actions {
 				added, err := s.enforcer.AddPolicy(code, perm.Domain, action)
 				if err != nil {
-					ctxInfo := ctxutil.Extract(ctx)
-					slog.Error("failed to add policy",
-						append(ctxInfo.ToLogArgs(),
-							"role", code,
-							"domain", perm.Domain,
-							"action", action,
-							"error", err,
-						)...,
+					s.logger.Error(ctx, "failed to add policy", err,
+						"role", code,
+						"domain", perm.Domain,
+						"action", action,
 					)
 					return err
 				}
@@ -256,12 +249,7 @@ func (s *service) UpdateRolePermissions(ctx context.Context, code string, req *U
 		}
 		// Try to save the restored state (best effort)
 		if saveErr := s.enforcer.SavePolicy(); saveErr != nil {
-			ctxInfo := ctxutil.Extract(ctx)
-			slog.Error("failed to save restored policies during rollback",
-				append(ctxInfo.ToLogArgs(),
-					"error", saveErr,
-				)...,
-			)
+			s.logger.Error(ctx, "failed to save restored policies during rollback", saveErr)
 		}
 		return nil, errors.Internal(domainName, err).WithOperation("UpdateRolePermissions")
 	}
@@ -332,10 +320,7 @@ func (s *service) DeleteRole(ctx context.Context, code string) error {
 		}
 		// Best effort save of restored state
 		if saveErr := s.enforcer.SavePolicy(); saveErr != nil {
-			ctxInfo := ctxutil.Extract(ctx)
-			slog.Error("failed to save restored policies during rollback",
-				append(ctxInfo.ToLogArgs(), "error", saveErr)...,
-			)
+			s.logger.Error(ctx, "failed to save restored policies during rollback", saveErr)
 		}
 		return errors.Internal(domainName, err).WithOperation("DeleteRole")
 	}
@@ -479,17 +464,12 @@ func (s *service) SyncGlobalRoles(ctx context.Context) error {
 	allDomains := s.domainProvider.GetDomainNames()
 	actions := AllActions()
 
-	ctxInfo := ctxutil.Extract(ctx)
-	slog.Info("syncing global RBAC roles",
-		append(ctxInfo.ToLogArgs(), "domains", allDomains)...,
-	)
+	s.logger.Info(ctx, "syncing global RBAC roles", "domains", allDomains)
 
 	// 1. Admin = wildcard (full access to everything)
 	s.enforcer.RemoveFilteredPolicy(0, RoleCodeAdmin)
 	if _, err := s.enforcer.AddPolicy(RoleCodeAdmin, "*", "*"); err != nil {
-		slog.Error("failed to add admin wildcard policy",
-			append(ctxInfo.ToLogArgs(), "error", err)...,
-		)
+		s.logger.Error(ctx, "failed to add admin wildcard policy", err)
 	}
 
 	// 2. full_reader = read NON-PROTECTED domains only
@@ -497,9 +477,7 @@ func (s *service) SyncGlobalRoles(ctx context.Context) error {
 	for _, dom := range allDomains {
 		if !IsProtectedDomain(dom) {
 			if _, err := s.enforcer.AddPolicy(RoleCodeFullReader, dom, ActionRead); err != nil {
-				slog.Error("failed to add full_reader policy",
-					append(ctxInfo.ToLogArgs(), "domain", dom, "error", err)...,
-				)
+				s.logger.Error(ctx, "failed to add full_reader policy", err, "domain", dom)
 			}
 		}
 	}
@@ -510,17 +488,13 @@ func (s *service) SyncGlobalRoles(ctx context.Context) error {
 		if IsProtectedDomain(dom) {
 			// Read-only on protected domains
 			if _, err := s.enforcer.AddPolicy(RoleCodeFullWriter, dom, ActionRead); err != nil {
-				slog.Error("failed to add full_writer read policy",
-					append(ctxInfo.ToLogArgs(), "domain", dom, "error", err)...,
-				)
+				s.logger.Error(ctx, "failed to add full_writer read policy", err, "domain", dom)
 			}
 		} else {
 			// Full CRUD on non-protected domains
 			for _, act := range actions {
 				if _, err := s.enforcer.AddPolicy(RoleCodeFullWriter, dom, act); err != nil {
-					slog.Error("failed to add full_writer policy",
-						append(ctxInfo.ToLogArgs(), "domain", dom, "action", act, "error", err)...,
-					)
+					s.logger.Error(ctx, "failed to add full_writer policy", err, "domain", dom, "action", act)
 				}
 			}
 		}
@@ -530,7 +504,7 @@ func (s *service) SyncGlobalRoles(ctx context.Context) error {
 		return errors.Internal(domainName, err).WithOperation("SyncGlobalRoles.SavePolicy")
 	}
 
-	slog.Info("global RBAC roles synced successfully", ctxInfo.ToLogArgs()...)
+	s.logger.Info(ctx, "global RBAC roles synced successfully")
 	return nil
 }
 

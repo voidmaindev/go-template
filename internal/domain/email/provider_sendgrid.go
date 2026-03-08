@@ -3,21 +3,23 @@ package email
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
+	"github.com/voidmaindev/go-template/internal/common/logging"
 )
 
 // SendGridProvider implements Provider using SendGrid API
 type SendGridProvider struct {
 	client *sendgrid.Client
+	logger *logging.Logger
 }
 
 // NewSendGridProvider creates a new SendGrid email provider
 func NewSendGridProvider(apiKey string) *SendGridProvider {
 	return &SendGridProvider{
 		client: sendgrid.NewSendClient(apiKey),
+		logger: logging.New(domainName),
 	}
 }
 
@@ -55,13 +57,13 @@ func (p *SendGridProvider) Send(ctx context.Context, msg *Message) error {
 
 	resp, err := p.client.SendWithContext(ctx, m)
 	if err != nil {
-		slog.Error("SendGrid send failed", "provider", p.Name(), "error", err)
+		p.logger.Error(ctx, "SendGrid send failed", err, "provider", p.Name())
 		return ErrSendFailed
 	}
 
 	// SendGrid returns 2xx for success
 	if resp.StatusCode >= 300 {
-		slog.Error("SendGrid API error",
+		p.logger.Error(ctx, "SendGrid API error", nil,
 			"provider", p.Name(),
 			"status", resp.StatusCode,
 			"body", resp.Body,
@@ -73,6 +75,6 @@ func (p *SendGridProvider) Send(ctx context.Context, msg *Message) error {
 	for i, addr := range msg.To {
 		recipients[i] = addr.Email
 	}
-	slog.Info("email sent", "provider", p.Name(), "to", recipients, "subject", msg.Subject)
+	p.logger.Info(ctx, "email sent", "provider", p.Name(), "to", recipients, "subject", msg.Subject)
 	return nil
 }

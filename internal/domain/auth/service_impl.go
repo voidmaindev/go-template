@@ -2,11 +2,11 @@ package auth
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/casbin/casbin/v3"
 	"github.com/voidmaindev/go-template/internal/common/errors"
+	"github.com/voidmaindev/go-template/internal/common/logging"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/domain/email"
@@ -36,6 +36,7 @@ type service struct {
 	selfRegConfig  *config.SelfRegistrationConfig
 	oauthConfig    *config.OAuthConfig
 	oauthRegistry  *OAuthRegistry
+	logger         *logging.Logger
 }
 
 // NewService creates a new auth service
@@ -61,6 +62,7 @@ func NewService(
 		selfRegConfig:  selfRegConfig,
 		oauthConfig:    oauthConfig,
 		oauthRegistry:  NewOAuthRegistry(oauthConfig),
+		logger:         logging.New(domainName),
 	}
 }
 
@@ -116,8 +118,8 @@ func (s *service) SelfRegister(ctx context.Context, req *SelfRegisterRequest) (*
 
 		// Assign self-registered role
 		if err = s.rbacSvc.AssignRoleInTx(tx, ctx, newUser.ID, s.selfRegConfig.DefaultRole); err != nil {
-			slog.Error("failed to assign self-registered role",
-				"userID", newUser.ID, "role", s.selfRegConfig.DefaultRole, "error", err)
+			s.logger.Error(ctx, "failed to assign self-registered role", err,
+				"userID", newUser.ID, "role", s.selfRegConfig.DefaultRole)
 			return err
 		}
 
@@ -133,7 +135,7 @@ func (s *service) SelfRegister(ctx context.Context, req *SelfRegisterRequest) (*
 	// Send verification email if required
 	if s.selfRegConfig.RequireEmailVerification {
 		if err := s.sendVerificationEmail(ctx, newUser); err != nil {
-			slog.Error("failed to send verification email", "email", req.Email, "error", err)
+			s.logger.Error(ctx, "failed to send verification email", err, "email", req.Email)
 			// Don't fail registration, just log it
 		}
 	}
@@ -174,13 +176,14 @@ func (s *service) VerifyEmail(ctx context.Context, token string) error {
 
 	// Send welcome email (best effort)
 	go func() {
+		bgCtx := context.Background()
 		defer func() {
 			if r := recover(); r != nil {
-				slog.Error("panic sending welcome email", "recovered", r, "email", u.Email)
+				s.logger.Error(bgCtx, "panic sending welcome email", nil, "recovered", r, "email", u.Email)
 			}
 		}()
-		if err := s.emailSvc.SendWelcomeEmail(context.Background(), u.Email, u.Name); err != nil {
-			slog.Error("failed to send welcome email", "email", u.Email, "error", err)
+		if err := s.emailSvc.SendWelcomeEmail(bgCtx, u.Email, u.Name); err != nil {
+			s.logger.Error(bgCtx, "failed to send welcome email", err, "email", u.Email)
 		}
 	}()
 
@@ -192,7 +195,7 @@ func (s *service) ResendVerification(ctx context.Context, emailAddr string) erro
 	// Check rate limit
 	allowed, err := s.tokenStore.CheckRateLimit(ctx, emailAddr, "verification", verificationRateLimit, rateLimitWindow)
 	if err != nil {
-		slog.Error("rate limit check failed", "error", err)
+		s.logger.Error(ctx, "rate limit check failed", err)
 	} else if !allowed {
 		return ErrRateLimited
 	}
@@ -212,7 +215,7 @@ func (s *service) ResendVerification(ctx context.Context, emailAddr string) erro
 
 	// Send verification email
 	if err := s.sendVerificationEmail(ctx, u); err != nil {
-		slog.Error("failed to resend verification email", "email", emailAddr, "error", err)
+		s.logger.Error(ctx, "failed to resend verification email", err, "email", emailAddr)
 	}
 
 	return nil
@@ -223,7 +226,7 @@ func (s *service) ForgotPassword(ctx context.Context, emailAddr string) error {
 	// Check rate limit
 	allowed, err := s.tokenStore.CheckRateLimit(ctx, emailAddr, "password_reset", passwordResetRateLimit, rateLimitWindow)
 	if err != nil {
-		slog.Error("rate limit check failed", "error", err)
+		s.logger.Error(ctx, "rate limit check failed", err)
 	} else if !allowed {
 		return ErrRateLimited
 	}
@@ -248,7 +251,7 @@ func (s *service) ForgotPassword(ctx context.Context, emailAddr string) error {
 
 	// Send password reset email
 	if err := s.emailSvc.SendPasswordResetEmail(ctx, u.Email, u.Name, token); err != nil {
-		slog.Error("failed to send password reset email", "email", emailAddr, "error", err)
+		s.logger.Error(ctx, "failed to send password reset email", err, "email", emailAddr)
 	}
 
 	return nil
@@ -278,7 +281,7 @@ func (s *service) ResetPassword(ctx context.Context, req *ResetPasswordRequest) 
 
 	// Invalidate all existing sessions (security: revoke tokens on password reset)
 	if err := s.userTokenStore.InvalidateAllUserTokens(ctx, userID); err != nil {
-		slog.Error("failed to invalidate tokens after password reset", "userID", userID, "error", err)
+		s.logger.Error(ctx, "failed to invalidate tokens after password reset", err, "userID", userID)
 		// Don't fail the password reset, but log the error
 	}
 
@@ -354,14 +357,14 @@ func (s *service) HandleOAuthCallback(ctx context.Context, provider, code, state
 	// Exchange code for tokens (pass PKCE verifier from state)
 	tokens, err := p.ExchangeCode(ctx, code, stateData.PKCEVerifier)
 	if err != nil {
-		slog.Error("OAuth code exchange failed", "provider", provider, "error", err)
+		s.logger.Error(ctx, "OAuth code exchange failed", err, "provider", provider)
 		return nil, ErrOAuthCodeExchange
 	}
 
 	// Get user info
 	userInfo, err := p.GetUserInfo(ctx, tokens.AccessToken)
 	if err != nil {
-		slog.Error("OAuth get user info failed", "provider", provider, "error", err)
+		s.logger.Error(ctx, "OAuth get user info failed", err, "provider", provider)
 		return nil, ErrOAuthUserInfo
 	}
 

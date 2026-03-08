@@ -2,10 +2,10 @@ package audit
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
+	"github.com/voidmaindev/go-template/internal/common/logging"
 )
 
 // Service defines the audit service interface
@@ -24,12 +24,16 @@ type Service interface {
 
 // service implements the Service interface
 type service struct {
-	repo Repository
+	repo   Repository
+	logger *logging.Logger
 }
 
 // NewService creates a new audit service
 func NewService(repo Repository) Service {
-	return &service{repo: repo}
+	return &service{
+		repo:   repo,
+		logger: logging.New("audit"),
+	}
 }
 
 // Log creates an audit log entry synchronously
@@ -42,18 +46,17 @@ func (s *service) Log(ctx context.Context, entry *AuditEntry) error {
 // Errors are logged but do not affect the caller
 func (s *service) LogAsync(ctx context.Context, entry *AuditEntry) {
 	go func() {
+		bgCtx := context.Background()
 		defer func() {
 			if r := recover(); r != nil {
-				slog.Error("panic in async audit log", "recovered", r, "action", entry.Action)
+				s.logger.Error(bgCtx, "panic in async audit log", nil, "recovered", r, "action", entry.Action)
 			}
 		}()
 		// Use a background context to prevent cancellation from parent
-		bgCtx := context.Background()
 		if err := s.Log(bgCtx, entry); err != nil {
-			slog.Error("failed to create audit log",
+			s.logger.Error(bgCtx, "failed to create audit log", err,
 				"action", entry.Action,
 				"userID", entry.UserID,
-				"error", err,
 			)
 		}
 	}()

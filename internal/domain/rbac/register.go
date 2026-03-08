@@ -2,9 +2,9 @@ package rbac
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/voidmaindev/go-template/internal/common/logging"
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/middleware"
@@ -62,6 +62,8 @@ func (d *domain) Models() []any {
 
 // Register initializes repositories, services, and handlers
 func (d *domain) Register(c *container.Container) {
+	logger := logging.New(domainName)
+
 	// Initialize repository
 	repo := NewRepository(c.DB)
 	RepositoryKey.Set(c, repo)
@@ -69,7 +71,7 @@ func (d *domain) Register(c *container.Container) {
 	// Initialize Casbin enforcer
 	enforcer, err := NewEnforcer(c.DB, &c.Config.RBAC)
 	if err != nil {
-		slog.Error("failed to create RBAC enforcer", "error", err)
+		logger.Error(context.Background(), "failed to create RBAC enforcer", err)
 		panic(err)
 	}
 	EnforcerKey.Set(c, enforcer)
@@ -84,7 +86,7 @@ func (d *domain) Register(c *container.Container) {
 
 	// Sync global roles on startup
 	if err := service.SyncGlobalRoles(context.Background()); err != nil {
-		slog.Error("failed to sync global RBAC roles", "error", err)
+		logger.Error(context.Background(), "failed to sync global RBAC roles", err)
 	}
 }
 
