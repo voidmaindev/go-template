@@ -54,31 +54,7 @@ func NewRepository(db *gorm.DB) Repository {
 
 // FindAllWithCountry finds all cities with country preloaded
 func (r *repository) FindAllWithCountry(ctx context.Context, pagination *common.Pagination) ([]City, int64, error) {
-	var cities []City
-	var total int64
-
-	query := r.DB().WithContext(ctx).Model(&City{})
-
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	query = query.Preload("Country")
-	if pagination != nil {
-		pagination.Validate()
-		if orderClause := pagination.GetOrderClause(); orderClause != "" {
-			query = query.Order(orderClause)
-		} else {
-			query = query.Order("id DESC")
-		}
-		query = query.Offset(pagination.GetOffset()).Limit(pagination.GetLimit())
-	}
-
-	if err := query.Find(&cities).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return cities, total, nil
+	return r.WithPreload("Country").FindAll(ctx, pagination)
 }
 
 // FindByCountryID finds all cities by country ID
@@ -88,31 +64,7 @@ func (r *repository) FindByCountryID(ctx context.Context, countryID uint, pagina
 
 // FindByCountryIDWithCountry finds all cities by country ID with country preloaded
 func (r *repository) FindByCountryIDWithCountry(ctx context.Context, countryID uint, pagination *common.Pagination) ([]City, int64, error) {
-	var cities []City
-	var total int64
-
-	query := r.DB().WithContext(ctx).Model(&City{}).Where("country_id = ?", countryID)
-
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	query = query.Preload("Country")
-	if pagination != nil {
-		pagination.Validate()
-		if orderClause := pagination.GetOrderClause(); orderClause != "" {
-			query = query.Order(orderClause)
-		} else {
-			query = query.Order("id DESC")
-		}
-		query = query.Offset(pagination.GetOffset()).Limit(pagination.GetLimit())
-	}
-
-	if err := query.Find(&cities).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return cities, total, nil
+	return r.WithPreload("Country").FindByCondition(ctx, map[string]any{"country_id": countryID}, pagination)
 }
 
 // FindByName finds a city by name
@@ -135,26 +87,5 @@ func (r *repository) FindByIDWithCountry(ctx context.Context, id uint) (*City, e
 
 // FindAllFilteredWithCountry finds all cities with filtering, sorting, and country preloaded
 func (r *repository) FindAllFilteredWithCountry(ctx context.Context, params *filter.Params) ([]City, int64, error) {
-	var cities []City
-	var total int64
-	var city City
-
-	config := city.FilterConfig()
-
-	// Count query (without pagination)
-	countQuery := r.DB().WithContext(ctx).Model(&City{})
-	countQuery = filter.ApplyFiltersOnly(countQuery, config, params)
-	if err := countQuery.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	// Data query (with pagination, sorting, and preload)
-	query := r.DB().WithContext(ctx).Model(&City{}).Preload("Country")
-	query = filter.Apply(query, config, params)
-
-	if err := query.Find(&cities).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return cities, total, nil
+	return r.WithPreload("Country").FindAllFiltered(ctx, params)
 }
