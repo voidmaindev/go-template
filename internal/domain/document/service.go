@@ -129,6 +129,9 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	})
 
 	if err != nil {
+		if errors.IsDomainError(err) {
+			return nil, err // already a domain error from the transaction body
+		}
 		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
 
