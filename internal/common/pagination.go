@@ -252,6 +252,23 @@ func CalculateTotalPages(total int64, pageSize int) int {
 	return int(math.Ceil(float64(total) / float64(pageSize)))
 }
 
+// MapPaginatedResult transforms the data type of a PaginatedResult while preserving pagination metadata.
+// Useful for converting between model and DTO types in handlers.
+func MapPaginatedResult[T, U any](r *PaginatedResult[T], fn func(T) U) *PaginatedResult[U] {
+	data := make([]U, len(r.Data))
+	for i, v := range r.Data {
+		data[i] = fn(v)
+	}
+	return &PaginatedResult[U]{
+		Data:       data,
+		Total:      r.Total,
+		Page:       r.Page,
+		PageSize:   r.PageSize,
+		TotalPages: r.TotalPages,
+		HasMore:    r.HasMore,
+	}
+}
+
 // NewPaginatedResultFromFilter creates a PaginatedResult from filter.Params.
 func NewPaginatedResultFromFilter[T any](data []T, total int64, params *filter.Params) *PaginatedResult[T] {
 	if params == nil {

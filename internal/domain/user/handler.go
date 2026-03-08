@@ -319,6 +319,8 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 		case errors.Is(err, ErrUserNotFound), errors.Is(err, ErrInvalidPassword):
 			// Return generic error to prevent user enumeration
 			return common.BadRequestResponse(c, "current password is incorrect")
+		case errors.Is(err, ErrNoPassword):
+			return common.BadRequestResponse(c, "no password set, use set-password endpoint instead")
 		case errors.Is(err, ErrSamePassword):
 			return common.BadRequestResponse(c, "new password must be different")
 		default:
@@ -394,13 +396,9 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return common.HandleError(c, err)
 	}
 
-	// Convert to response DTOs
-	responses := make([]UserResponse, len(result.Data))
-	for i, user := range result.Data {
-		responses[i] = *user.ToResponse()
-	}
-
-	return common.SuccessResponse(c, common.NewPaginatedResultFromFilter(responses, result.Total, params))
+	return common.SuccessResponse(c, common.MapPaginatedResult(result, func(u User) UserResponse {
+		return *u.ToResponse()
+	}))
 }
 
 // Delete handles deleting a user
