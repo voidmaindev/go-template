@@ -11,9 +11,9 @@ import (
 // Repository defines the audit log repository interface
 type Repository interface {
 	Create(ctx context.Context, log *AuditLog) error
-	FindAll(ctx context.Context, pagination *common.Pagination) ([]*AuditLog, int64, error)
-	FindAllFiltered(ctx context.Context, params *filter.Params) ([]*AuditLog, int64, error)
-	FindByUserID(ctx context.Context, userID uint, pagination *common.Pagination) ([]*AuditLog, int64, error)
+	FindAll(ctx context.Context, pagination *common.Pagination) ([]AuditLog, int64, error)
+	FindAllFiltered(ctx context.Context, params *filter.Params) ([]AuditLog, int64, error)
+	FindByUserID(ctx context.Context, userID uint, pagination *common.Pagination) ([]AuditLog, int64, error)
 }
 
 // repository implements the Repository interface
@@ -32,8 +32,8 @@ func (r *repository) Create(ctx context.Context, log *AuditLog) error {
 }
 
 // FindAll retrieves audit logs with pagination
-func (r *repository) FindAll(ctx context.Context, pagination *common.Pagination) ([]*AuditLog, int64, error) {
-	var logs []*AuditLog
+func (r *repository) FindAll(ctx context.Context, pagination *common.Pagination) ([]AuditLog, int64, error) {
+	var logs []AuditLog
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&AuditLog{})
@@ -54,8 +54,8 @@ func (r *repository) FindAll(ctx context.Context, pagination *common.Pagination)
 }
 
 // FindAllFiltered retrieves audit logs with dynamic filtering
-func (r *repository) FindAllFiltered(ctx context.Context, params *filter.Params) ([]*AuditLog, int64, error) {
-	var logs []*AuditLog
+func (r *repository) FindAllFiltered(ctx context.Context, params *filter.Params) ([]AuditLog, int64, error) {
+	var logs []AuditLog
 	var total int64
 
 	config := AuditLog{}.FilterConfig()
@@ -78,8 +78,8 @@ func (r *repository) FindAllFiltered(ctx context.Context, params *filter.Params)
 }
 
 // FindByUserID retrieves audit logs for a specific user
-func (r *repository) FindByUserID(ctx context.Context, userID uint, pagination *common.Pagination) ([]*AuditLog, int64, error) {
-	var logs []*AuditLog
+func (r *repository) FindByUserID(ctx context.Context, userID uint, pagination *common.Pagination) ([]AuditLog, int64, error) {
+	var logs []AuditLog
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&AuditLog{}).Where("user_id = ?", userID)

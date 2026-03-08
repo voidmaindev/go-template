@@ -1,6 +1,8 @@
 package audit
 
 import (
+	"context"
+
 	"github.com/casbin/casbin/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/container"
@@ -20,8 +22,10 @@ var (
 	HandlerKey    = container.Key[*Handler]("audit.handler")
 )
 
-// domain implements container.Domain interface
-type domain struct{}
+// domain implements container.Domain and container.Shutdowner interfaces
+type domain struct {
+	svc *service
+}
 
 // NewDomain creates a new audit domain for registration
 func NewDomain() container.Domain {
@@ -46,13 +50,22 @@ func (d *domain) Register(c *container.Container) {
 	repo := NewRepository(c.DB)
 	RepositoryKey.Set(c, repo)
 
-	// Initialize service
-	service := NewService(repo)
-	ServiceKey.Set(c, service)
+	// Initialize service (store concrete type for shutdown access)
+	svc := NewService(repo)
+	d.svc = svc
+	ServiceKey.Set(c, svc)
 
 	// Initialize handler
-	handler := NewHandler(service)
+	handler := NewHandler(svc)
 	HandlerKey.Set(c, handler)
+}
+
+// Shutdown drains the audit worker queue during graceful shutdown.
+func (d *domain) Shutdown(ctx context.Context) error {
+	if d.svc != nil {
+		return d.svc.Shutdown(ctx)
+	}
+	return nil
 }
 
 // Routes registers HTTP routes for this domain
