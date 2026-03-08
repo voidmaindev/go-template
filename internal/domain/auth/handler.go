@@ -2,7 +2,6 @@ package auth
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/url"
 
 	"github.com/gofiber/fiber/v2"
@@ -323,55 +322,3 @@ func toUtilsJWTConfig(cfg *config.JWTConfig) *utils.JWTConfig {
 	}
 }
 
-// renderOAuthSuccessHTML renders an HTML page that stores tokens in localStorage and closes the popup
-func renderOAuthSuccessHTML(c *fiber.Ctx, tokenPair *utils.TokenPair, u *user.User) error {
-	// Create the auth data structure matching the frontend's Zustand store format
-	authData := map[string]any{
-		"state": map[string]any{
-			"accessToken":              tokenPair.AccessToken,
-			"refreshToken":             tokenPair.RefreshToken,
-			"expiresAt":                tokenPair.ExpiresAt,
-			"user":                     u.ToResponse(),
-			"isAuthenticated":          true,
-			"pendingVerificationEmail": nil,
-		},
-		"version": 0,
-	}
-
-	authJSON, err := json.Marshal(authData)
-	if err != nil {
-		return common.InternalServerErrorResponse(c)
-	}
-
-	html := fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head>
-    <title>Authentication Successful</title>
-    <style>
-        body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0a0a0f; color: #fff; }
-        .container { text-align: center; }
-        .success { color: #00ffaa; font-size: 24px; margin-bottom: 10px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="success">✓ Authentication Successful</div>
-        <p>Closing window...</p>
-    </div>
-    <script>
-        try {
-            localStorage.setItem('auth-storage', %s);
-            if (window.opener) {
-                window.opener.postMessage({ type: 'oauth-success' }, '*');
-            }
-        } catch (e) {
-            console.error('Failed to store auth data:', e);
-        }
-        setTimeout(function() { window.close(); }, 500);
-    </script>
-</body>
-</html>`, string(authJSON))
-
-	c.Set("Content-Type", "text/html; charset=utf-8")
-	return c.SendString(html)
-}
