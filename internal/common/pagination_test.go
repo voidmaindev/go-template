@@ -4,55 +4,6 @@ import (
 	"testing"
 )
 
-func TestPagination_IsSortValid(t *testing.T) {
-	tests := []struct {
-		name     string
-		sort     string
-		expected bool
-	}{
-		// Valid cases
-		{"empty sort is valid", "", true},
-		{"id is valid", "id", true},
-		{"created_at is valid", "created_at", true},
-		{"updated_at is valid", "updated_at", true},
-		{"name is valid", "name", true},
-		{"email is valid", "email", true},
-		{"price is valid", "price", true},
-		{"uppercase ID is valid", "ID", true},
-		{"mixed case Name is valid", "Name", true},
-
-		// Invalid cases - SQL injection attempts
-		{"SQL injection DROP TABLE", "id; DROP TABLE users;--", false},
-		{"SQL injection UNION", "id UNION SELECT * FROM users", false},
-		{"SQL injection semicolon", "id;", false},
-		{"SQL injection quote", "id'", false},
-		{"SQL injection double quote", `id"`, false},
-		{"SQL injection comment", "id--", false},
-		{"SQL injection OR", "id OR 1=1", false},
-		{"SQL injection parentheses", "id()", false},
-
-		// Invalid cases - not in allowlist
-		{"unknown field", "unknown_field", false},
-		{"password field", "password", false},
-		{"secret field", "secret", false},
-
-		// Invalid format
-		{"starts with number", "1id", false},
-		{"contains space", "id name", false},
-		{"contains dash", "created-at", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := &Pagination{Sort: tt.sort}
-			got := p.IsSortValid()
-			if got != tt.expected {
-				t.Errorf("IsSortValid() = %v, want %v for sort=%q", got, tt.expected, tt.sort)
-			}
-		})
-	}
-}
-
 func TestPagination_GetOrderClause_Sanitizes(t *testing.T) {
 	tests := []struct {
 		name          string

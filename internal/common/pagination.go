@@ -54,35 +54,16 @@ func GetMaxPageSize() int {
 	return maxPageSize
 }
 
-// AllowedSortFields defines valid sort column names to prevent SQL injection.
-// Only lowercase snake_case field names are allowed.
-//
-// Deprecated: Use filter.Config with Sortable field per-model instead.
-// This global whitelist violates Open/Closed Principle - adding new sortable
-// fields requires modifying this common code. Prefer using ValidateSortWithConfig()
-// or the filter.Apply() function which uses per-model FilterConfig.
-var AllowedSortFields = map[string]bool{
-	"id":           true,
-	"created_at":   true,
-	"updated_at":   true,
-	"name":         true,
-	"email":        true,
-	"code":         true,
-	"price":        true,
-	"total_amount": true,
-	"quantity":     true,
-	"population":   true,
-}
-
 // sortFieldRegex validates sort field format (alphanumeric and underscores only)
 var sortFieldRegex = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // Pagination holds pagination parameters
 type Pagination struct {
-	Page     int    `query:"page" json:"page"`
-	PageSize int    `query:"page_size" json:"page_size"`
-	Sort     string `query:"sort" json:"sort"`
-	Order    string `query:"order" json:"order"` // "asc" or "desc"
+	Page      int    `query:"page" json:"page"`
+	PageSize  int    `query:"page_size" json:"page_size"`
+	Sort      string `query:"sort" json:"sort"`
+	Order     string `query:"order" json:"order"` // "asc" or "desc"
+	validated bool   // cached validation flag to avoid redundant Validate() calls
 }
 
 // PaginatedResult wraps paginated data with metadata
@@ -131,7 +112,7 @@ func PaginationFromQuery(c *fiber.Ctx, defaultSort ...string) *Pagination {
 		Page:     c.QueryInt("page", DefaultPage),
 		PageSize: c.QueryInt("page_size", GetDefaultPageSize()),
 		Sort:     sort,
-		Order:    c.Query("order", "asc"),
+		Order:    c.Query("order", "desc"),
 	}
 	p.Validate()
 	return p
@@ -144,14 +125,20 @@ func PaginationFromOptional(page, pageSize *int, sort, order *string) *Paginatio
 		Page:     ptr.DerefOr(page, DefaultPage),
 		PageSize: ptr.DerefOr(pageSize, GetDefaultPageSize()),
 		Sort:     ptr.DerefOr(sort, ""),
-		Order:    ptr.DerefOr(order, "asc"),
+		Order:    ptr.DerefOr(order, "desc"),
 	}
 	p.Validate()
 	return p
 }
 
-// Validate ensures pagination values are within acceptable ranges
+// Validate ensures pagination values are within acceptable ranges.
+// Uses a cached flag so repeated calls are a no-op.
 func (p *Pagination) Validate() {
+	if p.validated {
+		return
+	}
+	defer func() { p.validated = true }()
+
 	if p.Page < 1 {
 		p.Page = DefaultPage
 	}
@@ -171,39 +158,15 @@ func (p *Pagination) Validate() {
 		p.Order = "desc"
 	}
 
-	// Validate and sanitize sort field
-	if p.Sort != "" && !p.isValidSortField() {
-		p.Sort = "" // Reset invalid sort to default
+	// Validate and sanitize sort field format (must be lowercase alphanumeric with underscores).
+	// Actual field-level validation (is the field sortable?) is handled per-model
+	// via IsSortValidForConfig / ValidateSortWithConfig.
+	if p.Sort != "" {
+		p.Sort = strings.ToLower(p.Sort)
+		if !sortFieldRegex.MatchString(p.Sort) {
+			p.Sort = "" // Reset invalid sort to default
+		}
 	}
-}
-
-// isValidSortField checks if the sort field is safe to use in SQL
-func (p *Pagination) isValidSortField() bool {
-	if p.Sort == "" {
-		return true
-	}
-
-	// Normalize to lowercase
-	sort := strings.ToLower(p.Sort)
-
-	// Check against allowlist
-	if !AllowedSortFields[sort] {
-		return false
-	}
-
-	// Additional regex check to ensure format is safe
-	return sortFieldRegex.MatchString(sort)
-}
-
-// IsSortValid returns whether the current sort field is valid
-// Use this to check before processing if you want to return an error
-//
-// Deprecated: Use IsSortValidForConfig for per-model validation.
-func (p *Pagination) IsSortValid() bool {
-	if p.Sort == "" {
-		return true
-	}
-	return p.isValidSortField()
 }
 
 // IsSortValidForConfig validates the sort field against a model's filter.Config.
