@@ -44,7 +44,7 @@ func (r *BaseRepository[T]) FindByID(ctx context.Context, id uint) (*T, error) {
 	var entity T
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.First(&entity, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, commonerrors.NotFound(repositoryDomain, "entity")
 		}
 		return nil, err
@@ -137,7 +137,7 @@ func (r *BaseRepository[T]) FindOne(ctx context.Context, condition map[string]an
 	var entity T
 	query := r.applyPreloads(r.db.WithContext(ctx))
 	if err := query.Where(condition).First(&entity).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, commonerrors.NotFound(repositoryDomain, "entity")
 		}
 		return nil, err

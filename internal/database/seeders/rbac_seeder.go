@@ -1,6 +1,7 @@
 package seeders
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -79,7 +80,7 @@ func (s *RBACSeeder) Run(db *gorm.DB, cfg *config.Config) error {
 	var adminUser user.User
 	result := db.Where("email = ?", adminEmail).First(&adminUser)
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			slog.Warn("admin user not found - run AdminUserSeeder first", "email", adminEmail)
 			return nil // Don't fail, admin user will be assigned role on next run
 		}

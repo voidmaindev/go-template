@@ -2,6 +2,7 @@ package city
 
 import (
 	"context"
+	"errors"
 
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
@@ -124,7 +125,7 @@ func (r *repository) FindByIDWithCountry(ctx context.Context, id uint) (*City, e
 	var city City
 	err := r.DB().WithContext(ctx).Preload("Country").First(&city, id).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrCityNotFound
 		}
 		return nil, err

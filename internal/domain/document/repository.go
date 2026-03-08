@@ -2,6 +2,7 @@ package document
 
 import (
 	"context"
+	"errors"
 
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
@@ -91,7 +92,7 @@ func (r *repository) FindByIDWithDetails(ctx context.Context, id uint) (*Documen
 		Preload("Items.Item").
 		First(&doc, id).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrDocumentNotFound
 		}
 		return nil, err
