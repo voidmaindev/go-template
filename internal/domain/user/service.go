@@ -431,6 +431,21 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
+	// Invalidate all existing tokens for this user (security: revoke sessions on deletion)
+	if err := s.tokenStore.InvalidateAllUserTokens(ctx, id); err != nil {
+		s.logger.Error(ctx, "failed to invalidate tokens after user deletion", err, "userID", id)
+	}
+
+	// Remove RBAC role assignments (cleanup orphaned Casbin policies)
+	if s.enforcer != nil {
+		subject := rbac.FormatUserSubject(id)
+		if _, err := s.enforcer.RemoveFilteredGroupingPolicy(0, subject); err != nil {
+			s.logger.Error(ctx, "failed to remove RBAC roles after user deletion", err, "userID", id)
+		} else if err := s.enforcer.SavePolicy(); err != nil {
+			s.logger.Error(ctx, "failed to save RBAC policy after user deletion", err, "userID", id)
+		}
+	}
+
 	// Record metric
 	telemetry.IncrementUsersDeleted()
 

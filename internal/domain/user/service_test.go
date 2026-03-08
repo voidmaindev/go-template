@@ -13,6 +13,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/common"
 	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
+	"github.com/voidmaindev/go-template/internal/common/logging"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/pkg/ptr"
@@ -849,6 +850,8 @@ func TestService_Delete(t *testing.T) {
 		jwtConfig:     cfg,
 		selfRegConfig: getTestSelfRegConfig(),
 		rbacSvc:       newMockRbacService(),
+		enforcer:      createTestEnforcer(t),
+		logger:        logging.New("user"),
 	}
 
 	repo.Create(context.Background(), &User{
@@ -917,6 +920,58 @@ func TestService_Delete(t *testing.T) {
 
 		// Reset error
 		repo.deleteExtIdentityErr = nil
+	})
+
+	t.Run("delete invalidates tokens and removes RBAC roles", func(t *testing.T) {
+		// Create a fresh service with its own enforcer to isolate state
+		enforcer := createTestEnforcer(t)
+		deleteRepo := newMockRepository()
+		deleteSvc := &service{
+			repo:          deleteRepo,
+			tokenStore:    &TokenStore{},
+			jwtConfig:     cfg,
+			selfRegConfig: getTestSelfRegConfig(),
+			rbacSvc:       newMockRbacService(),
+			enforcer:      enforcer,
+			logger:        logging.New("user"),
+		}
+
+		deleteRepo.Create(context.Background(), &User{
+			Email:    "rbac@example.com",
+			Password: ptr.To("hashedpwd"),
+			Name:     "RBAC User",
+		})
+		userID := uint(1)
+
+		// Assign a role via enforcer (in-memory only, no SavePolicy needed for tests)
+		subject := rbac.FormatUserSubject(userID)
+		_, err := enforcer.AddGroupingPolicy(subject, "admin")
+		if err != nil {
+			t.Fatalf("AddGroupingPolicy() error = %v", err)
+		}
+
+		// Verify role exists before delete
+		roles, err := enforcer.GetRolesForUser(subject)
+		if err != nil {
+			t.Fatalf("GetRolesForUser() error = %v", err)
+		}
+		if len(roles) != 1 || roles[0] != "admin" {
+			t.Fatalf("Expected [admin] role, got %v", roles)
+		}
+
+		// Delete user
+		if err := deleteSvc.Delete(context.Background(), userID); err != nil {
+			t.Fatalf("Delete() error = %v", err)
+		}
+
+		// Verify roles are removed after delete
+		roles, err = enforcer.GetRolesForUser(subject)
+		if err != nil {
+			t.Fatalf("GetRolesForUser() error = %v", err)
+		}
+		if len(roles) != 0 {
+			t.Errorf("Expected no roles after delete, got %v", roles)
+		}
 	})
 }
 
