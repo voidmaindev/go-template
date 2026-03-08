@@ -33,6 +33,13 @@ type Repository interface {
 
 	// UpdateTotalAmount updates the total amount of a document
 	UpdateTotalAmount(ctx context.Context, id uint, totalAmount int64) error
+
+	// RunTransaction runs a function within a database transaction, providing the
+	// raw *gorm.DB for cross-repository transactions (e.g., document + item repos).
+	RunTransaction(ctx context.Context, fn func(tx *gorm.DB) error) error
+
+	// WithDocTx returns a document repository scoped to the given transaction.
+	WithDocTx(tx *gorm.DB) Repository
 }
 
 // ItemRepository defines the document item repository interface
@@ -47,25 +54,25 @@ type ItemRepository interface {
 
 	// DeleteByDocumentID deletes all items for a document
 	DeleteByDocumentID(ctx context.Context, documentID uint) error
+
+	// WithItemTx returns an item repository scoped to the given transaction.
+	WithItemTx(tx *gorm.DB) ItemRepository
 }
 
 // repository implements the Repository interface
 type repository struct {
 	*common.BaseRepository[Document]
-	db *gorm.DB
 }
 
 // itemRepository implements the ItemRepository interface
 type itemRepository struct {
 	*common.BaseRepository[DocumentItem]
-	db *gorm.DB
 }
 
 // NewRepository creates a new document repository
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{
 		BaseRepository: common.NewBaseRepository[Document](db, "document"),
-		db:             db,
 	}
 }
 
@@ -73,7 +80,6 @@ func NewRepository(db *gorm.DB) Repository {
 func NewItemRepository(db *gorm.DB) ItemRepository {
 	return &itemRepository{
 		BaseRepository: common.NewBaseRepository[DocumentItem](db, "document item"),
-		db:             db,
 	}
 }
 
@@ -85,7 +91,7 @@ func (r *repository) FindByCode(ctx context.Context, code string) (*Document, er
 // FindByIDWithDetails finds a document with all related data
 func (r *repository) FindByIDWithDetails(ctx context.Context, id uint) (*Document, error) {
 	var doc Document
-	err := r.db.WithContext(ctx).
+	err := r.DB().WithContext(ctx).
 		Preload("City").
 		Preload("City.Country").
 		Preload("Items").
@@ -102,57 +108,12 @@ func (r *repository) FindByIDWithDetails(ctx context.Context, id uint) (*Documen
 
 // FindAllWithCity finds all documents with city preloaded
 func (r *repository) FindAllWithCity(ctx context.Context, pagination *common.Pagination) ([]Document, int64, error) {
-	var docs []Document
-	var total int64
-
-	query := r.db.WithContext(ctx).Model(&Document{})
-
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	query = query.Preload("City")
-	if pagination != nil {
-		pagination.Validate()
-		if orderClause := pagination.GetOrderClause(); orderClause != "" {
-			query = query.Order(orderClause)
-		} else {
-			query = query.Order("id DESC")
-		}
-		query = query.Offset(pagination.GetOffset()).Limit(pagination.GetLimit())
-	}
-
-	if err := query.Find(&docs).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return docs, total, nil
+	return r.WithPreload("City").FindAll(ctx, pagination)
 }
 
 // FindAllFilteredWithCity finds all documents with filtering, sorting, and city preloaded
 func (r *repository) FindAllFilteredWithCity(ctx context.Context, params *filter.Params) ([]Document, int64, error) {
-	var docs []Document
-	var total int64
-	var doc Document
-
-	config := doc.FilterConfig()
-
-	// Count query (without pagination)
-	countQuery := r.db.WithContext(ctx).Model(&Document{})
-	countQuery = filter.ApplyFiltersOnly(countQuery, config, params)
-	if err := countQuery.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	// Data query (with pagination, sorting, and preload)
-	query := r.db.WithContext(ctx).Model(&Document{}).Preload("City")
-	query = filter.Apply(query, config, params)
-
-	if err := query.Find(&docs).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return docs, total, nil
+	return r.WithPreload("City").FindAllFiltered(ctx, params)
 }
 
 // FindByCityID finds all documents by city ID
@@ -173,18 +134,38 @@ func (r *repository) UpdateTotalAmount(ctx context.Context, id uint, totalAmount
 // FindByDocumentID finds all items for a document
 func (r *itemRepository) FindByDocumentID(ctx context.Context, documentID uint) ([]DocumentItem, error) {
 	var items []DocumentItem
-	err := r.db.WithContext(ctx).Where("document_id = ?", documentID).Find(&items).Error
+	err := r.DB().WithContext(ctx).Where("document_id = ?", documentID).Find(&items).Error
 	return items, err
 }
 
 // FindByDocumentIDWithItem finds all items with item preloaded
 func (r *itemRepository) FindByDocumentIDWithItem(ctx context.Context, documentID uint) ([]DocumentItem, error) {
 	var items []DocumentItem
-	err := r.db.WithContext(ctx).Preload("Item").Where("document_id = ?", documentID).Find(&items).Error
+	err := r.DB().WithContext(ctx).Preload("Item").Where("document_id = ?", documentID).Find(&items).Error
 	return items, err
 }
 
 // DeleteByDocumentID deletes all items for a document
 func (r *itemRepository) DeleteByDocumentID(ctx context.Context, documentID uint) error {
-	return r.db.WithContext(ctx).Where("document_id = ?", documentID).Delete(&DocumentItem{}).Error
+	return r.DB().WithContext(ctx).Where("document_id = ?", documentID).Delete(&DocumentItem{}).Error
+}
+
+// RunTransaction runs a function within a database transaction, providing the
+// raw *gorm.DB for cross-repository transactions.
+func (r *repository) RunTransaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	return r.DB().WithContext(ctx).Transaction(fn)
+}
+
+// WithDocTx returns a document repository scoped to the given transaction.
+func (r *repository) WithDocTx(tx *gorm.DB) Repository {
+	return &repository{
+		BaseRepository: common.NewBaseRepository[Document](tx, "document"),
+	}
+}
+
+// WithItemTx returns an item repository scoped to the given transaction.
+func (r *itemRepository) WithItemTx(tx *gorm.DB) ItemRepository {
+	return &itemRepository{
+		BaseRepository: common.NewBaseRepository[DocumentItem](tx, "document item"),
+	}
 }

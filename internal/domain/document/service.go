@@ -9,6 +9,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/city"
 	"github.com/voidmaindev/go-template/internal/domain/item"
 	"github.com/voidmaindev/go-template/pkg/utils"
+	"gorm.io/gorm"
 )
 
 // CityReader is the minimal interface for city lookups.
@@ -70,8 +71,7 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	}
 
 	// Validate city exists
-	cityEntity, err := s.cityRepo.FindByID(ctx, req.CityID)
-	if err != nil {
+	if _, err := s.cityRepo.FindByID(ctx, req.CityID); err != nil {
 		if errors.IsNotFound(err) {
 			return nil, ErrCityNotFound
 		}
@@ -80,8 +80,7 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 
 	// Validate all items exist
 	for _, itemReq := range req.Items {
-		_, err := s.productRepo.FindByID(ctx, itemReq.ItemID)
-		if err != nil {
+		if _, err := s.productRepo.FindByID(ctx, itemReq.ItemID); err != nil {
 			if errors.IsNotFound(err) {
 				return nil, ErrItemNotFound
 			}
@@ -97,9 +96,12 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 		TotalAmount:  0,
 	}
 
-	// Use transaction
-	err = s.repo.Transaction(ctx, func(txRepo common.Repository[Document]) error {
-		if err := txRepo.Create(ctx, doc); err != nil {
+	// Use transaction covering both document and item repos
+	err = s.repo.RunTransaction(ctx, func(tx *gorm.DB) error {
+		txDocRepo := s.repo.WithDocTx(tx)
+		txItemRepo := s.itemRepo.WithItemTx(tx)
+
+		if err := txDocRepo.Create(ctx, doc); err != nil {
 			return errors.Internal(domainName, err).WithOperation("Create.Document")
 		}
 
@@ -112,7 +114,7 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 				Quantity:   itemReq.Quantity,
 				Price:      itemReq.Price,
 			}
-			if err := s.itemRepo.Create(ctx, docItem); err != nil {
+			if err := txItemRepo.Create(ctx, docItem); err != nil {
 				return errors.Internal(domainName, err).WithOperation("Create.DocumentItem")
 			}
 			totalAmount += docItem.GetLineTotal()
@@ -120,7 +122,7 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 
 		// Update total amount
 		doc.TotalAmount = totalAmount
-		if err := s.repo.UpdateTotalAmount(ctx, doc.ID, totalAmount); err != nil {
+		if err := txDocRepo.UpdateTotalAmount(ctx, doc.ID, totalAmount); err != nil {
 			return errors.Internal(domainName, err).WithOperation("Create.UpdateTotalAmount")
 		}
 		return nil
@@ -135,7 +137,6 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
-	_ = cityEntity // Used for validation
 	return result, nil
 }
 
@@ -215,7 +216,7 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateDocumentReques
 	return result, nil
 }
 
-// Delete soft-deletes a document and its items
+// Delete soft-deletes a document and its items within a single transaction
 func (s *service) Delete(ctx context.Context, id uint) error {
 	_, err := s.repo.FindByID(ctx, id)
 	if err != nil {
@@ -225,15 +226,18 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	// Delete items first
-	if err := s.itemRepo.DeleteByDocumentID(ctx, id); err != nil {
-		return errors.Internal(domainName, err).WithOperation("Delete")
-	}
+	return s.repo.RunTransaction(ctx, func(tx *gorm.DB) error {
+		txItemRepo := s.itemRepo.WithItemTx(tx)
+		txDocRepo := s.repo.WithDocTx(tx)
 
-	if err := s.repo.Delete(ctx, id); err != nil {
-		return errors.Internal(domainName, err).WithOperation("Delete")
-	}
-	return nil
+		if err := txItemRepo.DeleteByDocumentID(ctx, id); err != nil {
+			return errors.Internal(domainName, err).WithOperation("Delete.Items")
+		}
+		if err := txDocRepo.Delete(ctx, id); err != nil {
+			return errors.Internal(domainName, err).WithOperation("Delete.Document")
+		}
+		return nil
+	})
 }
 
 // List retrieves all documents with pagination
@@ -256,7 +260,7 @@ func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*com
 	return common.NewPaginatedResultFromFilter(docs, total, params), nil
 }
 
-// AddItem adds an item to a document
+// AddItem adds an item to a document within a transaction
 func (s *service) AddItem(ctx context.Context, documentID uint, req *AddDocumentItemRequest) (*DocumentItem, error) {
 	// Validate document exists
 	_, err := s.repo.FindByID(ctx, documentID)
@@ -284,12 +288,17 @@ func (s *service) AddItem(ctx context.Context, documentID uint, req *AddDocument
 		Price:      req.Price,
 	}
 
-	if err := s.itemRepo.Create(ctx, docItem); err != nil {
-		return nil, errors.Internal(domainName, err).WithOperation("AddItem")
-	}
+	// Create item and recalculate total atomically
+	err = s.repo.RunTransaction(ctx, func(tx *gorm.DB) error {
+		txItemRepo := s.itemRepo.WithItemTx(tx)
+		txDocRepo := s.repo.WithDocTx(tx)
 
-	// Recalculate total
-	if err := s.recalculateTotal(ctx, documentID); err != nil {
+		if err := txItemRepo.Create(ctx, docItem); err != nil {
+			return errors.Internal(domainName, err).WithOperation("AddItem.Create")
+		}
+		return s.recalculateTotalTx(ctx, txItemRepo, txDocRepo, documentID)
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -298,7 +307,7 @@ func (s *service) AddItem(ctx context.Context, documentID uint, req *AddDocument
 	return docItem, nil
 }
 
-// UpdateItem updates a document item
+// UpdateItem updates a document item within a transaction
 func (s *service) UpdateItem(ctx context.Context, documentID, itemID uint, req *UpdateDocumentItemRequest) (*DocumentItem, error) {
 	// Validate document exists
 	_, err := s.repo.FindByID(ctx, documentID)
@@ -326,19 +335,24 @@ func (s *service) UpdateItem(ctx context.Context, documentID, itemID uint, req *
 		return nil, errors.Internal(domainName, err).WithOperation("UpdateItem")
 	}
 
-	if err := s.itemRepo.Update(ctx, docItem); err != nil {
-		return nil, errors.Internal(domainName, err).WithOperation("UpdateItem")
-	}
+	// Update item and recalculate total atomically
+	err = s.repo.RunTransaction(ctx, func(tx *gorm.DB) error {
+		txItemRepo := s.itemRepo.WithItemTx(tx)
+		txDocRepo := s.repo.WithDocTx(tx)
 
-	// Recalculate total
-	if err := s.recalculateTotal(ctx, documentID); err != nil {
+		if err := txItemRepo.Update(ctx, docItem); err != nil {
+			return errors.Internal(domainName, err).WithOperation("UpdateItem.Update")
+		}
+		return s.recalculateTotalTx(ctx, txItemRepo, txDocRepo, documentID)
+	})
+	if err != nil {
 		return nil, err
 	}
 
 	return docItem, nil
 }
 
-// RemoveItem removes an item from a document
+// RemoveItem removes an item from a document within a transaction
 func (s *service) RemoveItem(ctx context.Context, documentID, itemID uint) error {
 	// Validate document exists
 	_, err := s.repo.FindByID(ctx, documentID)
@@ -361,17 +375,21 @@ func (s *service) RemoveItem(ctx context.Context, documentID, itemID uint) error
 		return ErrDocumentItemNotFound
 	}
 
-	if err := s.itemRepo.Delete(ctx, itemID); err != nil {
-		return errors.Internal(domainName, err).WithOperation("RemoveItem")
-	}
+	// Delete item and recalculate total atomically
+	return s.repo.RunTransaction(ctx, func(tx *gorm.DB) error {
+		txItemRepo := s.itemRepo.WithItemTx(tx)
+		txDocRepo := s.repo.WithDocTx(tx)
 
-	// Recalculate total
-	return s.recalculateTotal(ctx, documentID)
+		if err := txItemRepo.Delete(ctx, itemID); err != nil {
+			return errors.Internal(domainName, err).WithOperation("RemoveItem.Delete")
+		}
+		return s.recalculateTotalTx(ctx, txItemRepo, txDocRepo, documentID)
+	})
 }
 
-// recalculateTotal recalculates the total amount of a document
-func (s *service) recalculateTotal(ctx context.Context, documentID uint) error {
-	items, err := s.itemRepo.FindByDocumentID(ctx, documentID)
+// recalculateTotalTx recalculates the total amount of a document within a transaction
+func (s *service) recalculateTotalTx(ctx context.Context, txItemRepo ItemRepository, txDocRepo Repository, documentID uint) error {
+	items, err := txItemRepo.FindByDocumentID(ctx, documentID)
 	if err != nil {
 		return errors.Internal(domainName, err).WithOperation("recalculateTotal")
 	}
@@ -381,7 +399,7 @@ func (s *service) recalculateTotal(ctx context.Context, documentID uint) error {
 		total += item.GetLineTotal()
 	}
 
-	if err := s.repo.UpdateTotalAmount(ctx, documentID, total); err != nil {
+	if err := txDocRepo.UpdateTotalAmount(ctx, documentID, total); err != nil {
 		return errors.Internal(domainName, err).WithOperation("recalculateTotal")
 	}
 	return nil
