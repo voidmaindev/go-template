@@ -27,6 +27,7 @@ var (
 
 	// ErrTokenRefreshUnavailable is returned when token refresh fails
 	ErrTokenRefreshUnavailable = errors.New(domainName, errors.CodeInternal).
+					WithStack().
 					WithMessage("token refresh temporarily unavailable")
 
 	// ErrTokenExpired is returned when a token has expired

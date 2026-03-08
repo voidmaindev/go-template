@@ -51,16 +51,20 @@ func ForbiddenWithMessage(domain, message string) *DomainError {
 		WithMessage(message)
 }
 
-// Internal creates an internal error wrapping another error
+// Internal creates an internal error wrapping another error.
+// Stack trace is captured automatically since internal errors are unexpected.
 func Internal(domain string, cause error) *DomainError {
 	return New(domain, CodeInternal).
+		WithStack().
 		WithMessage("internal error").
 		WithCause(cause)
 }
 
-// InternalWithMessage creates an internal error with custom message
+// InternalWithMessage creates an internal error with custom message.
+// Stack trace is captured automatically since internal errors are unexpected.
 func InternalWithMessage(domain, message string, cause error) *DomainError {
 	return New(domain, CodeInternal).
+		WithStack().
 		WithMessage(message).
 		WithCause(cause)
 }

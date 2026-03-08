@@ -43,5 +43,6 @@ var (
 
 	// ErrEnforcerNotInitialized is returned when the enforcer is not initialized
 	ErrEnforcerNotInitialized = errors.New(domainName, errors.CodeInternal).
+					WithStack().
 					WithMessage("RBAC enforcer not initialized")
 )

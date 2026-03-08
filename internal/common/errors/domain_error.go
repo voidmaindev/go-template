@@ -18,13 +18,22 @@ type DomainError struct {
 	stack     []uintptr
 }
 
-// New creates a new DomainError for a specific domain and error code
+// New creates a new DomainError for a specific domain and error code.
+// Stack traces are not captured by default for performance; use WithStack()
+// to opt in for unexpected/internal errors where a stack trace is valuable.
 func New(domain string, code ErrorCode) *DomainError {
 	return &DomainError{
 		Domain: domain,
 		Code:   code,
-		stack:  captureStack(),
 	}
+}
+
+// WithStack captures a stack trace at the call site and attaches it to the error.
+// Use this for unexpected/internal errors where a stack trace aids debugging.
+// Expected errors (NotFound, Unauthorized, ValidationError, etc.) should not capture stacks.
+func (e *DomainError) WithStack() *DomainError {
+	e.stack = captureStack()
+	return e
 }
 
 // WithMessage sets the error message
@@ -134,7 +143,8 @@ func (e *DomainError) StackTrace() string {
 	return trace
 }
 
-// Clone creates a copy of the error with a new stack trace
+// Clone creates a shallow copy of the error, preserving the existing stack trace.
+// Details are deep-copied to prevent mutation of the original.
 func (e *DomainError) Clone() *DomainError {
 	clone := &DomainError{
 		Code:      e.Code,
@@ -144,7 +154,10 @@ func (e *DomainError) Clone() *DomainError {
 		Cause:     e.Cause,
 		RequestID: e.RequestID,
 		TraceID:   e.TraceID,
-		stack:     captureStack(),
+	}
+	if len(e.stack) > 0 {
+		clone.stack = make([]uintptr, len(e.stack))
+		copy(clone.stack, e.stack)
 	}
 	if e.Details != nil {
 		clone.Details = make(map[string]any, len(e.Details))

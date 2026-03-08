@@ -15,8 +15,21 @@ func TestNew(t *testing.T) {
 	if err.Code != CodeNotFound {
 		t.Errorf("expected code CodeNotFound, got '%s'", err.Code)
 	}
+	if len(err.stack) != 0 {
+		t.Error("expected no stack trace by default (opt-in via WithStack)")
+	}
+}
+
+func TestWithStack(t *testing.T) {
+	err := New("user", CodeInternal).WithStack()
+
 	if len(err.stack) == 0 {
-		t.Error("expected stack trace to be captured")
+		t.Error("expected stack trace to be captured via WithStack")
+	}
+
+	trace := err.StackTrace()
+	if !containsString(trace, "TestWithStack") {
+		t.Error("stack trace should contain the test function name")
 	}
 }
 
@@ -174,7 +187,8 @@ func TestDomainError_Is(t *testing.T) {
 }
 
 func TestDomainError_Clone(t *testing.T) {
-	original := New("user", CodeNotFound).
+	original := New("user", CodeInternal).
+		WithStack().
 		WithMessage("original").
 		WithOperation("GetByID").
 		WithDetail("id", 123).
@@ -213,14 +227,28 @@ func TestDomainError_Clone(t *testing.T) {
 		t.Error("original Details should not be affected by clone modification")
 	}
 
-	// Verify new stack trace
+	// Verify stack is copied (same values, different slice)
+	if len(clone.stack) == 0 {
+		t.Error("clone should preserve the original's stack trace")
+	}
 	if &clone.stack[0] == &original.stack[0] {
-		t.Error("clone should have its own stack trace")
+		t.Error("clone should have its own copy of the stack trace")
+	}
+}
+
+func TestDomainError_Clone_NoStack(t *testing.T) {
+	original := New("user", CodeNotFound).
+		WithMessage("not found")
+
+	clone := original.Clone()
+
+	if len(clone.stack) != 0 {
+		t.Error("clone of error without stack should also have no stack")
 	}
 }
 
 func TestDomainError_StackTrace(t *testing.T) {
-	err := New("user", CodeNotFound)
+	err := New("user", CodeInternal).WithStack()
 	trace := err.StackTrace()
 
 	if trace == "" {
@@ -230,6 +258,15 @@ func TestDomainError_StackTrace(t *testing.T) {
 	// Should contain function name
 	if !containsString(trace, "TestDomainError_StackTrace") {
 		t.Error("stack trace should contain the test function name")
+	}
+}
+
+func TestDomainError_StackTrace_NoStack(t *testing.T) {
+	err := New("user", CodeNotFound)
+	trace := err.StackTrace()
+
+	if trace != "" {
+		t.Error("expected empty stack trace when WithStack not called")
 	}
 }
 
@@ -339,6 +376,9 @@ func TestHelpers_Internal(t *testing.T) {
 	if err.Cause != cause {
 		t.Error("expected cause to be set")
 	}
+	if len(err.stack) == 0 {
+		t.Error("Internal helper should capture stack automatically")
+	}
 }
 
 func TestHelpers_InternalWithMessage(t *testing.T) {
@@ -350,6 +390,9 @@ func TestHelpers_InternalWithMessage(t *testing.T) {
 	}
 	if err.Message != "failed to create user" {
 		t.Errorf("expected 'failed to create user', got '%s'", err.Message)
+	}
+	if len(err.stack) == 0 {
+		t.Error("InternalWithMessage helper should capture stack automatically")
 	}
 }
 
