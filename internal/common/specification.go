@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -94,11 +95,22 @@ func (s FieldContainsSpec) Apply(query any) any {
 }
 
 func (s FieldContainsSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
+	// Escape LIKE wildcards in user input to prevent unintended pattern matching
+	escaped := escapeLikeWildcards(s.Value)
 	// Use clause builder for LIKE operations (SQL-injection safe)
 	return db.Where(clause.Like{
 		Column: clause.Column{Name: s.Field},
-		Value:  "%" + s.Value + "%",
+		Value:  "%" + escaped + "%",
 	})
+}
+
+// escapeLikeWildcards escapes SQL LIKE wildcards (% and _) in user input
+// so they are treated as literal characters rather than pattern wildcards.
+func escapeLikeWildcards(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
 }
 
 // FieldInSpec finds by field in list

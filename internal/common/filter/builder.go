@@ -115,11 +115,11 @@ func applyOperator(db *gorm.DB, column string, op Operator, value string) *gorm.
 	case OpLte:
 		return db.Where(column+" <= ?", value)
 	case OpContains:
-		return db.Where(column+" ILIKE ?", "%"+value+"%")
+		return db.Where(column+" ILIKE ?", "%"+escapeLikeWildcards(value)+"%")
 	case OpStartsWith:
-		return db.Where(column+" ILIKE ?", value+"%")
+		return db.Where(column+" ILIKE ?", escapeLikeWildcards(value)+"%")
 	case OpEndsWith:
-		return db.Where(column+" ILIKE ?", "%"+value)
+		return db.Where(column+" ILIKE ?", "%"+escapeLikeWildcards(value))
 	case OpIn:
 		values := strings.Split(value, ",")
 		// Trim whitespace from each value
@@ -182,6 +182,15 @@ func isOperatorAllowed(config FieldConfig, op Operator) bool {
 		}
 	}
 	return false
+}
+
+// escapeLikeWildcards escapes SQL LIKE wildcards (% and _) in user input
+// so they are treated as literal characters rather than pattern wildcards.
+func escapeLikeWildcards(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
 }
 
 // pluralize converts a singular word to its plural form.
