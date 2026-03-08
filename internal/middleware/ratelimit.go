@@ -25,14 +25,17 @@ const (
 	RetryAfterHeader = "Retry-After"
 )
 
+// Tier is a typed rate limit tier to prevent typos at compile time.
+type Tier string
+
 // Rate limit tiers
 const (
-	TierAuth      = "auth"       // Public auth endpoints (login, register, refresh)
-	TierAuthUser  = "auth_user"  // Authenticated auth ops (logout, password change)
-	TierRBACAdmin = "rbac_admin" // RBAC admin operations
-	TierAPIWrite  = "api_write"  // POST, PUT, DELETE operations
-	TierAPIRead   = "api_read"   // GET operations
-	TierGlobal    = "global"     // Fallback catch-all
+	TierAuth      Tier = "auth"       // Public auth endpoints (login, register, refresh)
+	TierAuthUser  Tier = "auth_user"  // Authenticated auth ops (logout, password change)
+	TierRBACAdmin Tier = "rbac_admin" // RBAC admin operations
+	TierAPIWrite  Tier = "api_write"  // POST, PUT, DELETE operations
+	TierAPIRead   Tier = "api_read"   // GET operations
+	TierGlobal    Tier = "global"     // Fallback catch-all
 )
 
 // RateLimiterFactoryKey is the typed container key for the rate limiter factory
@@ -61,7 +64,7 @@ func NewRateLimiterFactory(redisClient *redis.Client, cfg *config.RateLimitConfi
 }
 
 // ForTier creates a rate limiter middleware for the specified tier
-func (f *RateLimiterFactory) ForTier(tier string) fiber.Handler {
+func (f *RateLimiterFactory) ForTier(tier Tier) fiber.Handler {
 	if !f.cfg.Enabled {
 		return func(c *fiber.Ctx) error {
 			return c.Next()
@@ -77,6 +80,7 @@ func (f *RateLimiterFactory) ForTier(tier string) fiber.Handler {
 		defer cancel()
 
 		result, err := f.redis.RateLimitCheck(ctx, key, limit, f.window)
+
 		if err != nil {
 			// Fail open - allow request but log warning
 			slog.Warn("rate limit check failed, allowing request",
@@ -100,7 +104,7 @@ func (f *RateLimiterFactory) ForTier(tier string) fiber.Handler {
 			c.Set(RetryAfterHeader, strconv.FormatInt(retryAfter, 10))
 
 			// Record rate limit hit metric
-			telemetry.IncrementRateLimitHits(tier)
+			telemetry.IncrementRateLimitHits(string(tier))
 
 			return c.Status(fiber.StatusTooManyRequests).JSON(common.Response{
 				Success: false,
@@ -113,7 +117,7 @@ func (f *RateLimiterFactory) ForTier(tier string) fiber.Handler {
 }
 
 // getLimit returns the rate limit for a tier
-func (f *RateLimiterFactory) getLimit(tier string) int {
+func (f *RateLimiterFactory) getLimit(tier Tier) int {
 	switch tier {
 	case TierAuth:
 		return f.cfg.AuthLimit
@@ -135,24 +139,25 @@ func (f *RateLimiterFactory) getLimit(tier string) int {
 // generateKey creates a rate limit key based on tier and request context.
 // Public endpoints: ratelimit:{tier}:{ip}
 // Authenticated:    ratelimit:{tier}:{user_id}:{ip}
-func (f *RateLimiterFactory) generateKey(c *fiber.Ctx, tier string) string {
+func (f *RateLimiterFactory) generateKey(c *fiber.Ctx, tier Tier) string {
 	ip := getClientIP(c)
+	tierStr := string(tier)
 
 	// For public auth endpoints, use IP only
 	if tier == TierAuth {
-		return "ratelimit:" + tier + ":" + ip
+		return "ratelimit:" + tierStr + ":" + ip
 	}
 
 	// For authenticated endpoints, include user ID if available
 	userID := c.Locals(UserIDKey)
 	if userID != nil {
 		if uid, ok := userID.(uint); ok && uid > 0 {
-			return "ratelimit:" + tier + ":" + strconv.FormatUint(uint64(uid), 10) + ":" + ip
+			return "ratelimit:" + tierStr + ":" + strconv.FormatUint(uint64(uid), 10) + ":" + ip
 		}
 	}
 
 	// Fallback to IP only
-	return "ratelimit:" + tier + ":" + ip
+	return "ratelimit:" + tierStr + ":" + ip
 }
 
 // getClientIP returns the client IP address.

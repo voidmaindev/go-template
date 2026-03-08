@@ -141,14 +141,35 @@ func (c *Container) RegisterAll() {
 	}
 }
 
+// DependencyDeclarer is optionally implemented by domains that depend on other
+// domains being registered first. The returned names must match the Name() of
+// the required domains.
+type DependencyDeclarer interface {
+	Dependencies() []string
+}
+
 // TryRegisterAll registers all domains and returns an error if any registration fails.
 // This catches panics from MustGet calls and returns them as errors, providing
 // better error handling during application startup.
+// If a domain implements DependencyDeclarer, its dependencies are validated
+// before registration.
 func (c *Container) TryRegisterAll() error {
+	registered := make(map[string]bool, len(c.domains))
+
 	for _, d := range c.domains {
+		// Validate declared dependencies before registration
+		if dd, ok := d.(DependencyDeclarer); ok {
+			for _, dep := range dd.Dependencies() {
+				if !registered[dep] {
+					return fmt.Errorf("domain %q depends on %q which is not yet registered (check registration order)", d.Name(), dep)
+				}
+			}
+		}
+
 		if err := c.tryRegisterDomain(d); err != nil {
 			return fmt.Errorf("failed to register domain %q: %w", d.Name(), err)
 		}
+		registered[d.Name()] = true
 	}
 	return nil
 }

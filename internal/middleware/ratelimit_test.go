@@ -66,7 +66,7 @@ func TestRateLimiterFactory_GetLimit(t *testing.T) {
 	factory := NewRateLimiterFactory(redisClient, cfg)
 
 	tests := []struct {
-		tier  string
+		tier  Tier
 		limit int
 	}{
 		{TierAuth, 5},
@@ -79,7 +79,7 @@ func TestRateLimiterFactory_GetLimit(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.tier, func(t *testing.T) {
+		t.Run(string(tt.tier), func(t *testing.T) {
 			limit := factory.getLimit(tt.tier)
 			if limit != tt.limit {
 				t.Errorf("getLimit(%q) = %d, want %d", tt.tier, limit, tt.limit)
@@ -322,7 +322,7 @@ func TestRedisClient_RateLimitCheck(t *testing.T) {
 func TestTierConstants(t *testing.T) {
 	// Verify tier constants have expected values
 	tests := []struct {
-		tier string
+		tier Tier
 		want string
 	}{
 		{TierAuth, "auth"},
@@ -334,7 +334,7 @@ func TestTierConstants(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if tt.tier != tt.want {
+		if string(tt.tier) != tt.want {
 			t.Errorf("Tier constant %q = %q, want %q", tt.tier, tt.tier, tt.want)
 		}
 	}
