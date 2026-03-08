@@ -4,12 +4,8 @@ import "github.com/voidmaindev/go-template/internal/common/errors"
 
 const domainName = "auth"
 
-// These errors are package-level singletons. NEVER chain builder methods
-// (WithOperation, WithContext, etc.) on them at runtime — doing so would
-// mutate the shared instance. Return them directly or create new errors
-// with errors.New()/errors.Internal() for context-enriched variants.
-//
-// Domain-specific errors for auth operations
+// Domain-specific errors for auth operations.
+// Builder methods (WithOperation, WithContext, etc.) are clone-on-write safe.
 var (
 	// ErrSelfRegDisabled is returned when self-registration is disabled
 	ErrSelfRegDisabled = errors.New(domainName, errors.CodeForbidden).

@@ -31,67 +31,89 @@ func New(domain string, code ErrorCode) *DomainError {
 // WithStack captures a stack trace at the call site and attaches it to the error.
 // Use this for unexpected/internal errors where a stack trace aids debugging.
 // Expected errors (NotFound, Unauthorized, ValidationError, etc.) should not capture stacks.
+//
+// Returns a clone — the original error is never mutated. This makes package-level
+// error singletons safe to use with builder methods from concurrent goroutines.
 func (e *DomainError) WithStack() *DomainError {
-	e.stack = captureStack()
-	return e
+	c := e.Clone()
+	c.stack = captureStack()
+	return c
 }
 
-// WithMessage sets the error message
+// WithMessage sets the error message.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithMessage(msg string) *DomainError {
-	e.Message = msg
-	return e
+	c := e.Clone()
+	c.Message = msg
+	return c
 }
 
-// WithMessagef sets a formatted error message
+// WithMessagef sets a formatted error message.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithMessagef(format string, args ...any) *DomainError {
-	e.Message = fmt.Sprintf(format, args...)
-	return e
+	c := e.Clone()
+	c.Message = fmt.Sprintf(format, args...)
+	return c
 }
 
-// WithOperation sets the operation name where the error occurred
+// WithOperation sets the operation name where the error occurred.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithOperation(op string) *DomainError {
-	e.Operation = op
-	return e
+	c := e.Clone()
+	c.Operation = op
+	return c
 }
 
-// WithCause sets the underlying cause of this error
+// WithCause sets the underlying cause of this error.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithCause(err error) *DomainError {
-	e.Cause = err
-	return e
+	c := e.Clone()
+	c.Cause = err
+	return c
 }
 
-// WithDetails adds contextual details to the error
+// WithDetails adds contextual details to the error.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithDetails(details map[string]any) *DomainError {
-	e.Details = details
-	return e
+	c := e.Clone()
+	c.Details = details
+	return c
 }
 
-// WithDetail adds a single detail key-value pair
+// WithDetail adds a single detail key-value pair.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithDetail(key string, value any) *DomainError {
-	if e.Details == nil {
-		e.Details = make(map[string]any)
+	c := e.Clone()
+	if c.Details == nil {
+		c.Details = make(map[string]any)
 	}
-	e.Details[key] = value
-	return e
+	c.Details[key] = value
+	return c
 }
 
-// WithContext adds request and trace IDs for debugging
+// WithContext adds request and trace IDs for debugging.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithContext(requestID, traceID string) *DomainError {
-	e.RequestID = requestID
-	e.TraceID = traceID
-	return e
+	c := e.Clone()
+	c.RequestID = requestID
+	c.TraceID = traceID
+	return c
 }
 
-// WithRequestID adds request ID for debugging
+// WithRequestID adds request ID for debugging.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithRequestID(requestID string) *DomainError {
-	e.RequestID = requestID
-	return e
+	c := e.Clone()
+	c.RequestID = requestID
+	return c
 }
 
-// WithTraceID adds trace ID for debugging
+// WithTraceID adds trace ID for debugging.
+// Returns a clone — the original error is never mutated.
 func (e *DomainError) WithTraceID(traceID string) *DomainError {
-	e.TraceID = traceID
-	return e
+	c := e.Clone()
+	c.TraceID = traceID
+	return c
 }
 
 // Error implements the error interface

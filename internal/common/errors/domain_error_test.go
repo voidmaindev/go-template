@@ -88,12 +88,16 @@ func TestDomainError_WithDetail_InitializesMap(t *testing.T) {
 		t.Error("expected Details to be nil initially")
 	}
 
-	err.WithDetail("key", "value")
-	if err.Details == nil {
-		t.Error("expected Details to be initialized")
+	// WithDetail returns a clone — original is not mutated
+	err2 := err.WithDetail("key", "value")
+	if err.Details != nil {
+		t.Error("original should remain unmutated (clone-on-write)")
 	}
-	if err.Details["key"] != "value" {
-		t.Errorf("expected 'value', got %v", err.Details["key"])
+	if err2.Details == nil {
+		t.Error("expected Details to be initialized on clone")
+	}
+	if err2.Details["key"] != "value" {
+		t.Errorf("expected 'value', got %v", err2.Details["key"])
 	}
 }
 
