@@ -54,7 +54,6 @@ func (d *domain) Register(c *container.Container) {
 
 	// Initialize service
 	service := NewService(
-		c.DB,
 		userRepo,
 		tokenStore,
 		userTokenStore,

@@ -14,7 +14,6 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/telemetry"
 	"github.com/voidmaindev/go-template/pkg/utils"
-	"gorm.io/gorm"
 )
 
 // Rate limiting constants
@@ -27,7 +26,6 @@ const (
 
 // service implements the Service interface
 type service struct {
-	db             *gorm.DB
 	userRepo       user.Repository
 	tokenStore     *TokenStore
 	userTokenStore *user.TokenStore
@@ -42,7 +40,6 @@ type service struct {
 
 // NewService creates a new auth service
 func NewService(
-	db *gorm.DB,
 	userRepo user.Repository,
 	tokenStore *TokenStore,
 	userTokenStore *user.TokenStore,
@@ -54,7 +51,6 @@ func NewService(
 	oauthConfig *config.OAuthConfig,
 ) Service {
 	return &service{
-		db:             db,
 		userRepo:       userRepo,
 		tokenStore:     tokenStore,
 		userTokenStore: userTokenStore,
@@ -101,24 +97,32 @@ func (s *service) SelfRegister(ctx context.Context, req *SelfRegisterRequest) (*
 		IsSelfRegistered: true,
 	}
 
-	// Create user and assign self-registered role atomically
+	// Create user and assign self-registered role atomically.
+	// Begin GORM tx manually so it stays open until Casbin is also ready to commit.
 	err = s.enforcer.WithTransaction(ctx, func(tx *casbin.Transaction) error {
-		// Wrap GORM create in a database transaction so it rolls back
-		// together with the Casbin transaction on failure
-		if err := s.db.WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
-			return gormTx.Create(newUser).Error
-		}); err != nil {
+		txRepo, gormTx, err := s.userRepo.BeginTx(ctx)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err != nil {
+				gormTx.Rollback()
+			}
+		}()
+
+		if err = txRepo.Create(ctx, newUser); err != nil {
 			return err
 		}
 
 		// Assign self-registered role
-		if err := s.rbacSvc.AssignRoleInTx(tx, ctx, newUser.ID, s.selfRegConfig.DefaultRole); err != nil {
+		if err = s.rbacSvc.AssignRoleInTx(tx, ctx, newUser.ID, s.selfRegConfig.DefaultRole); err != nil {
 			slog.Error("failed to assign self-registered role",
 				"userID", newUser.ID, "role", s.selfRegConfig.DefaultRole, "error", err)
 			return err
 		}
 
-		return nil
+		// Commit GORM only when Casbin is also ready to commit
+		return gormTx.Commit().Error
 	})
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("SelfRegister")
@@ -148,12 +152,9 @@ func (s *service) VerifyEmail(ctx context.Context, token string) error {
 		return ErrInvalidToken
 	}
 
-	// Delete token (single-use)
-	defer s.tokenStore.DeleteVerificationToken(ctx, token)
-
 	// Get user
-	var u user.User
-	if err := s.db.WithContext(ctx).First(&u, userID).Error; err != nil {
+	u, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
 		return errors.Internal(domainName, err).WithOperation("VerifyEmail")
 	}
 
@@ -164,12 +165,20 @@ func (s *service) VerifyEmail(ctx context.Context, token string) error {
 
 	// Update verification status
 	now := time.Now()
-	if err := s.db.WithContext(ctx).Model(&u).Update("email_verified_at", now).Error; err != nil {
+	if err := s.userRepo.UpdateFields(ctx, u.ID, map[string]any{"email_verified_at": now}); err != nil {
 		return errors.Internal(domainName, err).WithOperation("VerifyEmail")
 	}
 
+	// Delete token only after successful DB update
+	s.tokenStore.DeleteVerificationToken(ctx, token)
+
 	// Send welcome email (best effort)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("panic sending welcome email", "recovered", r, "email", u.Email)
+			}
+		}()
 		if err := s.emailSvc.SendWelcomeEmail(context.Background(), u.Email, u.Name); err != nil {
 			slog.Error("failed to send welcome email", "email", u.Email, "error", err)
 		}
@@ -253,9 +262,6 @@ func (s *service) ResetPassword(ctx context.Context, req *ResetPasswordRequest) 
 		return ErrInvalidToken
 	}
 
-	// Delete token (single-use)
-	defer s.tokenStore.DeletePasswordResetToken(ctx, req.Token)
-
 	// Hash new password
 	hashedPassword, err := utils.HashPassword(req.NewPassword)
 	if err != nil {
@@ -263,10 +269,12 @@ func (s *service) ResetPassword(ctx context.Context, req *ResetPasswordRequest) 
 	}
 
 	// Update password
-	if err := s.db.WithContext(ctx).Model(&user.User{}).Where("id = ?", userID).
-		Update("password", hashedPassword).Error; err != nil {
+	if err := s.userRepo.UpdateFields(ctx, userID, map[string]any{"password": hashedPassword}); err != nil {
 		return errors.Internal(domainName, err).WithOperation("ResetPassword")
 	}
+
+	// Delete token only after successful DB update
+	s.tokenStore.DeletePasswordResetToken(ctx, req.Token)
 
 	// Invalidate all existing sessions (security: revoke tokens on password reset)
 	if err := s.userTokenStore.InvalidateAllUserTokens(ctx, userID); err != nil {
@@ -371,11 +379,7 @@ func (s *service) HandleOAuthCallback(ctx context.Context, provider, code, state
 // findOrCreateOAuthUser finds an existing user or creates a new one from OAuth info
 func (s *service) findOrCreateOAuthUser(ctx context.Context, provider string, userInfo *OAuthUserInfo) (*OAuthResult, error) {
 	// Check if identity already linked
-	var identity user.ExternalIdentity
-	err := s.db.WithContext(ctx).
-		Where("provider = ? AND provider_id = ?", provider, userInfo.ID).
-		First(&identity).Error
-
+	identity, err := s.userRepo.FindExternalIdentityByProvider(ctx, provider, userInfo.ID)
 	if err == nil {
 		// Identity exists, return the user
 		return &OAuthResult{
@@ -429,36 +433,41 @@ func (s *service) findOrCreateOAuthUser(ctx context.Context, provider string, us
 		IsSelfRegistered: true,
 	}
 
-	// Create user and identity atomically
+	// Create user and identity atomically.
+	// Begin GORM tx manually so it stays open until Casbin is also ready to commit.
 	err = s.enforcer.WithTransaction(ctx, func(tx *casbin.Transaction) error {
-		// Wrap GORM operations in a database transaction for atomicity
-		if err := s.db.WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
-			if err := gormTx.Create(newUser).Error; err != nil {
-				return err
+		txRepo, gormTx, err := s.userRepo.BeginTx(ctx)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err != nil {
+				gormTx.Rollback()
 			}
+		}()
 
-			// Create external identity
-			identity := &user.ExternalIdentity{
-				UserID:     newUser.ID,
-				Provider:   provider,
-				ProviderID: userInfo.ID,
-				Email:      userInfo.Email,
-			}
-			if err := gormTx.Create(identity).Error; err != nil {
-				return err
-			}
+		if err = txRepo.Create(ctx, newUser); err != nil {
+			return err
+		}
 
-			return nil
-		}); err != nil {
+		// Create external identity within the same GORM transaction
+		extIdentity := &user.ExternalIdentity{
+			UserID:     newUser.ID,
+			Provider:   provider,
+			ProviderID: userInfo.ID,
+			Email:      userInfo.Email,
+		}
+		if err = txRepo.CreateExternalIdentity(ctx, extIdentity); err != nil {
 			return err
 		}
 
 		// Assign self-registered role within the Casbin transaction
-		if err := s.rbacSvc.AssignRoleInTx(tx, ctx, newUser.ID, s.selfRegConfig.DefaultRole); err != nil {
+		if err = s.rbacSvc.AssignRoleInTx(tx, ctx, newUser.ID, s.selfRegConfig.DefaultRole); err != nil {
 			return err
 		}
 
-		return nil
+		// Commit GORM only when Casbin is also ready to commit
+		return gormTx.Commit().Error
 	})
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("findOrCreateOAuthUser")
@@ -488,8 +497,8 @@ func (s *service) findOrCreateOAuthUser(ctx context.Context, provider string, us
 
 // GetUserIdentities returns all OAuth identities for a user
 func (s *service) GetUserIdentities(ctx context.Context, userID uint) ([]*user.ExternalIdentityResponse, error) {
-	var identities []user.ExternalIdentity
-	if err := s.db.WithContext(ctx).Where("user_id = ?", userID).Find(&identities).Error; err != nil {
+	identities, err := s.userRepo.FindExternalIdentitiesByUserID(ctx, userID)
+	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("GetUserIdentities")
 	}
 
@@ -532,10 +541,7 @@ func (s *service) LinkIdentity(ctx context.Context, userID uint, provider, code,
 	}
 
 	// Check if identity already linked to another user
-	var existing user.ExternalIdentity
-	err = s.db.WithContext(ctx).
-		Where("provider = ? AND provider_id = ?", provider, userInfo.ID).
-		First(&existing).Error
+	_, err = s.userRepo.FindExternalIdentityByProvider(ctx, provider, userInfo.ID)
 	if err == nil {
 		return ErrIdentityAlreadyLinked
 	}
@@ -562,15 +568,14 @@ func (s *service) LinkIdentity(ctx context.Context, userID uint, provider, code,
 // UnlinkIdentity unlinks an OAuth identity from a user
 func (s *service) UnlinkIdentity(ctx context.Context, userID uint, provider string) error {
 	// Get user to check if they have a password
-	var u user.User
-	if err := s.db.WithContext(ctx).First(&u, userID).Error; err != nil {
+	u, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
 		return errors.Internal(domainName, err).WithOperation("UnlinkIdentity")
 	}
 
 	// Count user's identities
-	var count int64
-	if err := s.db.WithContext(ctx).Model(&user.ExternalIdentity{}).
-		Where("user_id = ?", userID).Count(&count).Error; err != nil {
+	count, err := s.userRepo.CountExternalIdentitiesByUserID(ctx, userID)
+	if err != nil {
 		return errors.Internal(domainName, err).WithOperation("UnlinkIdentity")
 	}
 
@@ -581,13 +586,11 @@ func (s *service) UnlinkIdentity(ctx context.Context, userID uint, provider stri
 	}
 
 	// Delete the identity
-	result := s.db.WithContext(ctx).
-		Where("user_id = ? AND provider = ?", userID, provider).
-		Delete(&user.ExternalIdentity{})
-	if result.Error != nil {
-		return errors.Internal(domainName, result.Error).WithOperation("UnlinkIdentity")
+	rowsAffected, err := s.userRepo.DeleteExternalIdentityByProvider(ctx, userID, provider)
+	if err != nil {
+		return errors.Internal(domainName, err).WithOperation("UnlinkIdentity")
 	}
-	if result.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return ErrIdentityNotFound
 	}
 
@@ -615,9 +618,7 @@ func (s *service) SetPassword(ctx context.Context, userID uint, password string)
 	}
 
 	// Update password
-	if err := s.db.WithContext(ctx).Model(&user.User{}).
-		Where("id = ?", userID).
-		Update("password", hashedPassword).Error; err != nil {
+	if err := s.userRepo.UpdateFields(ctx, userID, map[string]any{"password": hashedPassword}); err != nil {
 		return errors.Internal(domainName, err).WithOperation("SetPassword")
 	}
 
@@ -646,5 +647,5 @@ func (s *service) createExternalIdentity(ctx context.Context, userID uint, provi
 		ProviderID: userInfo.ID,
 		Email:      userInfo.Email,
 	}
-	return s.db.WithContext(ctx).Create(identity).Error
+	return s.userRepo.CreateExternalIdentity(ctx, identity)
 }

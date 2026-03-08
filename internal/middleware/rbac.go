@@ -43,14 +43,21 @@ func RequireAnyPermission(enforcer *casbin.TransactionalEnforcer, permissions ..
 
 		subject := fmt.Sprintf("user:%d", userID)
 
+		var lastErr error
 		for _, perm := range permissions {
 			allowed, err := enforcer.Enforce(subject, perm.Domain, perm.Action)
 			if err != nil {
+				lastErr = err
 				continue
 			}
 			if allowed {
 				return c.Next()
 			}
+		}
+
+		// If all checks errored, report infrastructure failure, not permission denial
+		if lastErr != nil {
+			return common.InternalServerErrorResponse(c)
 		}
 
 		return common.ForbiddenResponse(c, "insufficient permissions")

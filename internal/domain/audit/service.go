@@ -42,6 +42,11 @@ func (s *service) Log(ctx context.Context, entry *AuditEntry) error {
 // Errors are logged but do not affect the caller
 func (s *service) LogAsync(ctx context.Context, entry *AuditEntry) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("panic in async audit log", "recovered", r, "action", entry.Action)
+			}
+		}()
 		// Use a background context to prevent cancellation from parent
 		bgCtx := context.Background()
 		if err := s.Log(bgCtx, entry); err != nil {

@@ -114,26 +114,33 @@ func (s *service) Register(ctx context.Context, req *RegisterRequest) (*TokenRes
 	}
 
 	// Use Casbin's WithTransaction for atomic user creation and role assignment.
-	// This ensures both the GORM user creation and Casbin policy changes
-	// are committed or rolled back together.
+	// Begin GORM tx manually so it stays open until Casbin is also ready to commit.
 	err = s.enforcer.WithTransaction(ctx, func(tx *casbin.Transaction) error {
-		// Create user within GORM transaction (nested inside Casbin transaction)
-		if err := s.repo.Transaction(ctx, func(txRepo common.Repository[User]) error {
-			return txRepo.Create(ctx, user)
-		}); err != nil {
+		txRepo, gormTx, err := s.repo.BeginTx(ctx)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err != nil {
+				gormTx.Rollback()
+			}
+		}()
+
+		if err = txRepo.Create(ctx, user); err != nil {
 			return err
 		}
 
 		// Assign RBAC roles using transaction - if any fails, everything rolls back
 		for _, roleCode := range roleCodes {
-			if err := s.rbacSvc.AssignRoleInTx(tx, ctx, user.ID, roleCode); err != nil {
+			if err = s.rbacSvc.AssignRoleInTx(tx, ctx, user.ID, roleCode); err != nil {
 				slog.Error("failed to assign role during registration, rolling back",
 					"role", roleCode, "userID", user.ID, "error", err)
 				return err
 			}
 		}
 
-		return nil
+		// Commit GORM only when Casbin is also ready to commit
+		return gormTx.Commit().Error
 	})
 	if err != nil {
 		return nil, errors.Internal(domainName, err).WithOperation("Register")

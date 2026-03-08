@@ -189,6 +189,63 @@ func (m *mockRepository) DeleteExternalIdentitiesByUserID(ctx context.Context, u
 	return nil
 }
 
+func (m *mockRepository) UpdateEmailVerifiedAt(ctx context.Context, id uint, verifiedAt time.Time) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+	u, ok := m.users[id]
+	if !ok {
+		return commonerrors.NotFound("repository", "entity")
+	}
+	u.EmailVerifiedAt = &verifiedAt
+	return nil
+}
+
+func (m *mockRepository) UpdatePassword(ctx context.Context, id uint, hashedPassword string) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+	u, ok := m.users[id]
+	if !ok {
+		return commonerrors.NotFound("repository", "entity")
+	}
+	u.Password = &hashedPassword
+	return nil
+}
+
+func (m *mockRepository) FindExternalIdentityByProvider(ctx context.Context, provider, providerID string) (*ExternalIdentity, error) {
+	return nil, commonerrors.NotFound("repository", "entity")
+}
+
+func (m *mockRepository) FindExternalIdentitiesByUserID(ctx context.Context, userID uint) ([]ExternalIdentity, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) CountExternalIdentitiesByUserID(ctx context.Context, userID uint) (int64, error) {
+	ids, ok := m.externalIdentities[userID]
+	if !ok {
+		return 0, nil
+	}
+	return int64(len(ids)), nil
+}
+
+func (m *mockRepository) CreateExternalIdentity(ctx context.Context, identity *ExternalIdentity) error {
+	return nil
+}
+
+func (m *mockRepository) DeleteExternalIdentityByProvider(ctx context.Context, userID uint, provider string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockRepository) BeginTx(ctx context.Context) (Repository, *gorm.DB, error) {
+	// In the mock, we don't actually open a transaction.
+	// Return self and a nil *gorm.DB with a no-op commit/rollback wrapper.
+	// For testing, we use the real enforcer with in-memory SQLite which handles its own tx.
+	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	tx := db.Begin()
+	return m, tx, nil
+}
+
 // mockTokenStore implements token store for testing
 type mockTokenStore struct {
 	blacklisted    map[string]bool
