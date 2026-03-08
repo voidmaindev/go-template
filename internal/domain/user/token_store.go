@@ -19,6 +19,18 @@ const (
 	TokenInvalidatePrefix = "auth:token:invalidated:"
 )
 
+// TokenStorer defines the interface for token operations used by the user service.
+// Extracted for testability — allows mocking without a real Redis connection.
+type TokenStorer interface {
+	Blacklist(ctx context.Context, token string, expiry time.Duration) error
+	IsBlacklisted(ctx context.Context, token string) (bool, error)
+	BlacklistAtomicWithRetry(ctx context.Context, token string, expiry time.Duration, maxRetries int) (bool, error)
+	CheckLoginRateLimit(ctx context.Context, email, ip string, maxPerEmail, maxPerIP int, lockoutDuration time.Duration) error
+	RecordFailedLogin(ctx context.Context, email, ip string, lockoutDuration time.Duration) error
+	ClearLoginRateLimit(ctx context.Context, email string) error
+	InvalidateAllUserTokens(ctx context.Context, userID uint) error
+}
+
 // TokenStore handles token blacklisting using Redis
 type TokenStore struct {
 	redis *redis.Client

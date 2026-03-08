@@ -48,7 +48,7 @@ type Service interface {
 // ServiceConfig holds all dependencies for the user service.
 type ServiceConfig struct {
 	Repo           Repository
-	TokenStore     *TokenStore
+	TokenStore     TokenStorer
 	JWTConfig      *config.JWTConfig
 	SelfRegConfig  *config.SelfRegistrationConfig
 	SecurityConfig *config.SecurityConfig
@@ -60,7 +60,7 @@ type ServiceConfig struct {
 // service implements the Service interface
 type service struct {
 	repo           Repository
-	tokenStore     *TokenStore
+	tokenStore     TokenStorer
 	jwtConfig      *config.JWTConfig
 	selfRegConfig  *config.SelfRegistrationConfig
 	securityConfig *config.SecurityConfig
@@ -401,7 +401,7 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req *ChangePasswo
 	return nil
 }
 
-// Delete soft-deletes a user and cascades to external identities
+// Delete soft-deletes a user and cascades to external identities within a transaction
 func (s *service) Delete(ctx context.Context, id uint) error {
 	_, err := s.repo.FindByID(ctx, id)
 	if err != nil {
@@ -411,12 +411,23 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	// Delete external identities first (cascade)
-	if err := s.repo.DeleteExternalIdentitiesByUserID(ctx, id); err != nil {
+	// Delete external identities and user atomically
+	txRepo, gormTx, err := s.repo.BeginTx(ctx)
+	if err != nil {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := txRepo.DeleteExternalIdentitiesByUserID(ctx, id); err != nil {
+		gormTx.Rollback()
+		return errors.Internal(domainName, err).WithOperation("Delete")
+	}
+
+	if err := txRepo.Delete(ctx, id); err != nil {
+		gormTx.Rollback()
+		return errors.Internal(domainName, err).WithOperation("Delete")
+	}
+
+	if err := gormTx.Commit().Error; err != nil {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
