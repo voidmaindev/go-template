@@ -4,9 +4,12 @@ import (
 	"context"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/common/logging"
 )
+
+const domainName = "audit"
 
 // Service defines the audit service interface
 type Service interface {
@@ -34,7 +37,7 @@ type service struct {
 func NewService(repo Repository) *service {
 	s := &service{
 		repo:   repo,
-		logger: logging.New("audit"),
+		logger: logging.New(domainName),
 		queue:  make(chan *AuditEntry, 1000),
 		done:   make(chan struct{}),
 	}
@@ -78,6 +81,10 @@ func (s *service) worker() {
 
 // Shutdown drains the audit queue and waits for the worker to finish.
 func (s *service) Shutdown(ctx context.Context) error {
+	remaining := len(s.queue)
+	if remaining > 0 {
+		s.logger.Info(ctx, "draining audit queue", "remaining", remaining)
+	}
 	close(s.queue)
 	select {
 	case <-s.done:
@@ -91,7 +98,7 @@ func (s *service) Shutdown(ctx context.Context) error {
 func (s *service) List(ctx context.Context, pagination *common.Pagination) (*common.PaginatedResult[AuditLog], error) {
 	logs, total, err := s.repo.FindAll(ctx, pagination)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("List")
 	}
 
 	return common.NewPaginatedResult(logs, total, pagination), nil
@@ -101,7 +108,7 @@ func (s *service) List(ctx context.Context, pagination *common.Pagination) (*com
 func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[AuditLog], error) {
 	logs, total, err := s.repo.FindAllFiltered(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
 	}
 
 	return common.NewPaginatedResultFromFilter(logs, total, params), nil
@@ -111,7 +118,7 @@ func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*com
 func (s *service) ListByUserID(ctx context.Context, userID uint, pagination *common.Pagination) (*common.PaginatedResult[AuditLog], error) {
 	logs, total, err := s.repo.FindByUserID(ctx, userID, pagination)
 	if err != nil {
-		return nil, err
+		return nil, errors.Internal(domainName, err).WithOperation("ListByUserID")
 	}
 
 	return common.NewPaginatedResult(logs, total, pagination), nil
