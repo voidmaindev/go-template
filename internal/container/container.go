@@ -13,6 +13,10 @@ import (
 
 // Container holds all application dependencies.
 // Domains register their repositories, services, and handlers here.
+//
+// Thread safety: Components are registered sequentially during startup
+// (via RegisterAll) and read-only thereafter. Do not call Set() after
+// startup or from concurrent goroutines.
 type Container struct {
 	// Core dependencies
 	DB     *gorm.DB

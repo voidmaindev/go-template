@@ -167,6 +167,9 @@ func runServe(cmd *cobra.Command, args []string) {
 	// Setup global middleware
 	fiberApp.Use(middleware.RequestIDMiddleware()) // Add request ID first for tracing
 	fiberApp.Use(middleware.SecurityHeaders())     // Add security headers
+	if cfg.App.IsProduction() {
+		fiberApp.Use(middleware.StrictTransportSecurity(31536000))
+	}
 	middleware.SetupCORS(fiberApp, cfg)
 	middleware.SetupSlogLogger(fiberApp)
 	middleware.SetupCustomRecovery(fiberApp, cfg.App.IsDevelopment())
