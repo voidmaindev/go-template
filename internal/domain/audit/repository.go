@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
@@ -36,17 +37,20 @@ func (r *repository) FindAll(ctx context.Context, pagination *common.Pagination)
 	var logs []AuditLog
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&AuditLog{})
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(&AuditLog{})
 
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
+		if err := query.Count(&total).Error; err != nil {
+			return err
+		}
 
-	if err := query.
-		Order("timestamp DESC").
-		Offset(pagination.GetOffset()).
-		Limit(pagination.GetLimit()).
-		Find(&logs).Error; err != nil {
+		return query.
+			Order("timestamp DESC").
+			Offset(pagination.GetOffset()).
+			Limit(pagination.GetLimit()).
+			Find(&logs).Error
+	}, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
 		return nil, 0, err
 	}
 
@@ -60,17 +64,20 @@ func (r *repository) FindAllFiltered(ctx context.Context, params *filter.Params)
 
 	config := AuditLog{}.FilterConfig()
 
-	// Count with filters only (no pagination)
-	countQuery := r.db.WithContext(ctx).Model(&AuditLog{})
-	countQuery = filter.ApplyFiltersOnly(countQuery, config, params)
-	if err := countQuery.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Count with filters only (no pagination)
+		countQuery := tx.Model(&AuditLog{})
+		countQuery = filter.ApplyFiltersOnly(countQuery, config, params)
+		if err := countQuery.Count(&total).Error; err != nil {
+			return err
+		}
 
-	// Query with filters, sorting, and pagination
-	query := r.db.WithContext(ctx).Model(&AuditLog{})
-	query = filter.Apply(query, config, params)
-	if err := query.Find(&logs).Error; err != nil {
+		// Query with filters, sorting, and pagination
+		query := tx.Model(&AuditLog{})
+		query = filter.Apply(query, config, params)
+		return query.Find(&logs).Error
+	}, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
 		return nil, 0, err
 	}
 
@@ -82,17 +89,20 @@ func (r *repository) FindByUserID(ctx context.Context, userID uint, pagination *
 	var logs []AuditLog
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&AuditLog{}).Where("user_id = ?", userID)
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(&AuditLog{}).Where("user_id = ?", userID)
 
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
+		if err := query.Count(&total).Error; err != nil {
+			return err
+		}
 
-	if err := query.
-		Order("timestamp DESC").
-		Offset(pagination.GetOffset()).
-		Limit(pagination.GetLimit()).
-		Find(&logs).Error; err != nil {
+		return query.
+			Order("timestamp DESC").
+			Offset(pagination.GetOffset()).
+			Limit(pagination.GetLimit()).
+			Find(&logs).Error
+	}, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
 		return nil, 0, err
 	}
 

@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
@@ -59,18 +60,21 @@ func (r *BaseRepository[T]) FindAll(ctx context.Context, pagination *Pagination)
 	var entities []T
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(new(T))
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(new(T))
 
-	// Count total records
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
+		// Count total records
+		if err := query.Count(&total).Error; err != nil {
+			return err
+		}
 
-	// Apply preloads and pagination
-	query = r.applyPreloads(query)
-	query = r.applyPagination(query, pagination)
+		// Apply preloads and pagination
+		query = r.applyPreloads(query)
+		query = r.applyPagination(query, pagination)
 
-	if err := query.Find(&entities).Error; err != nil {
+		return query.Find(&entities).Error
+	}, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
 		return nil, 0, err
 	}
 
@@ -82,18 +86,21 @@ func (r *BaseRepository[T]) FindByCondition(ctx context.Context, condition map[s
 	var entities []T
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(new(T)).Where(condition)
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(new(T)).Where(condition)
 
-	// Count total records
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
+		// Count total records
+		if err := query.Count(&total).Error; err != nil {
+			return err
+		}
 
-	// Apply preloads and pagination
-	query = r.applyPreloads(query)
-	query = r.applyPagination(query, pagination)
+		// Apply preloads and pagination
+		query = r.applyPreloads(query)
+		query = r.applyPagination(query, pagination)
 
-	if err := query.Find(&entities).Error; err != nil {
+		return query.Find(&entities).Error
+	}, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
 		return nil, 0, err
 	}
 
@@ -114,19 +121,22 @@ func (r *BaseRepository[T]) FindAllFiltered(ctx context.Context, params *filter.
 	}
 	config := filterable.FilterConfig()
 
-	// Count query (without pagination)
-	countQuery := r.db.WithContext(ctx).Model(&entity)
-	countQuery = filter.ApplyFiltersOnly(countQuery, config, params)
-	if err := countQuery.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Count query (without pagination)
+		countQuery := tx.Model(&entity)
+		countQuery = filter.ApplyFiltersOnly(countQuery, config, params)
+		if err := countQuery.Count(&total).Error; err != nil {
+			return err
+		}
 
-	// Data query (with pagination and sorting)
-	query := r.db.WithContext(ctx).Model(&entity)
-	query = r.applyPreloads(query)
-	query = filter.Apply(query, config, params)
+		// Data query (with pagination and sorting)
+		query := tx.Model(&entity)
+		query = r.applyPreloads(query)
+		query = filter.Apply(query, config, params)
 
-	if err := query.Find(&entities).Error; err != nil {
+		return query.Find(&entities).Error
+	}, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
 		return nil, 0, err
 	}
 
