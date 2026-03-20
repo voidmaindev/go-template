@@ -171,15 +171,10 @@ func (s *TokenStore) DeleteOAuthState(ctx context.Context, state string) error {
 func (s *TokenStore) CheckRateLimit(ctx context.Context, identifier, action string, limit int, window time.Duration) (bool, error) {
 	key := fmt.Sprintf("%s%s:%s", keyPrefixRateLimit, action, identifier)
 
-	// Increment counter
-	count, err := s.redis.Incr(ctx, key)
+	// Atomic increment + expiry via Lua script to avoid race between INCR and EXPIRE
+	count, err := s.redis.IncrWithExpiry(ctx, key, window)
 	if err != nil {
 		return false, err
-	}
-
-	// Set expiry on first request
-	if count == 1 {
-		s.redis.SetExpiry(ctx, key, window)
 	}
 
 	return count <= int64(limit), nil

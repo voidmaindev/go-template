@@ -33,13 +33,17 @@ type TokenStorer interface {
 
 // TokenStore handles token blacklisting using Redis
 type TokenStore struct {
-	redis *redis.Client
+	redis           *redis.Client
+	invalidationTTL time.Duration
 }
 
-// NewTokenStore creates a new TokenStore
-func NewTokenStore(redisClient *redis.Client) *TokenStore {
+// NewTokenStore creates a new TokenStore.
+// invalidationTTL controls how long token-invalidation timestamps persist in Redis.
+// Use the refresh token expiry — after that, all pre-invalidation tokens have expired naturally.
+func NewTokenStore(redisClient *redis.Client, invalidationTTL time.Duration) *TokenStore {
 	return &TokenStore{
-		redis: redisClient,
+		redis:           redisClient,
+		invalidationTTL: invalidationTTL,
 	}
 }
 
@@ -191,17 +195,11 @@ func (s *TokenStore) ClearLoginRateLimit(ctx context.Context, email string) erro
 	return s.redis.DeleteKey(ctx, key)
 }
 
-// incrementWithExpiry atomically increments a counter and sets expiry
+// incrementWithExpiry atomically increments a counter and sets expiry.
+// Uses a Lua script to avoid the race between INCR and EXPIRE.
 func (s *TokenStore) incrementWithExpiry(ctx context.Context, key string, expiry time.Duration) error {
-	count, err := s.redis.Incr(ctx, key)
-	if err != nil {
-		return err
-	}
-	// Set expiry only on first increment
-	if count == 1 {
-		return s.redis.SetExpiry(ctx, key, expiry)
-	}
-	return nil
+	_, err := s.redis.IncrWithExpiry(ctx, key, expiry)
+	return err
 }
 
 // ================================
@@ -214,8 +212,9 @@ func (s *TokenStore) InvalidateAllUserTokens(ctx context.Context, userID uint) e
 		return nil // No Redis client (e.g., in tests)
 	}
 	key := fmt.Sprintf("%s%d", TokenInvalidatePrefix, userID)
-	// Store current timestamp with no expiry (persists until explicitly cleared)
-	return s.redis.SetValue(ctx, key, time.Now().Unix(), 0)
+	// Store current timestamp — TTL matches refresh token lifetime so the key
+	// self-cleans once all pre-invalidation tokens have naturally expired.
+	return s.redis.SetValue(ctx, key, time.Now().Unix(), s.invalidationTTL)
 }
 
 // GetTokensInvalidatedAt returns the timestamp when a user's tokens were invalidated

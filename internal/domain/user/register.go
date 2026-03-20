@@ -40,7 +40,7 @@ func (d *domain) Models() []any {
 // Register initializes repositories, services, and handlers
 func (d *domain) Register(c *container.Container) {
 	// Initialize token store (uses Redis) - handles token blacklisting, login rate limiting, and token invalidation
-	tokenStore := NewTokenStore(c.Redis)
+	tokenStore := NewTokenStore(c.Redis, c.Config.JWT.RefreshTokenExpiry)
 	TokenStoreKey.Set(c, tokenStore)
 
 	// Initialize repository

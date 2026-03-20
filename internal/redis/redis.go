@@ -176,6 +176,25 @@ func (c *Client) SetValue(ctx context.Context, key string, value any, expiry tim
 	return c.Client.Set(ctx, key, value, expiry).Err()
 }
 
+// IncrWithExpiry atomically increments a key and sets its expiry on first creation.
+// Uses a Lua script to guarantee atomicity — prevents the race condition where
+// INCR succeeds but a subsequent EXPIRE never runs (crash, timeout, etc.),
+// leaving the key with no TTL.
+func (c *Client) IncrWithExpiry(ctx context.Context, key string, expiry time.Duration) (int64, error) {
+	script := redis.NewScript(`
+		local count = redis.call('INCR', KEYS[1])
+		if count == 1 then
+			redis.call('PEXPIRE', KEYS[1], ARGV[1])
+		end
+		return count
+	`)
+	result, err := script.Run(ctx, c.Client, []string{key}, expiry.Milliseconds()).Int64()
+	if err != nil {
+		return 0, fmt.Errorf("incr with expiry script failed: %w", err)
+	}
+	return result, nil
+}
+
 // RateLimitResult contains the result of a rate limit check
 type RateLimitResult struct {
 	Allowed   bool

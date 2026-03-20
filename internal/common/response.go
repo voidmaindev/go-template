@@ -154,33 +154,20 @@ func ServiceUnavailableResponse(c *fiber.Ctx, message string) error {
 	return ErrorResponse(c, fiber.StatusServiceUnavailable, message)
 }
 
-// HandleError handles common errors and returns appropriate responses
-// It first checks for typed DomainError, then falls back to legacy error checks
+// HandleError handles errors and returns appropriate HTTP responses.
+// All domain errors are typed DomainError instances with HTTP status codes.
 func HandleError(c *fiber.Ctx, err error) error {
 	if err == nil {
 		return nil
 	}
 
-	// First, check for typed domain errors (new error system)
+	// Check for typed domain errors
 	if de := errors.GetDomainError(err); de != nil {
 		return HandleDomainError(c, de)
 	}
 
-	// Fall back to legacy error checks for backward compatibility
-	switch {
-	case IsNotFoundError(err):
-		return NotFoundResponse(c, "")
-	case IsUnauthorizedError(err):
-		return UnauthorizedResponse(c, err.Error())
-	case IsForbiddenError(err):
-		return ForbiddenResponse(c, err.Error())
-	case IsValidationError(err):
-		return BadRequestResponse(c, err.Error())
-	case IsConflictError(err):
-		return ConflictResponse(c, err.Error())
-	default:
-		return InternalServerErrorResponse(c)
-	}
+	// Unknown error — return generic 500
+	return InternalServerErrorResponse(c)
 }
 
 // HandleDomainError handles typed domain errors with structured response
