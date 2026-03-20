@@ -303,7 +303,7 @@ func TestOptionalJWTMiddleware_WithToken(t *testing.T) {
 	cfg := getTestJWTConfig()
 
 	app := fiber.New()
-	app.Use(OptionalJWTMiddleware(cfg))
+	app.Use(OptionalJWTMiddleware(cfg, nil, nil))
 	app.Get("/optional", func(c *fiber.Ctx) error {
 		userID := c.Locals(UserIDKey)
 		if userID == nil {
@@ -332,7 +332,7 @@ func TestOptionalJWTMiddleware_WithoutToken(t *testing.T) {
 	cfg := getTestJWTConfig()
 
 	app := fiber.New()
-	app.Use(OptionalJWTMiddleware(cfg))
+	app.Use(OptionalJWTMiddleware(cfg, nil, nil))
 	app.Get("/optional", func(c *fiber.Ctx) error {
 		userID := c.Locals(UserIDKey)
 		if userID == nil {
@@ -359,7 +359,7 @@ func TestOptionalJWTMiddleware_InvalidToken(t *testing.T) {
 	cfg := getTestJWTConfig()
 
 	app := fiber.New()
-	app.Use(OptionalJWTMiddleware(cfg))
+	app.Use(OptionalJWTMiddleware(cfg, nil, nil))
 	app.Get("/optional", func(c *fiber.Ctx) error {
 		userID := c.Locals(UserIDKey)
 		if userID == nil {
@@ -380,6 +380,183 @@ func TestOptionalJWTMiddleware_InvalidToken(t *testing.T) {
 	// Should still return 200 but as unauthenticated
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+// mockInvalidator implements TokenInvalidator interface for testing
+type mockInvalidator struct {
+	invalidatedAt map[uint]time.Time
+	shouldError   bool
+}
+
+func newMockInvalidator() *mockInvalidator {
+	return &mockInvalidator{
+		invalidatedAt: make(map[uint]time.Time),
+	}
+}
+
+func (m *mockInvalidator) GetTokensInvalidatedAt(ctx context.Context, userID uint) (time.Time, error) {
+	if m.shouldError {
+		return time.Time{}, context.DeadlineExceeded
+	}
+	t, ok := m.invalidatedAt[userID]
+	if !ok {
+		return time.Time{}, nil
+	}
+	return t, nil
+}
+
+func TestOptionalJWTMiddleware_BlacklistedToken(t *testing.T) {
+	cfg := getTestJWTConfig()
+	blacklist := newMockBlacklist()
+
+	token := generateTestToken(123, "test@example.com", cfg)
+	blacklist.blacklisted[token] = true
+
+	app := fiber.New()
+	app.Use(OptionalJWTMiddleware(cfg, blacklist, nil))
+	app.Get("/optional", func(c *fiber.Ctx) error {
+		userID := c.Locals(UserIDKey)
+		if userID == nil {
+			return c.JSON(fiber.Map{"authenticated": false})
+		}
+		return c.JSON(fiber.Map{"authenticated": true, "user_id": userID})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/optional", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Test request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Should return 200 (optional) but NOT set user context
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != `{"authenticated":false}` {
+		t.Errorf("Blacklisted token should NOT authenticate, got: %s", string(body))
+	}
+}
+
+func TestOptionalJWTMiddleware_InvalidatedToken(t *testing.T) {
+	cfg := getTestJWTConfig()
+	invalidator := newMockInvalidator()
+
+	// Generate token first, then invalidate
+	token := generateTestToken(123, "test@example.com", cfg)
+
+	// Mark tokens as invalidated AFTER the token was issued
+	invalidator.invalidatedAt[123] = time.Now().Add(1 * time.Second)
+
+	// Small delay to ensure token's iat is before invalidation time
+	time.Sleep(10 * time.Millisecond)
+
+	app := fiber.New()
+	app.Use(OptionalJWTMiddleware(cfg, nil, invalidator))
+	app.Get("/optional", func(c *fiber.Ctx) error {
+		userID := c.Locals(UserIDKey)
+		if userID == nil {
+			return c.JSON(fiber.Map{"authenticated": false})
+		}
+		return c.JSON(fiber.Map{"authenticated": true, "user_id": userID})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/optional", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Test request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Should return 200 but NOT set user context (token was invalidated)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != `{"authenticated":false}` {
+		t.Errorf("Invalidated token should NOT authenticate, got: %s", string(body))
+	}
+}
+
+func TestOptionalJWTMiddleware_ValidTokenWithBlacklistAndInvalidator(t *testing.T) {
+	cfg := getTestJWTConfig()
+	blacklist := newMockBlacklist()
+	invalidator := newMockInvalidator()
+
+	token := generateTestToken(123, "test@example.com", cfg)
+	// Token is NOT blacklisted and NOT invalidated
+
+	app := fiber.New()
+	app.Use(OptionalJWTMiddleware(cfg, blacklist, invalidator))
+	app.Get("/optional", func(c *fiber.Ctx) error {
+		userID := c.Locals(UserIDKey)
+		if userID == nil {
+			return c.JSON(fiber.Map{"authenticated": false})
+		}
+		return c.JSON(fiber.Map{"authenticated": true, "user_id": userID})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/optional", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Test request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) == `{"authenticated":false}` {
+		t.Error("Valid token with passing blacklist+invalidator should authenticate")
+	}
+}
+
+func TestOptionalJWTMiddleware_BlacklistError_TreatsAsUnauthenticated(t *testing.T) {
+	cfg := getTestJWTConfig()
+	blacklist := newMockBlacklist()
+	blacklist.shouldError = true
+
+	token := generateTestToken(123, "test@example.com", cfg)
+
+	app := fiber.New()
+	app.Use(OptionalJWTMiddleware(cfg, blacklist, nil))
+	app.Get("/optional", func(c *fiber.Ctx) error {
+		userID := c.Locals(UserIDKey)
+		if userID == nil {
+			return c.JSON(fiber.Map{"authenticated": false})
+		}
+		return c.JSON(fiber.Map{"authenticated": true, "user_id": userID})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/optional", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Test request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Blacklist error in optional middleware should treat as unauthenticated (not 500)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != `{"authenticated":false}` {
+		t.Errorf("Blacklist error should treat as unauthenticated, got: %s", string(body))
 	}
 }
 
@@ -472,6 +649,82 @@ func TestGetUserIDFromContext(t *testing.T) {
 
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Errorf("Expected status 401, got %d", resp.StatusCode)
+		}
+	})
+}
+
+func TestGetUserIDFromContext_ReadsFromLocals(t *testing.T) {
+	// Test that GetUserIDFromContext reads from c.Locals(UserIDKey) directly,
+	// not from JWT claims. This verifies the M3 fix.
+	t.Run("reads from locals when set directly", func(t *testing.T) {
+		app := fiber.New()
+		app.Get("/test", func(c *fiber.Ctx) error {
+			// Set user ID directly in locals (simulating what JWT SuccessHandler does)
+			c.Locals(UserIDKey, uint(999))
+
+			userID, ok := GetUserIDFromContext(c)
+			if !ok {
+				return c.SendStatus(http.StatusUnauthorized)
+			}
+			if userID != 999 {
+				return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+					"error": "wrong user ID",
+					"got":   userID,
+				})
+			}
+			return c.JSON(fiber.Map{"user_id": userID})
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Test request failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			t.Errorf("Expected 200, got %d: %s", resp.StatusCode, string(body))
+		}
+	})
+
+	t.Run("returns false for zero user ID", func(t *testing.T) {
+		app := fiber.New()
+		app.Get("/test", func(c *fiber.Ctx) error {
+			c.Locals(UserIDKey, uint(0))
+			_, ok := GetUserIDFromContext(c)
+			if ok {
+				return c.Status(http.StatusInternalServerError).SendString("should not be ok for zero ID")
+			}
+			return c.SendStatus(http.StatusUnauthorized)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		resp, _ := app.Test(req)
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected 401 for zero user ID, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("returns false for wrong type in locals", func(t *testing.T) {
+		app := fiber.New()
+		app.Get("/test", func(c *fiber.Ctx) error {
+			c.Locals(UserIDKey, "not-a-uint")
+			_, ok := GetUserIDFromContext(c)
+			if ok {
+				return c.Status(http.StatusInternalServerError).SendString("should not be ok for string")
+			}
+			return c.SendStatus(http.StatusUnauthorized)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		resp, _ := app.Test(req)
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected 401 for wrong type, got %d", resp.StatusCode)
 		}
 	})
 }

@@ -247,6 +247,121 @@ func TestContainer_RegisterAll(t *testing.T) {
 	}
 }
 
+func TestContainer_Freeze_AfterRegisterAll(t *testing.T) {
+	c := &Container{
+		domains:    make([]Domain, 0),
+		components: make(map[string]any),
+	}
+
+	// Set is allowed before RegisterAll
+	c.Set("pre.key", "before freeze")
+	if c.Get("pre.key") != "before freeze" {
+		t.Error("Set before RegisterAll should work")
+	}
+
+	c.AddDomain(&mockDomain{name: "test"})
+	c.RegisterAll()
+
+	// Container should be frozen after RegisterAll
+	if !c.frozen {
+		t.Error("container should be frozen after RegisterAll")
+	}
+
+	// Set after freeze should panic
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Error("Set() after RegisterAll should panic")
+		}
+		msg, ok := r.(string)
+		if !ok {
+			t.Errorf("panic should be a string, got %T", r)
+		}
+		if !contains(msg, "frozen") {
+			t.Errorf("panic message should mention 'frozen', got: %s", msg)
+		}
+	}()
+
+	c.Set("post.key", "after freeze")
+}
+
+func TestContainer_Freeze_SetDuringRegistration(t *testing.T) {
+	// Domains should be able to call Set() during Register()
+	c := &Container{
+		domains:    make([]Domain, 0),
+		components: make(map[string]any),
+	}
+
+	settingDomain := &mockDomainWithSet{name: "setter"}
+	c.AddDomain(settingDomain)
+
+	// This should NOT panic — domains set components during registration
+	c.RegisterAll()
+
+	if c.Get("setter.component") != "registered" {
+		t.Error("domain should be able to Set during Register")
+	}
+}
+
+func TestContainer_Freeze_GetStillWorks(t *testing.T) {
+	c := &Container{
+		domains:    make([]Domain, 0),
+		components: make(map[string]any),
+	}
+
+	c.Set("key", "value")
+	c.AddDomain(&mockDomain{name: "test"})
+	c.RegisterAll()
+
+	// Get should still work after freeze
+	if c.Get("key") != "value" {
+		t.Error("Get should still work after freeze")
+	}
+
+	// MustGet should still work
+	if c.MustGet("key") != "value" {
+		t.Error("MustGet should still work after freeze")
+	}
+
+	// GetTyped should still work
+	val, ok := GetTyped[string](c, "key")
+	if !ok || val != "value" {
+		t.Error("GetTyped should still work after freeze")
+	}
+}
+
+func TestContainer_Freeze_TypedKeySetPanics(t *testing.T) {
+	c := &Container{
+		domains:    make([]Domain, 0),
+		components: make(map[string]any),
+	}
+
+	c.AddDomain(&mockDomain{name: "test"})
+	c.RegisterAll()
+
+	key := Key[string]("new.key")
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Key.Set() after freeze should panic")
+		}
+	}()
+
+	key.Set(c, "should panic")
+}
+
+// mockDomainWithSet calls Set during Register to verify it works before freeze
+type mockDomainWithSet struct {
+	name string
+}
+
+func (d *mockDomainWithSet) Name() string      { return d.name }
+func (d *mockDomainWithSet) Models() []any      { return []any{} }
+func (d *mockDomainWithSet) Routes(api fiber.Router, c *Container) {}
+func (d *mockDomainWithSet) Register(c *Container) {
+	c.Set("setter.component", "registered")
+}
+
 func TestContainer_MultipleTypes(t *testing.T) {
 	c := &Container{
 		components: make(map[string]any),

@@ -153,12 +153,21 @@ func TestDomainError_HTTPStatus(t *testing.T) {
 }
 
 func TestDomainError_Is(t *testing.T) {
-	t.Run("same domain and code", func(t *testing.T) {
+	t.Run("same domain code and message", func(t *testing.T) {
+		err1 := New("user", CodeNotFound).WithMessage("user not found")
+		err2 := New("user", CodeNotFound).WithMessage("user not found")
+
+		if !errors.Is(err1, err2) {
+			t.Error("errors with same domain, code, and message should match")
+		}
+	})
+
+	t.Run("same domain and code no message", func(t *testing.T) {
 		err1 := New("user", CodeNotFound)
 		err2 := New("user", CodeNotFound)
 
 		if !errors.Is(err1, err2) {
-			t.Error("errors with same domain and code should match")
+			t.Error("errors with same domain and code (both empty message) should match")
 		}
 	})
 
@@ -177,6 +186,54 @@ func TestDomainError_Is(t *testing.T) {
 
 		if errors.Is(err1, err2) {
 			t.Error("errors with different code should not match")
+		}
+	})
+
+	t.Run("same domain and code but different message", func(t *testing.T) {
+		// This is the critical test: two NotFound errors in the same domain
+		// with different entity names must NOT match each other.
+		err1 := NotFound("city", "city")    // message: "city not found"
+		err2 := NotFound("city", "country") // message: "country not found"
+
+		if errors.Is(err1, err2) {
+			t.Error("errors with same code+domain but different message should NOT match")
+		}
+	})
+
+	t.Run("helper-created errors with same entity match", func(t *testing.T) {
+		// Two calls to the same helper with the same args should produce matching errors
+		err1 := NotFound("user", "user")
+		err2 := NotFound("user", "user")
+
+		if !errors.Is(err1, err2) {
+			t.Error("identical helper-created errors should match")
+		}
+	})
+
+	t.Run("clone preserves identity", func(t *testing.T) {
+		original := NotFound("user", "user")
+		cloned := original.WithOperation("GetByID") // clone with extra context
+
+		if !errors.Is(cloned, original) {
+			t.Error("clone with same code+domain+message should match original")
+		}
+	})
+
+	t.Run("wrapped error matches via errors.Is", func(t *testing.T) {
+		sentinel := NotFound("user", "user")
+		wrapped := fmt.Errorf("service: %w", sentinel)
+
+		if !errors.Is(wrapped, sentinel) {
+			t.Error("wrapped DomainError should match via errors.Is")
+		}
+	})
+
+	t.Run("same code same domain different Forbidden messages", func(t *testing.T) {
+		err1 := New("auth", CodeForbidden).WithMessage("self-registration is disabled")
+		err2 := New("auth", CodeForbidden).WithMessage("email address not verified")
+
+		if errors.Is(err1, err2) {
+			t.Error("Forbidden errors with different messages should NOT match")
 		}
 	})
 

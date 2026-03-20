@@ -135,13 +135,11 @@ func TestHandleError_DomainErrors(t *testing.T) {
 				t.Error("expected Success=false")
 			}
 
-			// Error field is a map with "code" and "message"
-			errMap, ok := body.Error.(map[string]any)
-			if !ok {
-				t.Fatalf("expected error to be a map, got %T", body.Error)
+			if body.Error == nil {
+				t.Fatal("expected error to be non-nil")
 			}
-			if msg, _ := errMap["message"].(string); msg != tt.expectedMsg {
-				t.Errorf("message = %q, want %q", msg, tt.expectedMsg)
+			if body.Error.Message != tt.expectedMsg {
+				t.Errorf("message = %q, want %q", body.Error.Message, tt.expectedMsg)
 			}
 		})
 	}
@@ -178,13 +176,11 @@ func TestHandleError_PlainError_Returns500(t *testing.T) {
 	if body.Success {
 		t.Error("expected Success=false")
 	}
-	// Should be a generic message, not leak the actual error
-	errStr, ok := body.Error.(string)
-	if !ok {
-		t.Fatalf("expected error to be string for 500, got %T", body.Error)
+	if body.Error == nil {
+		t.Fatal("expected error to be non-nil")
 	}
-	if errStr != "internal server error" {
-		t.Errorf("error = %q, want %q", errStr, "internal server error")
+	if body.Error.Message != "internal server error" {
+		t.Errorf("error = %q, want %q", body.Error.Message, "internal server error")
 	}
 }
 
@@ -216,16 +212,14 @@ func TestHandleDomainError_IncludesDomainAndCode(t *testing.T) {
 		t.Errorf("status = %d, want 404", status)
 	}
 
-	errMap, ok := body.Error.(map[string]any)
-	if !ok {
-		t.Fatalf("expected error map, got %T", body.Error)
+	if body.Error == nil {
+		t.Fatal("expected error to be non-nil")
 	}
-
-	if code := errMap["code"]; code != "NOT_FOUND" {
-		t.Errorf("code = %v, want NOT_FOUND", code)
+	if body.Error.Code != "NOT_FOUND" {
+		t.Errorf("code = %v, want NOT_FOUND", body.Error.Code)
 	}
-	if domain := errMap["domain"]; domain != "user" {
-		t.Errorf("domain = %v, want user", domain)
+	if body.Error.Domain != "user" {
+		t.Errorf("domain = %v, want user", body.Error.Domain)
 	}
 }
 
@@ -240,13 +234,14 @@ func TestHandleDomainError_IncludesDetails(t *testing.T) {
 		return HandleDomainError(c, de)
 	})
 
-	errMap := body.Error.(map[string]any)
-	detailsMap, ok := errMap["details"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected details map, got %T", errMap["details"])
+	if body.Error == nil {
+		t.Fatal("expected error to be non-nil")
 	}
-	if detailsMap["field"] != "email" {
-		t.Errorf("details.field = %v, want email", detailsMap["field"])
+	if body.Error.Details == nil {
+		t.Fatal("expected details to be non-nil")
+	}
+	if body.Error.Details["field"] != "email" {
+		t.Errorf("details.field = %v, want email", body.Error.Details["field"])
 	}
 }
 
@@ -258,12 +253,14 @@ func TestHandleDomainError_OmitsEmptyDomainAndDetails(t *testing.T) {
 		return HandleDomainError(c, de)
 	})
 
-	errMap := body.Error.(map[string]any)
-	if _, exists := errMap["domain"]; exists {
-		t.Error("domain should be omitted when empty")
+	if body.Error == nil {
+		t.Fatal("expected error to be non-nil")
 	}
-	if _, exists := errMap["details"]; exists {
-		t.Error("details should be omitted when empty")
+	if body.Error.Domain != "" {
+		t.Error("domain should be empty when not set")
+	}
+	if body.Error.Details != nil {
+		t.Error("details should be nil when empty")
 	}
 }
 
@@ -324,9 +321,11 @@ func TestHandleErrorWithDomain_DomainError(t *testing.T) {
 		t.Errorf("status = %d, want 404", status)
 	}
 
-	errMap := body.Error.(map[string]any)
-	if errMap["code"] != "NOT_FOUND" {
-		t.Errorf("code = %v, want NOT_FOUND", errMap["code"])
+	if body.Error == nil {
+		t.Fatal("expected error to be non-nil")
+	}
+	if body.Error.Code != "NOT_FOUND" {
+		t.Errorf("code = %v, want NOT_FOUND", body.Error.Code)
 	}
 }
 
@@ -342,11 +341,13 @@ func TestHandleErrorWithDomain_PlainError_WrappedAsInternal(t *testing.T) {
 		t.Errorf("status = %d, want 500", status)
 	}
 
-	errMap := body.Error.(map[string]any)
-	if errMap["code"] != "INTERNAL_ERROR" {
-		t.Errorf("code = %v, want INTERNAL_ERROR", errMap["code"])
+	if body.Error == nil {
+		t.Fatal("expected error to be non-nil")
 	}
-	if errMap["domain"] != "user" {
-		t.Errorf("domain = %v, want user", errMap["domain"])
+	if body.Error.Code != "INTERNAL_ERROR" {
+		t.Errorf("code = %v, want INTERNAL_ERROR", body.Error.Code)
+	}
+	if body.Error.Domain != "user" {
+		t.Errorf("domain = %v, want user", body.Error.Domain)
 	}
 }
