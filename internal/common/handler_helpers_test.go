@@ -124,6 +124,14 @@ func TestParseAndValidate_ValidationFailure(t *testing.T) {
 	if body2.Error == nil || body2.Error.Code != "VALIDATION_ERROR" {
 		t.Errorf("expected VALIDATION_ERROR code, got %v", body2.Error)
 	}
+	// Verify validation errors are in error.details.fields (not in data)
+	if body2.Error.Details == nil {
+		t.Fatal("expected error.details to be non-nil for validation errors")
+	}
+	fields, ok := body2.Error.Details["fields"]
+	if !ok || fields == nil {
+		t.Error("expected error.details.fields to contain validation errors")
+	}
 }
 
 func TestParseAndValidate_EmptyBody(t *testing.T) {
@@ -281,6 +289,93 @@ func TestParseID_DoesNotContinueOnFailure(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestParseID_NegativeID(t *testing.T) {
+	app := fiber.New()
+	app.Get("/items/:id", func(c *fiber.Ctx) error {
+		_, err := ParseID(c, "id", "item")
+		if err != nil {
+			return nil
+		}
+		t.Error("should not reach here for negative ID")
+		return nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/items/-1", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400 for negative ID, got %d", resp.StatusCode)
+	}
+
+	b, _ := io.ReadAll(resp.Body)
+	var body Response
+	json.Unmarshal(b, &body)
+	if body.Error == nil || body.Error.Message != "invalid item ID" {
+		t.Errorf("expected 'invalid item ID', got %v", body.Error)
+	}
+}
+
+func TestParseID_ZeroID(t *testing.T) {
+	app := fiber.New()
+	app.Get("/items/:id", func(c *fiber.Ctx) error {
+		_, err := ParseID(c, "id", "item")
+		if err != nil {
+			return nil
+		}
+		t.Error("should not reach here for zero ID")
+		return nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/items/0", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400 for zero ID, got %d", resp.StatusCode)
+	}
+
+	b, _ := io.ReadAll(resp.Body)
+	var body Response
+	json.Unmarshal(b, &body)
+	if body.Error == nil || body.Error.Message != "invalid item ID" {
+		t.Errorf("expected 'invalid item ID', got %v", body.Error)
+	}
+}
+
+func TestParseID_LargeValidID(t *testing.T) {
+	app := fiber.New()
+	var parsedID uint
+	app.Get("/items/:id", func(c *fiber.Ctx) error {
+		id, err := ParseID(c, "id", "item")
+		if err != nil {
+			return nil
+		}
+		parsedID = id
+		return c.JSON(fiber.Map{"id": id})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/items/999999", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 for large valid ID, got %d", resp.StatusCode)
+	}
+	if parsedID != 999999 {
+		t.Errorf("expected parsed ID 999999, got %d", parsedID)
 	}
 }
 

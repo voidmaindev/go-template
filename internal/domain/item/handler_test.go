@@ -363,6 +363,94 @@ func TestHandler_Delete_NotFound(t *testing.T) {
 }
 
 // ================================
+// List tests
+// ================================
+
+func TestHandler_List_Success(t *testing.T) {
+	items := []Item{*testItem()}
+	svc := &mockHandlerService{
+		listResp: &common.PaginatedResult[Item]{
+			Data:       items,
+			Total:      1,
+			Page:       1,
+			PageSize:   10,
+			TotalPages: 1,
+			HasMore:    false,
+		},
+	}
+	handler := NewHandler(svc)
+
+	app := fiber.New()
+	app.Get("/items", handler.List)
+
+	status, body := doHandlerReq(t, app, http.MethodGet, "/items?page=1&page_size=10", nil)
+
+	if status != http.StatusOK {
+		t.Errorf("expected 200, got %d", status)
+	}
+	if body["success"] != true {
+		t.Error("expected success=true")
+	}
+
+	// Verify flat pagination structure (not double-wrapped)
+	data, ok := body["data"].(map[string]any)
+	if !ok {
+		t.Fatal("expected data to be an object")
+	}
+
+	// These fields should exist at the top level of data (flat pagination)
+	if _, ok := data["data"]; !ok {
+		t.Error("expected data.data (items array)")
+	}
+	if _, ok := data["total"]; !ok {
+		t.Error("expected data.total")
+	}
+	if _, ok := data["page"]; !ok {
+		t.Error("expected data.page")
+	}
+	if _, ok := data["page_size"]; !ok {
+		t.Error("expected data.page_size")
+	}
+	if _, ok := data["total_pages"]; !ok {
+		t.Error("expected data.total_pages")
+	}
+
+	// Verify items are in data.data, not double-nested
+	innerData, ok := data["data"].([]any)
+	if !ok {
+		t.Fatal("expected data.data to be an array")
+	}
+	if len(innerData) != 1 {
+		t.Errorf("expected 1 item, got %d", len(innerData))
+	}
+
+	// Verify the items are DTOs (have "id", "name" keys), not raw models
+	firstItem, ok := innerData[0].(map[string]any)
+	if !ok {
+		t.Fatal("expected items to be objects")
+	}
+	if _, ok := firstItem["name"]; !ok {
+		t.Error("expected item to have 'name' field (DTO conversion)")
+	}
+}
+
+func TestHandler_List_ServiceError(t *testing.T) {
+	svc := &mockHandlerService{
+		listErr: commonerrors.Internal("item", nil),
+	}
+	handler := NewHandler(svc)
+
+	app := fiber.New()
+	app.Get("/items", handler.List)
+
+	status, _ := doHandlerReq(t, app, http.MethodGet, "/items", nil)
+
+	if status != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", status)
+	}
+}
+
+// ================================
 // HandleError routing tests — verify errors.Is() removal is safe
 // ================================
 

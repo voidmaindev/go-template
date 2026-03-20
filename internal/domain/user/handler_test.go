@@ -960,4 +960,52 @@ func TestHandler_Delete(t *testing.T) {
 			t.Errorf("Expected status 400, got %d", resp.StatusCode)
 		}
 	})
+
+	t.Run("negative user ID", func(t *testing.T) {
+		svc := &mockService{}
+		handler := NewHandler(svc, getHandlerTestConfig())
+
+		app := fiber.New()
+		app.Use(middleware.JWTMiddleware(cfg, nil))
+		app.Delete("/users/:id", handler.Delete)
+
+		token := generateHandlerTestToken(1, "test@example.com")
+
+		req := httptest.NewRequest(http.MethodDelete, "/users/-1", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Test request failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected status 400 for negative ID, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("zero user ID", func(t *testing.T) {
+		svc := &mockService{}
+		handler := NewHandler(svc, getHandlerTestConfig())
+
+		app := fiber.New()
+		app.Use(middleware.JWTMiddleware(cfg, nil))
+		app.Delete("/users/:id", handler.Delete)
+
+		token := generateHandlerTestToken(1, "test@example.com")
+
+		req := httptest.NewRequest(http.MethodDelete, "/users/0", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Test request failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected status 400 for zero ID, got %d", resp.StatusCode)
+		}
+	})
 }

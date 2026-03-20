@@ -158,14 +158,15 @@ import (
 
     "github.com/voidmaindev/go-template/internal/common"
     "github.com/voidmaindev/go-template/internal/common/errors"
+    "github.com/voidmaindev/go-template/internal/common/filter"
 )
 
 type Service interface {
-    List(ctx context.Context, opts ...common.QueryOption) ([]*Product, int64, error)
     GetByID(ctx context.Context, id uint) (*Product, error)
     Create(ctx context.Context, req *CreateProductRequest) (*Product, error)
     Update(ctx context.Context, id uint, req *UpdateProductRequest) (*Product, error)
     Delete(ctx context.Context, id uint) error
+    ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Product], error)
 }
 
 type service struct {
@@ -208,8 +209,12 @@ func NewService(cfg ServiceConfig) Service {
 Service method implementations:
 
 ```go
-func (s *service) List(ctx context.Context, opts ...common.QueryOption) ([]*Product, int64, error) {
-    return s.repo.FindAll(ctx, opts...)
+func (s *service) ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[Product], error) {
+    products, total, err := s.repo.FindAllFiltered(ctx, params)
+    if err != nil {
+        return nil, errors.Internal(domainName, err).WithOperation("ListFiltered")
+    }
+    return common.NewPaginatedResultFromFilter(products, total, params), nil
 }
 
 func (s *service) GetByID(ctx context.Context, id uint) (*Product, error) {
@@ -284,6 +289,7 @@ package product
 import (
     "github.com/gofiber/fiber/v2"
     "github.com/voidmaindev/go-template/internal/common"
+    "github.com/voidmaindev/go-template/internal/common/filter"
 )
 
 type Handler struct {
@@ -295,22 +301,16 @@ func NewHandler(service Service) *Handler {
 }
 
 func (h *Handler) List(c *fiber.Ctx) error {
-    pagination := common.PaginationFromQuery(c)
-    filterParams := common.FilterParamsFromQuery(c, Product{}.FilterConfig())
+    params := filter.ParseFromQuery(c)
 
-    products, total, err := h.service.List(c.Context(),
-        common.WithFilter(filterParams),
-        common.WithPagination(pagination),
-    )
+    result, err := h.service.ListFiltered(c.Context(), params)
     if err != nil {
         return common.HandleError(c, err)
     }
 
-    responses := make([]*ProductResponse, len(products))
-    for i, p := range products {
-        responses[i] = p.ToResponse()
-    }
-    return common.PaginatedResponse(c, responses, total, pagination)
+    return common.SuccessResponse(c, common.MapPaginatedResult(result, func(p Product) ProductResponse {
+        return *p.ToResponse()
+    }))
 }
 
 func (h *Handler) GetByID(c *fiber.Ctx) error {

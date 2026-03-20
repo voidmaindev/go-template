@@ -351,3 +351,106 @@ func TestHandleErrorWithDomain_PlainError_WrappedAsInternal(t *testing.T) {
 		t.Errorf("domain = %v, want user", body.Error.Domain)
 	}
 }
+
+// ================================
+// ValidationErrorResponse tests
+// ================================
+
+func TestValidationErrorResponse_DetailsInErrorField(t *testing.T) {
+	app := fiber.New()
+	app.Get("/test", func(c *fiber.Ctx) error {
+		validationErrors := []map[string]any{
+			{"field": "name", "message": "name is required"},
+			{"field": "email", "message": "email must be valid"},
+		}
+		return ValidationErrorResponse(c, validationErrors)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+
+	b, _ := io.ReadAll(resp.Body)
+	var body Response
+	if err := json.Unmarshal(b, &body); err != nil {
+		t.Fatalf("failed to decode body: %v", err)
+	}
+
+	if body.Success {
+		t.Error("expected Success=false")
+	}
+	if body.Error == nil {
+		t.Fatal("expected error to be non-nil")
+	}
+	if body.Error.Code != "VALIDATION_ERROR" {
+		t.Errorf("code = %q, want VALIDATION_ERROR", body.Error.Code)
+	}
+	// Validation errors should be in error.details.fields, not in data
+	if body.Error.Details == nil {
+		t.Fatal("expected error.details to be non-nil")
+	}
+	fields, ok := body.Error.Details["fields"]
+	if !ok || fields == nil {
+		t.Fatal("expected error.details.fields to contain validation errors")
+	}
+	// Verify data field is NOT populated with validation errors
+	if body.Data != nil {
+		t.Error("validation errors should not be in data field")
+	}
+}
+
+// ================================
+// ErrorResponseWithDetails tests
+// ================================
+
+func TestErrorResponseWithDetails_DetailsInErrorField(t *testing.T) {
+	app := fiber.New()
+	app.Get("/test", func(c *fiber.Ctx) error {
+		details := map[string]any{
+			"field":   "email",
+			"allowed": []string{"user@example.com"},
+		}
+		return ErrorResponseWithDetails(c, fiber.StatusBadRequest, "invalid input", details)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+
+	b, _ := io.ReadAll(resp.Body)
+	var body Response
+	if err := json.Unmarshal(b, &body); err != nil {
+		t.Fatalf("failed to decode body: %v", err)
+	}
+
+	if body.Error == nil {
+		t.Fatal("expected error to be non-nil")
+	}
+	if body.Error.Message != "invalid input" {
+		t.Errorf("message = %q, want %q", body.Error.Message, "invalid input")
+	}
+	// Details should be in error.details, not in data
+	if body.Error.Details == nil {
+		t.Fatal("expected error.details to be non-nil")
+	}
+	if body.Error.Details["field"] != "email" {
+		t.Errorf("details.field = %v, want email", body.Error.Details["field"])
+	}
+	if body.Data != nil {
+		t.Error("details should not be in data field")
+	}
+}
