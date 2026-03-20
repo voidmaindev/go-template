@@ -201,10 +201,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// 404 handler
 	fiberApp.Use(func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"error":   "endpoint not found",
-		})
+		return common.ErrorResponse(c, fiber.StatusNotFound, "endpoint not found")
 	})
 
 	// Start server in goroutine with error channel for startup failures
@@ -295,8 +292,5 @@ func customErrorHandler(c *fiber.Ctx, err error) error {
 		)
 	}
 
-	return c.Status(code).JSON(fiber.Map{
-		"success": false,
-		"error":   message,
-	})
+	return common.ErrorResponse(c, code, message)
 }

@@ -380,12 +380,12 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	// Authorization is handled by RequirePermission middleware at route level
 	// which checks user:delete permission for all delete operations
 
-	targetID, err := c.ParamsInt("id")
+	targetID, err := common.ParseID(c, "id", "user")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid user ID")
+		return nil
 	}
 
-	if err := h.service.Delete(c.Context(), uint(targetID)); err != nil {
+	if err := h.service.Delete(c.Context(), targetID); err != nil {
 		return common.HandleError(c, err)
 	}
 

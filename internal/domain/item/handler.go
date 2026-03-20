@@ -91,11 +91,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return common.HandleError(c, err)
 	}
 
-	// Convert to response DTOs
-	responses := make([]ItemResponse, len(result.Data))
-	for i, item := range result.Data {
-		responses[i] = *item.ToResponse()
-	}
-
-	return common.SuccessResponse(c, common.NewPaginatedResultFromFilter(responses, result.Total, params))
+	return common.SuccessResponse(c, common.MapPaginatedResult(result, func(i Item) ItemResponse {
+		return *i.ToResponse()
+	}))
 }

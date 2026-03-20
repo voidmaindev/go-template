@@ -63,7 +63,7 @@ func ParseAndValidate[T any](c *fiber.Ctx) (*T, error) {
 //	}
 func ParseID(c *fiber.Ctx, paramName, resourceName string) (uint, error) {
 	id, err := c.ParamsInt(paramName)
-	if err != nil {
+	if err != nil || id < 1 {
 		_ = BadRequestResponse(c, "invalid "+resourceName+" ID")
 		return 0, errResponseSent
 	}

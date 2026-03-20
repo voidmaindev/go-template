@@ -106,15 +106,15 @@ func getRequestID(c *fiber.Ctx) string {
 }
 
 // ErrorResponseWithDetails sends an error response with details
-func ErrorResponseWithDetails(c *fiber.Ctx, statusCode int, message string, details any) error {
+func ErrorResponseWithDetails(c *fiber.Ctx, statusCode int, message string, details map[string]any) error {
 	requestID := getRequestID(c)
 	return c.Status(statusCode).JSON(Response{
 		Success: false,
 		Error: &ErrorInfo{
 			Code:    httpStatusToCode(statusCode),
 			Message: message,
+			Details: details,
 		},
-		Data:      details,
 		RequestID: requestID,
 	})
 }
@@ -127,8 +127,8 @@ func ValidationErrorResponse(c *fiber.Ctx, validationErrors any) error {
 		Error: &ErrorInfo{
 			Code:    string(errors.CodeValidation),
 			Message: "validation failed",
+			Details: map[string]any{"fields": validationErrors},
 		},
-		Data:      validationErrors,
 		RequestID: requestID,
 	})
 }
