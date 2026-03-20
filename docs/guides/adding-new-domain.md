@@ -422,7 +422,7 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
     rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
     jwtConfig := &c.Config.JWT
 
-    products := api.Group("/products", middleware.JWTMiddleware(jwtConfig, tokenStore))
+    products := api.Group("/products", middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenStore))
 
     // Read endpoints
     products.Get("/", rateLimiter.ForTier(middleware.TierAPIRead),
@@ -432,9 +432,9 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 
     // Write endpoints
     products.Post("/", rateLimiter.ForTier(middleware.TierAPIWrite),
-        middleware.RequirePermission(enforcer, "product", rbac.ActionWrite), handler.Create)
+        middleware.RequirePermission(enforcer, "product", rbac.ActionCreate), handler.Create)
     products.Put("/:id", rateLimiter.ForTier(middleware.TierAPIWrite),
-        middleware.RequirePermission(enforcer, "product", rbac.ActionModify), handler.Update)
+        middleware.RequirePermission(enforcer, "product", rbac.ActionUpdate), handler.Update)
     products.Delete("/:id", rateLimiter.ForTier(middleware.TierAPIWrite),
         middleware.RequirePermission(enforcer, "product", rbac.ActionDelete), handler.Delete)
 }

@@ -14,8 +14,9 @@ This document describes the high-level architecture of the go-template backend a
 ┌─────────────────────────────────────────────────────────────────┐
 │                      HTTP Layer (Fiber v2)                       │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │ Middleware Chain: RequestID → CORS → Logger → Recovery →    ││
-│  │                   RateLimit → JWT → RBAC                    ││
+│  │ Global: RequestID → SecurityHeaders → HSTS → CORS →        ││
+│  │         Logger → Recovery                                   ││
+│  │ Per-Route: RateLimit → JWT → RBAC                           ││
 │  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
                                  │
@@ -35,7 +36,7 @@ This document describes the high-level architecture of the go-template backend a
 │                    Infrastructure Layer                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
 │  │  PostgreSQL  │  │    Redis     │  │   Casbin     │          │
-│  │   (GORM)     │  │  (Sessions)  │  │   (RBAC)     │          │
+│  │   (GORM)     │  │(Token Store) │  │   (RBAC)     │          │
 │  └──────────────┘  └──────────────┘  └──────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -43,11 +44,14 @@ This document describes the high-level architecture of the go-template backend a
 ## Request Flow
 
 1. **HTTP Request** → Fiber router receives the request
-2. **Middleware Chain** → Executes in order:
+2. **Middleware Chain** → Global middleware in order:
    - `RequestID`: Generates unique request ID
+   - `SecurityHeaders`: X-Frame-Options, X-Content-Type-Options, etc.
+   - `HSTS`: Strict-Transport-Security (production only)
    - `CORS`: Handles cross-origin requests
    - `Logger`: Logs request/response
    - `Recovery`: Catches panics
+   Per-route middleware (applied to route groups):
    - `RateLimit`: Enforces rate limits by tier
    - `JWT`: Validates access token (if protected route)
    - `RBAC`: Checks permissions (if protected route)
@@ -223,7 +227,7 @@ return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 ### RBAC (Casbin)
 - Multi-role users
 - Domain-based permissions (user:read, item:write)
-- System roles: admin, full_reader, full_writer, self_registered
+- System roles: admin, full_reader, full_writer, user, self_registered
 - Permission middleware: `RequirePermission(enforcer, domain, action)`
 
 ## Observability

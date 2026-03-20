@@ -16,11 +16,15 @@ Location: `internal/database/migrations/`
 
 ```
 internal/database/migrations/
-├── migrations.go           # Migrator and interface
+├── migrations.go                    # Migrator and interface
 ├── 000001_create_users.go
 ├── 000002_create_items.go
-├── 000003_create_rbac_tables.go
-└── ...
+├── 000003_create_countries.go
+├── 000004_create_cities.go
+├── 000005_create_documents.go
+├── 000006_create_document_items.go
+├── 000007_drop_user_role_column.go
+└── 000008_rename_rbac_actions.go
 ```
 
 ## Creating a Migration
@@ -129,7 +133,9 @@ The `status` command shows a table:
 ├─────────┼────────────────────────┼─────────┤
 │ 000001  │ create_users           │ Applied │
 │ 000002  │ create_items           │ Applied │
-│ 000003  │ create_rbac_tables     │ Applied │
+│ 000003  │ create_countries       │ Applied │
+│ ...     │ ...                    │ Applied │
+│ 000008  │ rename_rbac_actions    │ Applied │
 │ 000009  │ create_products        │ Pending │
 └─────────┴────────────────────────┴─────────┘
 ```

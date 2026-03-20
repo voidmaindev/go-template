@@ -78,9 +78,10 @@ If starting fresh, remove example migrations:
 ```bash
 # Remove example domain migrations
 rm internal/database/migrations/000002_create_items.go
-rm internal/database/migrations/000004_create_countries.go
-rm internal/database/migrations/000005_create_cities.go
-rm internal/database/migrations/000006_create_documents.go
+rm internal/database/migrations/000003_create_countries.go
+rm internal/database/migrations/000004_create_cities.go
+rm internal/database/migrations/000005_create_documents.go
+rm internal/database/migrations/000006_create_document_items.go
 ```
 
 Update `internal/database/migrations/migrations.go` to remove their registration.
@@ -149,6 +150,7 @@ go run ./cmd/api seed
 Or manually drop tables:
 
 ```sql
+DROP TABLE IF EXISTS document_items CASCADE;
 DROP TABLE IF EXISTS documents CASCADE;
 DROP TABLE IF EXISTS cities CASCADE;
 DROP TABLE IF EXISTS countries CASCADE;
