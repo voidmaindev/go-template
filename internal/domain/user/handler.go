@@ -11,7 +11,6 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/pkg/ptr"
-	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // Handler handles HTTP requests for users
@@ -61,18 +60,12 @@ func (h *Handler) logAudit(c *fiber.Ctx, action string, userID *uint, success bo
 // @Failure 409 {object} common.Response
 // @Router /auth/register [post]
 func (h *Handler) Register(c *fiber.Ctx) error {
-	var req RegisterRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[RegisterRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	// Validate request
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	// Register user
-	response, err := h.service.Register(c.Context(), &req)
+	response, err := h.service.Register(c.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			return common.ConflictResponse(c, "email already exists")
@@ -96,14 +89,9 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // @Failure 429 {object} common.Response "Too many login attempts"
 // @Router /auth/login [post]
 func (h *Handler) Login(c *fiber.Ctx) error {
-	var req LoginRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	// Validate request
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
+	req, err := common.ParseAndValidate[LoginRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	// Build login context with client IP and user agent
@@ -113,7 +101,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	}
 
 	// Login user
-	response, err := h.service.Login(c.Context(), &req, loginCtx)
+	response, err := h.service.Login(c.Context(), req, loginCtx)
 	if err != nil {
 		// Log failed login attempt
 		reason := "unknown"
@@ -190,14 +178,9 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 // @Failure 401 {object} common.Response
 // @Router /auth/refresh [post]
 func (h *Handler) RefreshToken(c *fiber.Ctx) error {
-	var req RefreshTokenRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	// Validate request
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
+	req, err := common.ParseAndValidate[RefreshTokenRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	// Refresh token
@@ -231,9 +214,6 @@ func (h *Handler) GetMe(c *fiber.Ctx) error {
 
 	user, err := h.service.GetByID(c.Context(), userID)
 	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return common.NotFoundResponse(c, "user")
-		}
 		return common.HandleError(c, err)
 	}
 
@@ -257,21 +237,13 @@ func (h *Handler) UpdateMe(c *fiber.Ctx) error {
 		return common.UnauthorizedResponse(c, "")
 	}
 
-	var req UpdateUserRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	// Validate request
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	user, err := h.service.Update(c.Context(), userID, &req)
+	req, err := common.ParseAndValidate[UpdateUserRequest](c)
 	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return common.NotFoundResponse(c, "user")
-		}
+		return nil
+	}
+
+	user, err := h.service.Update(c.Context(), userID, req)
+	if err != nil {
 		return common.HandleError(c, err)
 	}
 
@@ -304,17 +276,12 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 		return common.UnauthorizedResponse(c, "")
 	}
 
-	var req ChangePasswordRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[ChangePasswordRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	// Validate request
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	if err := h.service.ChangePassword(c.Context(), userID, &req); err != nil {
+	if err := h.service.ChangePassword(c.Context(), userID, req); err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound), errors.Is(err, ErrInvalidPassword):
 			// Return generic error to prevent user enumeration
@@ -351,19 +318,16 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 		return common.UnauthorizedResponse(c, "")
 	}
 
-	targetID, err := c.ParamsInt("id")
+	targetID, err := common.ParseID(c, "id", "user")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid user ID")
+		return nil
 	}
 
 	// Authorization is handled by RBAC middleware at route level
 	// This endpoint requires user:read permission
 
-	user, err := h.service.GetByID(c.Context(), uint(targetID))
+	user, err := h.service.GetByID(c.Context(), targetID)
 	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return common.NotFoundResponse(c, "user")
-		}
 		return common.HandleError(c, err)
 	}
 
@@ -422,9 +386,6 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	}
 
 	if err := h.service.Delete(c.Context(), uint(targetID)); err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return common.NotFoundResponse(c, "user")
-		}
 		return common.HandleError(c, err)
 	}
 

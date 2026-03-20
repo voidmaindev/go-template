@@ -88,16 +88,3 @@ func isOriginAllowed(origin string, allowedOrigins []string, allowCredentials bo
 	return false
 }
 
-// NewCORSConfig creates a custom CORS configuration
-func NewCORSConfig(allowedOrigins []string, allowCredentials bool) cors.Config {
-	return cors.Config{
-		AllowOriginsFunc: func(origin string) bool {
-			return isOriginAllowed(origin, allowedOrigins, allowCredentials)
-		},
-		AllowMethods:     corsAllowMethods,
-		AllowHeaders:     corsAllowHeaders,
-		AllowCredentials: allowCredentials,
-		ExposeHeaders:    corsExposeHeaders,
-		MaxAge:           corsMaxAge,
-	}
-}

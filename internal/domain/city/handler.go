@@ -6,7 +6,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
-	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // Handler handles HTTP requests for cities
@@ -23,17 +22,14 @@ func NewHandler(service Service) *Handler {
 
 // Create handles city creation
 func (h *Handler) Create(c *fiber.Ctx) error {
-	var req CreateCityRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	city, err := h.service.Create(c.Context(), &req)
+	req, err := common.ParseAndValidate[CreateCityRequest](c)
 	if err != nil {
+		return nil
+	}
+
+	city, err := h.service.Create(c.Context(), req)
+	if err != nil {
+		// ErrCountryNotFound → 400: the referenced country ID in the request is invalid
 		if errors.Is(err, ErrCountryNotFound) {
 			return common.BadRequestResponse(c, "country not found")
 		}
@@ -45,16 +41,13 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 // GetByID handles getting city by ID
 func (h *Handler) GetByID(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "city")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid city ID")
+		return nil
 	}
 
-	city, err := h.service.GetByIDWithCountry(c.Context(), uint(id))
+	city, err := h.service.GetByIDWithCountry(c.Context(), id)
 	if err != nil {
-		if errors.Is(err, ErrCityNotFound) {
-			return common.NotFoundResponse(c, "city")
-		}
 		return common.HandleError(c, err)
 	}
 
@@ -63,25 +56,19 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 
 // Update handles city update
 func (h *Handler) Update(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "city")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid city ID")
+		return nil
 	}
 
-	var req UpdateCityRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	city, err := h.service.Update(c.Context(), uint(id), &req)
+	req, err := common.ParseAndValidate[UpdateCityRequest](c)
 	if err != nil {
-		if errors.Is(err, ErrCityNotFound) {
-			return common.NotFoundResponse(c, "city")
-		}
+		return nil
+	}
+
+	city, err := h.service.Update(c.Context(), id, req)
+	if err != nil {
+		// ErrCountryNotFound → 400: the referenced country ID in the request is invalid
 		if errors.Is(err, ErrCountryNotFound) {
 			return common.BadRequestResponse(c, "country not found")
 		}
@@ -93,15 +80,12 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 
 // Delete handles city deletion
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "city")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid city ID")
+		return nil
 	}
 
-	if err := h.service.Delete(c.Context(), uint(id)); err != nil {
-		if errors.Is(err, ErrCityNotFound) {
-			return common.NotFoundResponse(c, "city")
-		}
+	if err := h.service.Delete(c.Context(), id); err != nil {
 		return common.HandleError(c, err)
 	}
 
@@ -127,15 +111,16 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 // ListByCountry handles listing cities by country
 func (h *Handler) ListByCountry(c *fiber.Ctx) error {
-	countryID, err := c.ParamsInt("countryId")
+	countryID, err := common.ParseID(c, "countryId", "country")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid country ID")
+		return nil
 	}
 
 	pagination := common.PaginationFromQuery(c, "name")
 
-	result, err := h.service.ListByCountry(c.Context(), uint(countryID), pagination)
+	result, err := h.service.ListByCountry(c.Context(), countryID, pagination)
 	if err != nil {
+		// ErrCountryNotFound → 404: the country resource itself doesn't exist
 		if errors.Is(err, ErrCountryNotFound) {
 			return common.NotFoundResponse(c, "country")
 		}

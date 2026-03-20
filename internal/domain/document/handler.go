@@ -6,7 +6,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
-	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // Handler handles HTTP requests for documents
@@ -23,16 +22,12 @@ func NewHandler(service Service) *Handler {
 
 // Create handles document creation
 func (h *Handler) Create(c *fiber.Ctx) error {
-	var req CreateDocumentRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[CreateDocumentRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	doc, err := h.service.Create(c.Context(), &req)
+	doc, err := h.service.Create(c.Context(), req)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrDocumentCodeExists):
@@ -51,16 +46,13 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 // GetByID handles getting document by ID
 func (h *Handler) GetByID(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid document ID")
+		return nil
 	}
 
-	doc, err := h.service.GetByIDWithDetails(c.Context(), uint(id))
+	doc, err := h.service.GetByIDWithDetails(c.Context(), id)
 	if err != nil {
-		if errors.Is(err, ErrDocumentNotFound) {
-			return common.NotFoundResponse(c, "document")
-		}
 		return common.HandleError(c, err)
 	}
 
@@ -69,25 +61,19 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 
 // Update handles document update
 func (h *Handler) Update(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid document ID")
+		return nil
 	}
 
-	var req UpdateDocumentRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[UpdateDocumentRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	doc, err := h.service.Update(c.Context(), uint(id), &req)
+	doc, err := h.service.Update(c.Context(), id, req)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrDocumentNotFound):
-			return common.NotFoundResponse(c, "document")
 		case errors.Is(err, ErrDocumentCodeExists):
 			return common.ConflictResponse(c, "document code already exists")
 		case errors.Is(err, ErrCityNotFound):
@@ -102,15 +88,12 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 
 // Delete handles document deletion
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid document ID")
+		return nil
 	}
 
-	if err := h.service.Delete(c.Context(), uint(id)); err != nil {
-		if errors.Is(err, ErrDocumentNotFound) {
-			return common.NotFoundResponse(c, "document")
-		}
+	if err := h.service.Delete(c.Context(), id); err != nil {
 		return common.HandleError(c, err)
 	}
 
@@ -136,30 +119,23 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 // AddItem handles adding item to document
 func (h *Handler) AddItem(c *fiber.Ctx) error {
-	documentID, err := c.ParamsInt("id")
+	documentID, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid document ID")
+		return nil
 	}
 
-	var req AddDocumentItemRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	docItem, err := h.service.AddItem(c.Context(), uint(documentID), &req)
+	req, err := common.ParseAndValidate[AddDocumentItemRequest](c)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrDocumentNotFound):
-			return common.NotFoundResponse(c, "document")
-		case errors.Is(err, ErrItemNotFound):
+		return nil
+	}
+
+	docItem, err := h.service.AddItem(c.Context(), documentID, req)
+	if err != nil {
+		// ErrItemNotFound → 400: the referenced item ID in the request is invalid
+		if errors.Is(err, ErrItemNotFound) {
 			return common.BadRequestResponse(c, "item not found")
-		default:
-			return common.HandleError(c, err)
 		}
+		return common.HandleError(c, err)
 	}
 
 	return common.CreatedResponse(c, docItem.ToResponse())
@@ -167,35 +143,24 @@ func (h *Handler) AddItem(c *fiber.Ctx) error {
 
 // UpdateItem handles updating document item
 func (h *Handler) UpdateItem(c *fiber.Ctx) error {
-	documentID, err := c.ParamsInt("id")
+	documentID, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid document ID")
+		return nil
 	}
 
-	itemID, err := c.ParamsInt("itemId")
+	itemID, err := common.ParseID(c, "itemId", "document item")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid item ID")
+		return nil
 	}
 
-	var req UpdateDocumentItemRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	docItem, err := h.service.UpdateItem(c.Context(), uint(documentID), uint(itemID), &req)
+	req, err := common.ParseAndValidate[UpdateDocumentItemRequest](c)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrDocumentNotFound):
-			return common.NotFoundResponse(c, "document")
-		case errors.Is(err, ErrDocumentItemNotFound):
-			return common.NotFoundResponse(c, "document item")
-		default:
-			return common.HandleError(c, err)
-		}
+		return nil
+	}
+
+	docItem, err := h.service.UpdateItem(c.Context(), documentID, itemID, req)
+	if err != nil {
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, docItem.ToResponse())
@@ -203,25 +168,18 @@ func (h *Handler) UpdateItem(c *fiber.Ctx) error {
 
 // RemoveItem handles removing item from document
 func (h *Handler) RemoveItem(c *fiber.Ctx) error {
-	documentID, err := c.ParamsInt("id")
+	documentID, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid document ID")
+		return nil
 	}
 
-	itemID, err := c.ParamsInt("itemId")
+	itemID, err := common.ParseID(c, "itemId", "document item")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid item ID")
+		return nil
 	}
 
-	if err := h.service.RemoveItem(c.Context(), uint(documentID), uint(itemID)); err != nil {
-		switch {
-		case errors.Is(err, ErrDocumentNotFound):
-			return common.NotFoundResponse(c, "document")
-		case errors.Is(err, ErrDocumentItemNotFound):
-			return common.NotFoundResponse(c, "document item")
-		default:
-			return common.HandleError(c, err)
-		}
+	if err := h.service.RemoveItem(c.Context(), documentID, itemID); err != nil {
+		return common.HandleError(c, err)
 	}
 
 	return common.DeletedResponse(c)

@@ -6,7 +6,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
-	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // Handler handles HTTP requests for countries
@@ -23,16 +22,12 @@ func NewHandler(service Service) *Handler {
 
 // Create handles country creation
 func (h *Handler) Create(c *fiber.Ctx) error {
-	var req CreateCountryRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[CreateCountryRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	country, err := h.service.Create(c.Context(), &req)
+	country, err := h.service.Create(c.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrCountryCodeExists) {
 			return common.ConflictResponse(c, "country code already exists")
@@ -45,16 +40,13 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 // GetByID handles getting country by ID
 func (h *Handler) GetByID(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "country")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid country ID")
+		return nil
 	}
 
-	country, err := h.service.GetByID(c.Context(), uint(id))
+	country, err := h.service.GetByID(c.Context(), id)
 	if err != nil {
-		if errors.Is(err, ErrCountryNotFound) {
-			return common.NotFoundResponse(c, "country")
-		}
 		return common.HandleError(c, err)
 	}
 
@@ -63,25 +55,18 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 
 // Update handles country update
 func (h *Handler) Update(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "country")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid country ID")
+		return nil
 	}
 
-	var req UpdateCountryRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	country, err := h.service.Update(c.Context(), uint(id), &req)
+	req, err := common.ParseAndValidate[UpdateCountryRequest](c)
 	if err != nil {
-		if errors.Is(err, ErrCountryNotFound) {
-			return common.NotFoundResponse(c, "country")
-		}
+		return nil
+	}
+
+	country, err := h.service.Update(c.Context(), id, req)
+	if err != nil {
 		if errors.Is(err, ErrCountryCodeExists) {
 			return common.ConflictResponse(c, "country code already exists")
 		}
@@ -93,15 +78,12 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 
 // Delete handles country deletion
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "country")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid country ID")
+		return nil
 	}
 
-	if err := h.service.Delete(c.Context(), uint(id)); err != nil {
-		if errors.Is(err, ErrCountryNotFound) {
-			return common.NotFoundResponse(c, "country")
-		}
+	if err := h.service.Delete(c.Context(), id); err != nil {
 		return common.HandleError(c, err)
 	}
 

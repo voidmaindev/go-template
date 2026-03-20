@@ -10,7 +10,6 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/pkg/utils"
-	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // Handler handles auth HTTP requests
@@ -34,16 +33,12 @@ func NewHandler(service Service, userSvc user.Service, jwtConfig *config.JWTConf
 // SelfRegister handles self-registration requests
 // POST /auth/self/register
 func (h *Handler) SelfRegister(c *fiber.Ctx) error {
-	var req SelfRegisterRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[SelfRegisterRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	resp, err := h.service.SelfRegister(c.Context(), &req)
+	resp, err := h.service.SelfRegister(c.Context(), req)
 	if err != nil {
 		return common.HandleError(c, err)
 	}
@@ -54,13 +49,9 @@ func (h *Handler) SelfRegister(c *fiber.Ctx) error {
 // VerifyEmail handles email verification
 // POST /auth/self/verify-email
 func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
-	var req VerifyEmailRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
+	req, err := common.ParseAndValidate[VerifyEmailRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	if err := h.service.VerifyEmail(c.Context(), req.Token); err != nil {
@@ -73,13 +64,9 @@ func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
 // ResendVerification handles resending verification email
 // POST /auth/self/resend-verification
 func (h *Handler) ResendVerification(c *fiber.Ctx) error {
-	var req ResendVerificationRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
+	req, err := common.ParseAndValidate[ResendVerificationRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	if err := h.service.ResendVerification(c.Context(), req.Email); err != nil {
@@ -92,13 +79,9 @@ func (h *Handler) ResendVerification(c *fiber.Ctx) error {
 // ForgotPassword handles forgot password requests
 // POST /auth/self/forgot-password
 func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
-	var req ForgotPasswordRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
+	req, err := common.ParseAndValidate[ForgotPasswordRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	if err := h.service.ForgotPassword(c.Context(), req.Email); err != nil {
@@ -111,16 +94,12 @@ func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
 // ResetPassword handles password reset
 // POST /auth/self/reset-password
 func (h *Handler) ResetPassword(c *fiber.Ctx) error {
-	var req ResetPasswordRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[ResetPasswordRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	if err := h.service.ResetPassword(c.Context(), &req); err != nil {
+	if err := h.service.ResetPassword(c.Context(), req); err != nil {
 		return common.HandleError(c, err)
 	}
 
@@ -296,13 +275,9 @@ func (h *Handler) SetPassword(c *fiber.Ctx) error {
 		return common.UnauthorizedResponse(c, "")
 	}
 
-	var req SetPasswordRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
+	req, err := common.ParseAndValidate[SetPasswordRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	if err := h.service.SetPassword(c.Context(), userID, req.NewPassword); err != nil {

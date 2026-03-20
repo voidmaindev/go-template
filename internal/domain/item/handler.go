@@ -1,12 +1,9 @@
 package item
 
 import (
-	"errors"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
-	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // Handler handles HTTP requests for items
@@ -23,16 +20,12 @@ func NewHandler(service Service) *Handler {
 
 // Create handles item creation
 func (h *Handler) Create(c *fiber.Ctx) error {
-	var req CreateItemRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[CreateItemRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	item, err := h.service.Create(c.Context(), &req)
+	item, err := h.service.Create(c.Context(), req)
 	if err != nil {
 		return common.HandleError(c, err)
 	}
@@ -42,16 +35,13 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 // GetByID handles getting item by ID
 func (h *Handler) GetByID(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "item")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid item ID")
+		return nil
 	}
 
-	item, err := h.service.GetByID(c.Context(), uint(id))
+	item, err := h.service.GetByID(c.Context(), id)
 	if err != nil {
-		if errors.Is(err, ErrItemNotFound) {
-			return common.NotFoundResponse(c, "item")
-		}
 		return common.HandleError(c, err)
 	}
 
@@ -60,25 +50,18 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 
 // Update handles item update
 func (h *Handler) Update(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "item")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid item ID")
+		return nil
 	}
 
-	var req UpdateItemRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
-	}
-
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	item, err := h.service.Update(c.Context(), uint(id), &req)
+	req, err := common.ParseAndValidate[UpdateItemRequest](c)
 	if err != nil {
-		if errors.Is(err, ErrItemNotFound) {
-			return common.NotFoundResponse(c, "item")
-		}
+		return nil
+	}
+
+	item, err := h.service.Update(c.Context(), id, req)
+	if err != nil {
 		return common.HandleError(c, err)
 	}
 
@@ -87,15 +70,12 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 
 // Delete handles item deletion
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := common.ParseID(c, "id", "item")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid item ID")
+		return nil
 	}
 
-	if err := h.service.Delete(c.Context(), uint(id)); err != nil {
-		if errors.Is(err, ErrItemNotFound) {
-			return common.NotFoundResponse(c, "item")
-		}
+	if err := h.service.Delete(c.Context(), id); err != nil {
 		return common.HandleError(c, err)
 	}
 

@@ -9,7 +9,6 @@ import (
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/middleware"
 	"github.com/voidmaindev/go-template/pkg/ptr"
-	"github.com/voidmaindev/go-template/pkg/validator"
 )
 
 // AuditEntry mirrors audit.AuditEntry to avoid import cycle
@@ -104,16 +103,12 @@ func (h *Handler) ListRoles(c *fiber.Ctx) error {
 // @Failure 500 {object} common.Response
 // @Router /api/v1/rbac/roles [post]
 func (h *Handler) CreateRole(c *fiber.Ctx) error {
-	var req CreateRoleRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[CreateRoleRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	role, err := h.service.CreateRole(c.Context(), &req)
+	role, err := h.service.CreateRole(c.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrRoleCodeExists) {
 			return common.ConflictResponse(c, "role code already exists")
@@ -200,16 +195,12 @@ func (h *Handler) UpdateRolePermissions(c *fiber.Ctx) error {
 		return common.BadRequestResponse(c, "role code is required")
 	}
 
-	var req UpdateRolePermissionsRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[UpdateRolePermissionsRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	roleWithPerms, err := h.service.UpdateRolePermissions(c.Context(), code, &req)
+	roleWithPerms, err := h.service.UpdateRolePermissions(c.Context(), code, req)
 	if err != nil {
 		if errors.Is(err, ErrRoleNotFound) {
 			return common.NotFoundResponse(c, "role")
@@ -294,18 +285,18 @@ func (h *Handler) DeleteRole(c *fiber.Ctx) error {
 // @Failure 500 {object} common.Response
 // @Router /api/v1/rbac/users/{id}/roles [get]
 func (h *Handler) GetUserRoles(c *fiber.Ctx) error {
-	userID, err := c.ParamsInt("id")
+	userID, err := common.ParseID(c, "id", "user")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid user ID")
+		return nil
 	}
 
-	roles, err := h.service.GetUserRoles(c.Context(), uint(userID))
+	roles, err := h.service.GetUserRoles(c.Context(), userID)
 	if err != nil {
 		return common.InternalServerErrorResponse(c)
 	}
 
 	return common.SuccessResponse(c, UserRolesResponse{
-		UserID: uint(userID),
+		UserID: userID,
 		Roles:  roles,
 	})
 }
@@ -326,21 +317,17 @@ func (h *Handler) GetUserRoles(c *fiber.Ctx) error {
 // @Failure 500 {object} common.Response
 // @Router /api/v1/rbac/users/{id}/roles [post]
 func (h *Handler) AssignRole(c *fiber.Ctx) error {
-	userID, err := c.ParamsInt("id")
+	userID, err := common.ParseID(c, "id", "user")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid user ID")
+		return nil
 	}
 
-	var req AssignRoleRequest
-	if err := c.BodyParser(&req); err != nil {
-		return common.BadRequestResponse(c, "invalid request body")
+	req, err := common.ParseAndValidate[AssignRoleRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	if errs := validator.Validate(&req); errs != nil {
-		return common.ValidationErrorResponse(c, errs)
-	}
-
-	err = h.service.AssignRole(c.Context(), uint(userID), req.RoleCode)
+	err = h.service.AssignRole(c.Context(), userID, req.RoleCode)
 	if err != nil {
 		if errors.Is(err, ErrRoleNotFound) {
 			return common.NotFoundResponse(c, "role")
@@ -352,7 +339,7 @@ func (h *Handler) AssignRole(c *fiber.Ctx) error {
 	}
 
 	// Log role assignment
-	h.logAudit(c, "role_assigned", ptr.To(uint(userID)), true, map[string]any{
+	h.logAudit(c, "role_assigned", ptr.To(userID), true, map[string]any{
 		"role": req.RoleCode,
 	})
 
@@ -375,9 +362,9 @@ func (h *Handler) AssignRole(c *fiber.Ctx) error {
 // @Failure 500 {object} common.Response
 // @Router /api/v1/rbac/users/{id}/roles/{code} [delete]
 func (h *Handler) RemoveRole(c *fiber.Ctx) error {
-	userID, err := c.ParamsInt("id")
+	userID, err := common.ParseID(c, "id", "user")
 	if err != nil {
-		return common.BadRequestResponse(c, "invalid user ID")
+		return nil
 	}
 
 	code := c.Params("code")
@@ -385,7 +372,7 @@ func (h *Handler) RemoveRole(c *fiber.Ctx) error {
 		return common.BadRequestResponse(c, "role code is required")
 	}
 
-	err = h.service.RemoveRole(c.Context(), uint(userID), code)
+	err = h.service.RemoveRole(c.Context(), userID, code)
 	if err != nil {
 		if errors.Is(err, ErrRoleNotAssigned) {
 			return common.NotFoundResponse(c, "role assignment")
@@ -397,7 +384,7 @@ func (h *Handler) RemoveRole(c *fiber.Ctx) error {
 	}
 
 	// Log role removal
-	h.logAudit(c, "role_removed", ptr.To(uint(userID)), true, map[string]any{
+	h.logAudit(c, "role_removed", ptr.To(userID), true, map[string]any{
 		"role": code,
 	})
 
