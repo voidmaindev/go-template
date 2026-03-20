@@ -177,13 +177,19 @@ func (r *BaseRepository[T]) HardDelete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Unscoped().Delete(new(T), id).Error
 }
 
-// Exists checks if an entity exists with given conditions
+// Exists checks if an entity exists with given conditions.
+// Uses SELECT 1 LIMIT 1 instead of COUNT(*) for better performance on large tables.
 func (r *BaseRepository[T]) Exists(ctx context.Context, condition map[string]any) (bool, error) {
-	var count int64
-	if err := r.db.WithContext(ctx).Model(new(T)).Where(condition).Count(&count).Error; err != nil {
+	var exists bool
+	err := r.db.WithContext(ctx).Model(new(T)).
+		Select("1").
+		Where(condition).
+		Limit(1).
+		Scan(&exists).Error
+	if err != nil {
 		return false, err
 	}
-	return count > 0, nil
+	return exists, nil
 }
 
 // Count returns the count of entities matching conditions

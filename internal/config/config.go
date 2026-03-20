@@ -180,7 +180,9 @@ func Load() (*Config, error) {
 	viper.AutomaticEnv()
 
 	// Bind environment variables to config keys
-	bindEnvVars()
+	if err := bindEnvVars(); err != nil {
+		return nil, fmt.Errorf("failed to bind environment variables: %w", err)
+	}
 
 	// Unmarshal configuration into struct
 	var cfg Config
@@ -343,119 +345,131 @@ func setDefaults() {
 	viper.SetDefault("oauth.apple.redirect_url", "http://localhost:3000/api/auth/oauth/apple/callback")
 }
 
-// bindEnvVars binds environment variables to viper keys
-// This allows using environment variables like APP_DATABASE_HOST instead of config file
-func bindEnvVars() {
+// mustBindEnv binds an environment variable to a viper key, collecting any errors.
+func mustBindEnv(errs *[]error, key, envVar string) {
+	if err := viper.BindEnv(key, envVar); err != nil {
+		*errs = append(*errs, fmt.Errorf("failed to bind %s to %s: %w", envVar, key, err))
+	}
+}
+
+// bindEnvVars binds environment variables to viper keys.
+// This allows using environment variables like APP_DATABASE_HOST instead of config file.
+// Returns an error if any binding fails.
+func bindEnvVars() error {
+	var errs []error
+
 	// App
-	viper.BindEnv("app.name", "APP_NAME")
-	viper.BindEnv("app.environment", "APP_ENV")
-	viper.BindEnv("app.debug", "APP_DEBUG")
+	mustBindEnv(&errs, "app.name", "APP_NAME")
+	mustBindEnv(&errs, "app.environment", "APP_ENV")
+	mustBindEnv(&errs, "app.debug", "APP_DEBUG")
 
 	// Server
-	viper.BindEnv("server.host", "SERVER_HOST")
-	viper.BindEnv("server.port", "SERVER_PORT")
-	viper.BindEnv("server.read_timeout", "SERVER_READ_TIMEOUT")
-	viper.BindEnv("server.write_timeout", "SERVER_WRITE_TIMEOUT")
-	viper.BindEnv("server.idle_timeout", "SERVER_IDLE_TIMEOUT")
-	viper.BindEnv("server.shutdown_timeout", "SERVER_SHUTDOWN_TIMEOUT")
+	mustBindEnv(&errs, "server.host", "SERVER_HOST")
+	mustBindEnv(&errs, "server.port", "SERVER_PORT")
+	mustBindEnv(&errs, "server.read_timeout", "SERVER_READ_TIMEOUT")
+	mustBindEnv(&errs, "server.write_timeout", "SERVER_WRITE_TIMEOUT")
+	mustBindEnv(&errs, "server.idle_timeout", "SERVER_IDLE_TIMEOUT")
+	mustBindEnv(&errs, "server.shutdown_timeout", "SERVER_SHUTDOWN_TIMEOUT")
 
 	// Database
-	viper.BindEnv("database.host", "DB_HOST")
-	viper.BindEnv("database.port", "DB_PORT")
-	viper.BindEnv("database.user", "DB_USER")
-	viper.BindEnv("database.password", "DB_PASSWORD")
-	viper.BindEnv("database.dbname", "DB_NAME")
-	viper.BindEnv("database.sslmode", "DB_SSL_MODE")
-	viper.BindEnv("database.max_idle_conns", "DB_MAX_IDLE_CONNS")
-	viper.BindEnv("database.max_open_conns", "DB_MAX_OPEN_CONNS")
-	viper.BindEnv("database.max_lifetime", "DB_MAX_LIFETIME")
-	viper.BindEnv("database.slow_query_threshold", "DB_SLOW_QUERY_THRESHOLD")
-	viper.BindEnv("database.retry_attempts", "DB_RETRY_ATTEMPTS")
-	viper.BindEnv("database.retry_delay", "DB_RETRY_DELAY")
+	mustBindEnv(&errs, "database.host", "DB_HOST")
+	mustBindEnv(&errs, "database.port", "DB_PORT")
+	mustBindEnv(&errs, "database.user", "DB_USER")
+	mustBindEnv(&errs, "database.password", "DB_PASSWORD")
+	mustBindEnv(&errs, "database.dbname", "DB_NAME")
+	mustBindEnv(&errs, "database.sslmode", "DB_SSL_MODE")
+	mustBindEnv(&errs, "database.max_idle_conns", "DB_MAX_IDLE_CONNS")
+	mustBindEnv(&errs, "database.max_open_conns", "DB_MAX_OPEN_CONNS")
+	mustBindEnv(&errs, "database.max_lifetime", "DB_MAX_LIFETIME")
+	mustBindEnv(&errs, "database.slow_query_threshold", "DB_SLOW_QUERY_THRESHOLD")
+	mustBindEnv(&errs, "database.retry_attempts", "DB_RETRY_ATTEMPTS")
+	mustBindEnv(&errs, "database.retry_delay", "DB_RETRY_DELAY")
 
 	// Redis
-	viper.BindEnv("redis.host", "REDIS_HOST")
-	viper.BindEnv("redis.port", "REDIS_PORT")
-	viper.BindEnv("redis.password", "REDIS_PASSWORD")
-	viper.BindEnv("redis.db", "REDIS_DB")
-	viper.BindEnv("redis.retry_attempts", "REDIS_RETRY_ATTEMPTS")
-	viper.BindEnv("redis.retry_delay", "REDIS_RETRY_DELAY")
+	mustBindEnv(&errs, "redis.host", "REDIS_HOST")
+	mustBindEnv(&errs, "redis.port", "REDIS_PORT")
+	mustBindEnv(&errs, "redis.password", "REDIS_PASSWORD")
+	mustBindEnv(&errs, "redis.db", "REDIS_DB")
+	mustBindEnv(&errs, "redis.retry_attempts", "REDIS_RETRY_ATTEMPTS")
+	mustBindEnv(&errs, "redis.retry_delay", "REDIS_RETRY_DELAY")
 
 	// JWT
-	viper.BindEnv("jwt.secret_key", "JWT_SECRET")
-	viper.BindEnv("jwt.access_token_expiry", "JWT_ACCESS_EXPIRY")
-	viper.BindEnv("jwt.refresh_token_expiry", "JWT_REFRESH_EXPIRY")
-	viper.BindEnv("jwt.issuer", "JWT_ISSUER")
-	viper.BindEnv("jwt.min_password_response_time", "JWT_MIN_PASSWORD_RESPONSE_TIME")
+	mustBindEnv(&errs, "jwt.secret_key", "JWT_SECRET")
+	mustBindEnv(&errs, "jwt.access_token_expiry", "JWT_ACCESS_EXPIRY")
+	mustBindEnv(&errs, "jwt.refresh_token_expiry", "JWT_REFRESH_EXPIRY")
+	mustBindEnv(&errs, "jwt.issuer", "JWT_ISSUER")
+	mustBindEnv(&errs, "jwt.min_password_response_time", "JWT_MIN_PASSWORD_RESPONSE_TIME")
 
 	// CORS
-	viper.BindEnv("cors.allowed_origins", "CORS_ALLOWED_ORIGINS")
+	mustBindEnv(&errs, "cors.allowed_origins", "CORS_ALLOWED_ORIGINS")
 
 	// Telemetry
-	viper.BindEnv("telemetry.enabled", "TELEMETRY_ENABLED")
-	viper.BindEnv("telemetry.service_name", "TELEMETRY_SERVICE_NAME")
-	viper.BindEnv("telemetry.service_version", "TELEMETRY_SERVICE_VERSION")
-	viper.BindEnv("telemetry.otlp_endpoint", "OTLP_ENDPOINT")
-	viper.BindEnv("telemetry.otlp_insecure", "OTLP_INSECURE")
-	viper.BindEnv("telemetry.sampling_ratio", "TELEMETRY_SAMPLING_RATIO")
+	mustBindEnv(&errs, "telemetry.enabled", "TELEMETRY_ENABLED")
+	mustBindEnv(&errs, "telemetry.service_name", "TELEMETRY_SERVICE_NAME")
+	mustBindEnv(&errs, "telemetry.service_version", "TELEMETRY_SERVICE_VERSION")
+	mustBindEnv(&errs, "telemetry.otlp_endpoint", "OTLP_ENDPOINT")
+	mustBindEnv(&errs, "telemetry.otlp_insecure", "OTLP_INSECURE")
+	mustBindEnv(&errs, "telemetry.sampling_ratio", "TELEMETRY_SAMPLING_RATIO")
 
 	// Seed
-	viper.BindEnv("seed.admin_email", "SEED_ADMIN_EMAIL")
-	viper.BindEnv("seed.admin_password", "SEED_ADMIN_PASSWORD")
-	viper.BindEnv("seed.admin_name", "SEED_ADMIN_NAME")
+	mustBindEnv(&errs, "seed.admin_email", "SEED_ADMIN_EMAIL")
+	mustBindEnv(&errs, "seed.admin_password", "SEED_ADMIN_PASSWORD")
+	mustBindEnv(&errs, "seed.admin_name", "SEED_ADMIN_NAME")
 
 	// RBAC
-	viper.BindEnv("rbac.model_path", "RBAC_MODEL_PATH")
+	mustBindEnv(&errs, "rbac.model_path", "RBAC_MODEL_PATH")
 
 	// Rate limit
-	viper.BindEnv("ratelimit.enabled", "RATELIMIT_ENABLED")
-	viper.BindEnv("ratelimit.auth_limit", "RATELIMIT_AUTH_LIMIT")
-	viper.BindEnv("ratelimit.auth_user_limit", "RATELIMIT_AUTH_USER_LIMIT")
-	viper.BindEnv("ratelimit.rbac_admin_limit", "RATELIMIT_RBAC_ADMIN_LIMIT")
-	viper.BindEnv("ratelimit.api_write_limit", "RATELIMIT_API_WRITE_LIMIT")
-	viper.BindEnv("ratelimit.api_read_limit", "RATELIMIT_API_READ_LIMIT")
-	viper.BindEnv("ratelimit.global_limit", "RATELIMIT_GLOBAL_LIMIT")
-	viper.BindEnv("ratelimit.window_seconds", "RATELIMIT_WINDOW_SECONDS")
+	mustBindEnv(&errs, "ratelimit.enabled", "RATELIMIT_ENABLED")
+	mustBindEnv(&errs, "ratelimit.auth_limit", "RATELIMIT_AUTH_LIMIT")
+	mustBindEnv(&errs, "ratelimit.auth_user_limit", "RATELIMIT_AUTH_USER_LIMIT")
+	mustBindEnv(&errs, "ratelimit.rbac_admin_limit", "RATELIMIT_RBAC_ADMIN_LIMIT")
+	mustBindEnv(&errs, "ratelimit.api_write_limit", "RATELIMIT_API_WRITE_LIMIT")
+	mustBindEnv(&errs, "ratelimit.api_read_limit", "RATELIMIT_API_READ_LIMIT")
+	mustBindEnv(&errs, "ratelimit.global_limit", "RATELIMIT_GLOBAL_LIMIT")
+	mustBindEnv(&errs, "ratelimit.window_seconds", "RATELIMIT_WINDOW_SECONDS")
 
 	// Pagination
-	viper.BindEnv("pagination.default_page_size", "PAGINATION_DEFAULT_PAGE_SIZE")
-	viper.BindEnv("pagination.max_page_size", "PAGINATION_MAX_PAGE_SIZE")
+	mustBindEnv(&errs, "pagination.default_page_size", "PAGINATION_DEFAULT_PAGE_SIZE")
+	mustBindEnv(&errs, "pagination.max_page_size", "PAGINATION_MAX_PAGE_SIZE")
 
 	// Self-registration
-	viper.BindEnv("self_registration.enabled", "SELF_REGISTRATION_ENABLED")
-	viper.BindEnv("self_registration.require_email_verification", "SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION")
-	viper.BindEnv("self_registration.verification_token_expiry", "SELF_REGISTRATION_VERIFICATION_TOKEN_EXPIRY")
-	viper.BindEnv("self_registration.password_reset_token_expiry", "SELF_REGISTRATION_PASSWORD_RESET_TOKEN_EXPIRY")
-	viper.BindEnv("self_registration.default_role", "SELF_REGISTRATION_DEFAULT_ROLE")
-	viper.BindEnv("self_registration.base_url", "SELF_REGISTRATION_BASE_URL")
+	mustBindEnv(&errs, "self_registration.enabled", "SELF_REGISTRATION_ENABLED")
+	mustBindEnv(&errs, "self_registration.require_email_verification", "SELF_REGISTRATION_REQUIRE_EMAIL_VERIFICATION")
+	mustBindEnv(&errs, "self_registration.verification_token_expiry", "SELF_REGISTRATION_VERIFICATION_TOKEN_EXPIRY")
+	mustBindEnv(&errs, "self_registration.password_reset_token_expiry", "SELF_REGISTRATION_PASSWORD_RESET_TOKEN_EXPIRY")
+	mustBindEnv(&errs, "self_registration.default_role", "SELF_REGISTRATION_DEFAULT_ROLE")
+	mustBindEnv(&errs, "self_registration.base_url", "SELF_REGISTRATION_BASE_URL")
 
 	// Email provider (SendGrid only)
-	viper.BindEnv("email.from", "EMAIL_FROM")
-	viper.BindEnv("email.from_name", "EMAIL_FROM_NAME")
-	viper.BindEnv("email.sendgrid.api_key", "SENDGRID_API_KEY")
+	mustBindEnv(&errs, "email.from", "EMAIL_FROM")
+	mustBindEnv(&errs, "email.from_name", "EMAIL_FROM_NAME")
+	mustBindEnv(&errs, "email.sendgrid.api_key", "SENDGRID_API_KEY")
 
 	// OAuth - Google
-	viper.BindEnv("oauth.google.enabled", "OAUTH_GOOGLE_ENABLED")
-	viper.BindEnv("oauth.google.client_id", "OAUTH_GOOGLE_CLIENT_ID")
-	viper.BindEnv("oauth.google.client_secret", "OAUTH_GOOGLE_CLIENT_SECRET")
-	viper.BindEnv("oauth.google.redirect_url", "OAUTH_GOOGLE_REDIRECT_URL")
+	mustBindEnv(&errs, "oauth.google.enabled", "OAUTH_GOOGLE_ENABLED")
+	mustBindEnv(&errs, "oauth.google.client_id", "OAUTH_GOOGLE_CLIENT_ID")
+	mustBindEnv(&errs, "oauth.google.client_secret", "OAUTH_GOOGLE_CLIENT_SECRET")
+	mustBindEnv(&errs, "oauth.google.redirect_url", "OAUTH_GOOGLE_REDIRECT_URL")
 
 	// OAuth - Facebook
-	viper.BindEnv("oauth.facebook.enabled", "OAUTH_FACEBOOK_ENABLED")
-	viper.BindEnv("oauth.facebook.client_id", "OAUTH_FACEBOOK_CLIENT_ID")
-	viper.BindEnv("oauth.facebook.client_secret", "OAUTH_FACEBOOK_CLIENT_SECRET")
-	viper.BindEnv("oauth.facebook.redirect_url", "OAUTH_FACEBOOK_REDIRECT_URL")
+	mustBindEnv(&errs, "oauth.facebook.enabled", "OAUTH_FACEBOOK_ENABLED")
+	mustBindEnv(&errs, "oauth.facebook.client_id", "OAUTH_FACEBOOK_CLIENT_ID")
+	mustBindEnv(&errs, "oauth.facebook.client_secret", "OAUTH_FACEBOOK_CLIENT_SECRET")
+	mustBindEnv(&errs, "oauth.facebook.redirect_url", "OAUTH_FACEBOOK_REDIRECT_URL")
 
 	// OAuth - Apple
-	viper.BindEnv("oauth.apple.enabled", "OAUTH_APPLE_ENABLED")
-	viper.BindEnv("oauth.apple.client_id", "OAUTH_APPLE_CLIENT_ID")
-	viper.BindEnv("oauth.apple.client_secret", "OAUTH_APPLE_CLIENT_SECRET")
-	viper.BindEnv("oauth.apple.redirect_url", "OAUTH_APPLE_REDIRECT_URL")
+	mustBindEnv(&errs, "oauth.apple.enabled", "OAUTH_APPLE_ENABLED")
+	mustBindEnv(&errs, "oauth.apple.client_id", "OAUTH_APPLE_CLIENT_ID")
+	mustBindEnv(&errs, "oauth.apple.client_secret", "OAUTH_APPLE_CLIENT_SECRET")
+	mustBindEnv(&errs, "oauth.apple.redirect_url", "OAUTH_APPLE_REDIRECT_URL")
 
 	// Security
-	viper.BindEnv("security.login_rate_limit_per_email", "SECURITY_LOGIN_RATE_LIMIT_PER_EMAIL")
-	viper.BindEnv("security.login_rate_limit_per_ip", "SECURITY_LOGIN_RATE_LIMIT_PER_IP")
-	viper.BindEnv("security.login_lockout_duration", "SECURITY_LOGIN_LOCKOUT_DURATION")
+	mustBindEnv(&errs, "security.login_rate_limit_per_email", "SECURITY_LOGIN_RATE_LIMIT_PER_EMAIL")
+	mustBindEnv(&errs, "security.login_rate_limit_per_ip", "SECURITY_LOGIN_RATE_LIMIT_PER_IP")
+	mustBindEnv(&errs, "security.login_lockout_duration", "SECURITY_LOGIN_LOCKOUT_DURATION")
+
+	return errors.Join(errs...)
 }
 
 // DSN returns the PostgreSQL connection string

@@ -24,7 +24,7 @@ var (
 
 // domain implements container.Domain and container.Shutdowner interfaces
 type domain struct {
-	svc *service
+	svc Service
 }
 
 // NewDomain creates a new audit domain for registration

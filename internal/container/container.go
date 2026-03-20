@@ -15,8 +15,8 @@ import (
 // Domains register their repositories, services, and handlers here.
 //
 // Thread safety: Components are registered sequentially during startup
-// (via RegisterAll) and read-only thereafter. Do not call Set() after
-// startup or from concurrent goroutines.
+// (via RegisterAll) and read-only thereafter. After registration completes,
+// the container is frozen and Set() will panic.
 type Container struct {
 	// Core dependencies
 	DB     *gorm.DB
@@ -28,6 +28,9 @@ type Container struct {
 
 	// Domain components (populated by Register calls)
 	components map[string]any
+
+	// frozen is set after RegisterAll to prevent modifications during request handling
+	frozen bool
 }
 
 // Domain interface that each domain package implements
@@ -62,8 +65,12 @@ func (c *Container) AddDomain(d Domain) {
 	c.domains = append(c.domains, d)
 }
 
-// Set stores a component in the container
+// Set stores a component in the container.
+// Panics if called after the container has been frozen by RegisterAll.
 func (c *Container) Set(key string, component any) {
+	if c.frozen {
+		panic(fmt.Sprintf("container is frozen: cannot set %q after registration is complete", key))
+	}
 	c.components[key] = component
 }
 
@@ -171,6 +178,9 @@ func (c *Container) TryRegisterAll() error {
 		}
 		registered[d.Name()] = true
 	}
+
+	// Freeze the container to prevent modifications during request handling
+	c.frozen = true
 	return nil
 }
 

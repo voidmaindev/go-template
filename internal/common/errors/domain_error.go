@@ -134,10 +134,13 @@ func (e *DomainError) HTTPStatus() int {
 	return e.Code.HTTPStatus()
 }
 
-// Is implements errors.Is support for error comparison
+// Is implements errors.Is support for error comparison.
+// Compares Code, Domain, and Message to distinguish between errors
+// with the same code in the same domain (e.g., NotFound("city", "city")
+// vs NotFound("city", "country")).
 func (e *DomainError) Is(target error) bool {
 	if t, ok := target.(*DomainError); ok {
-		return e.Code == t.Code && e.Domain == t.Domain
+		return e.Code == t.Code && e.Domain == t.Domain && e.Message == t.Message
 	}
 	return false
 }

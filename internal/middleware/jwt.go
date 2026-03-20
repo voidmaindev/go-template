@@ -110,8 +110,10 @@ func JWTMiddlewareWithInvalidator(cfg *config.JWTConfig, blacklist TokenBlacklis
 	})
 }
 
-// OptionalJWTMiddleware creates optional JWT middleware (doesn't require auth but parses token if present)
-func OptionalJWTMiddleware(cfg *config.JWTConfig) fiber.Handler {
+// OptionalJWTMiddleware creates optional JWT middleware (doesn't require auth but parses token if present).
+// Validates token signature, blacklist, and invalidation status. A revoked token is treated
+// the same as no token — the request proceeds unauthenticated.
+func OptionalJWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist, invalidator TokenInvalidator) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		token := extractToken(c)
 		if token == "" {
@@ -122,6 +124,24 @@ func OptionalJWTMiddleware(cfg *config.JWTConfig) fiber.Handler {
 		if err != nil {
 			// Token is invalid but we don't require auth, so continue
 			return c.Next()
+		}
+
+		// Check blacklist — treat revoked tokens as unauthenticated
+		if blacklist != nil {
+			isBlacklisted, err := blacklist.IsBlacklisted(c.Context(), token)
+			if err != nil || isBlacklisted {
+				return c.Next()
+			}
+		}
+
+		// Check invalidation — treat invalidated tokens as unauthenticated
+		if invalidator != nil {
+			invalidatedAt, err := invalidator.GetTokensInvalidatedAt(c.Context(), claims.UserID)
+			if err == nil && !invalidatedAt.IsZero() {
+				if claims.IssuedAt != nil && claims.IssuedAt.Time.Before(invalidatedAt) {
+					return c.Next()
+				}
+			}
 		}
 
 		// Store claims in context
@@ -160,19 +180,13 @@ func getClaimsFromToken(c *fiber.Ctx) (jwt.MapClaims, bool) {
 	return claims, ok
 }
 
-// GetUserIDFromContext extracts the user ID from the Fiber context
+// GetUserIDFromContext extracts the user ID from the Fiber context.
+// Uses the value stored by JWT SuccessHandler in c.Locals(UserIDKey).
 func GetUserIDFromContext(c *fiber.Ctx) (uint, bool) {
-	claims, ok := getClaimsFromToken(c)
-	if !ok {
-		return 0, false
+	if id, ok := c.Locals(UserIDKey).(uint); ok && id > 0 {
+		return id, true
 	}
-
-	userIDFloat, ok := claims["user_id"].(float64)
-	if !ok {
-		return 0, false
-	}
-
-	return uint(userIDFloat), true
+	return 0, false
 }
 
 // GetEmailFromContext extracts the email from the Fiber context

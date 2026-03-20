@@ -407,7 +407,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Produce json
 // @Param id path int true "User ID"
-// @Success 200 {object} common.Response
+// @Success 204
 // @Failure 401 {object} common.Response
 // @Failure 403 {object} common.Response
 // @Failure 404 {object} common.Response

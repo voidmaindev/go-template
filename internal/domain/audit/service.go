@@ -23,6 +23,8 @@ type Service interface {
 	ListFiltered(ctx context.Context, params *filter.Params) (*common.PaginatedResult[AuditLog], error)
 	// ListByUserID retrieves audit logs for a specific user
 	ListByUserID(ctx context.Context, userID uint, pagination *common.Pagination) (*common.PaginatedResult[AuditLog], error)
+	// Shutdown drains the audit queue and waits for the worker to finish
+	Shutdown(ctx context.Context) error
 }
 
 // service implements the Service interface
@@ -34,7 +36,7 @@ type service struct {
 }
 
 // NewService creates a new audit service with a background worker for async logging
-func NewService(repo Repository) *service {
+func NewService(repo Repository) Service {
 	s := &service{
 		repo:   repo,
 		logger: logging.New(domainName),

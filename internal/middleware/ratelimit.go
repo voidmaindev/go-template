@@ -108,7 +108,10 @@ func (f *RateLimiterFactory) ForTier(tier Tier) fiber.Handler {
 
 			return c.Status(fiber.StatusTooManyRequests).JSON(common.Response{
 				Success: false,
-				Error:   "too many requests, please try again later",
+				Error: &common.ErrorInfo{
+					Code:    "TOO_MANY_REQUESTS",
+					Message: "too many requests, please try again later",
+				},
 			})
 		}
 

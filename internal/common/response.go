@@ -7,11 +7,21 @@ import (
 
 // Response represents a standard API response
 type Response struct {
-	Success   bool   `json:"success"`
-	Message   string `json:"message,omitempty"`
-	Data      any    `json:"data,omitempty"`
-	Error     any    `json:"error,omitempty"`
-	RequestID string `json:"request_id,omitempty"`
+	Success   bool       `json:"success"`
+	Message   string     `json:"message,omitempty"`
+	Data      any        `json:"data,omitempty"`
+	Error     *ErrorInfo `json:"error,omitempty"`
+	RequestID string     `json:"request_id,omitempty"`
+}
+
+// ErrorInfo provides a consistent error structure for all API error responses.
+// Both simple errors (BadRequest, NotFound) and domain errors (HandleDomainError)
+// use this same shape, so API consumers always see the same structure.
+type ErrorInfo struct {
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Domain  string         `json:"domain,omitempty"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
 // SuccessResponse sends a success response with data
@@ -50,12 +60,37 @@ func DeletedResponse(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+// httpStatusToCode maps HTTP status codes to error codes for simple error responses.
+func httpStatusToCode(statusCode int) string {
+	switch statusCode {
+	case 400:
+		return string(errors.CodeBadRequest)
+	case 401:
+		return string(errors.CodeUnauthorized)
+	case 403:
+		return string(errors.CodeForbidden)
+	case 404:
+		return string(errors.CodeNotFound)
+	case 409:
+		return string(errors.CodeConflict)
+	case 429:
+		return string(errors.CodeTooManyRequests)
+	case 503:
+		return "SERVICE_UNAVAILABLE"
+	default:
+		return string(errors.CodeInternal)
+	}
+}
+
 // ErrorResponse sends an error response with a status code
 func ErrorResponse(c *fiber.Ctx, statusCode int, message string) error {
 	requestID := getRequestID(c)
 	return c.Status(statusCode).JSON(Response{
-		Success:   false,
-		Error:     message,
+		Success: false,
+		Error: &ErrorInfo{
+			Code:    httpStatusToCode(statusCode),
+			Message: message,
+		},
 		RequestID: requestID,
 	})
 }
@@ -74,20 +109,26 @@ func getRequestID(c *fiber.Ctx) string {
 func ErrorResponseWithDetails(c *fiber.Ctx, statusCode int, message string, details any) error {
 	requestID := getRequestID(c)
 	return c.Status(statusCode).JSON(Response{
-		Success:   false,
-		Error:     message,
+		Success: false,
+		Error: &ErrorInfo{
+			Code:    httpStatusToCode(statusCode),
+			Message: message,
+		},
 		Data:      details,
 		RequestID: requestID,
 	})
 }
 
 // ValidationErrorResponse sends a 400 response for validation errors
-func ValidationErrorResponse(c *fiber.Ctx, errors any) error {
+func ValidationErrorResponse(c *fiber.Ctx, validationErrors any) error {
 	requestID := getRequestID(c)
 	return c.Status(fiber.StatusBadRequest).JSON(Response{
-		Success:   false,
-		Error:     "validation failed",
-		Data:      errors,
+		Success: false,
+		Error: &ErrorInfo{
+			Code:    string(errors.CodeValidation),
+			Message: "validation failed",
+		},
+		Data:      validationErrors,
 		RequestID: requestID,
 	})
 }
@@ -174,29 +215,21 @@ func HandleError(c *fiber.Ctx, err error) error {
 func HandleDomainError(c *fiber.Ctx, de *errors.DomainError) error {
 	requestID := getRequestID(c)
 
-	// Build error response with code and domain context
-	errorData := fiber.Map{
-		"code":    string(de.Code),
-		"message": de.Message,
+	errInfo := &ErrorInfo{
+		Code:    string(de.Code),
+		Message: de.Message,
+		Domain:  de.Domain,
 	}
 
-	// Add domain if present
-	if de.Domain != "" {
-		errorData["domain"] = de.Domain
-	}
-
-	// Add details if present
 	if len(de.Details) > 0 {
-		errorData["details"] = de.Details
+		errInfo.Details = de.Details
 	}
 
-	response := Response{
+	return c.Status(de.HTTPStatus()).JSON(Response{
 		Success:   false,
-		Error:     errorData,
+		Error:     errInfo,
 		RequestID: requestID,
-	}
-
-	return c.Status(de.HTTPStatus()).JSON(response)
+	})
 }
 
 // HandleErrorWithDomain is a convenience function that wraps errors in domain context
