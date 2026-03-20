@@ -316,7 +316,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 func (h *Handler) GetByID(c *fiber.Ctx) error {
     id, err := common.ParseID(c, "id", domainName)
     if err != nil {
-        return err
+        return nil // response already sent
     }
 
     product, err := h.service.GetByID(c.Context(), id)
@@ -329,7 +329,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 func (h *Handler) Create(c *fiber.Ctx) error {
     req, err := common.ParseAndValidate[CreateProductRequest](c)
     if err != nil {
-        return err
+        return nil // response already sent
     }
 
     product, err := h.service.Create(c.Context(), req)
@@ -342,12 +342,12 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 func (h *Handler) Update(c *fiber.Ctx) error {
     id, err := common.ParseID(c, "id", domainName)
     if err != nil {
-        return err
+        return nil // response already sent
     }
 
     req, err := common.ParseAndValidate[UpdateProductRequest](c)
     if err != nil {
-        return err
+        return nil // response already sent
     }
 
     product, err := h.service.Update(c.Context(), id, req)
@@ -360,7 +360,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 func (h *Handler) Delete(c *fiber.Ctx) error {
     id, err := common.ParseID(c, "id", domainName)
     if err != nil {
-        return err
+        return nil // response already sent
     }
 
     if err := h.service.Delete(c.Context(), id); err != nil {
