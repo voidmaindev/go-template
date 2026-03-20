@@ -6,6 +6,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	goredis "github.com/redis/go-redis/v9"
+	"github.com/voidmaindev/go-template/internal/redis"
 )
 
 // redisClientInterface defines the methods used by TokenStore for testing
@@ -518,4 +522,302 @@ func TestTokenStore_Concurrency(t *testing.T) {
 			t.Error("At least some tokens should be blacklisted")
 		}
 	})
+}
+
+// ================================
+// Integration tests using miniredis (real TokenStore, real Lua scripts)
+// ================================
+
+func setupUserTestRedis(t *testing.T, invalidationTTL time.Duration) (*miniredis.Miniredis, *TokenStore) {
+	t.Helper()
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("failed to start miniredis: %v", err)
+	}
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	store := NewTokenStore(redis.WrapClient(client), invalidationTTL)
+	return mr, store
+}
+
+// --- C2: Token Invalidation TTL ---
+
+func TestInvalidateAllUserTokens_SetsTTL(t *testing.T) {
+	invalidationTTL := 7 * 24 * time.Hour // 7 days (refresh token lifetime)
+	mr, store := setupUserTestRedis(t, invalidationTTL)
+	defer mr.Close()
+
+	ctx := context.Background()
+	userID := uint(42)
+
+	err := store.InvalidateAllUserTokens(ctx, userID)
+	if err != nil {
+		t.Fatalf("InvalidateAllUserTokens() error = %v", err)
+	}
+
+	// Key should exist
+	key := TokenInvalidatePrefix + "42"
+	if !mr.Exists(key) {
+		t.Fatal("invalidation key should exist in Redis")
+	}
+
+	// TTL should be set (not zero/forever)
+	ttl := mr.TTL(key)
+	if ttl <= 0 {
+		t.Errorf("TTL = %v, expected positive (key should expire, not persist forever)", ttl)
+	}
+	if ttl > invalidationTTL {
+		t.Errorf("TTL = %v, should be <= %v", ttl, invalidationTTL)
+	}
+}
+
+func TestInvalidateAllUserTokens_KeyExpires(t *testing.T) {
+	invalidationTTL := 5 * time.Second
+	mr, store := setupUserTestRedis(t, invalidationTTL)
+	defer mr.Close()
+
+	ctx := context.Background()
+
+	err := store.InvalidateAllUserTokens(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	key := TokenInvalidatePrefix + "1"
+	if !mr.Exists(key) {
+		t.Fatal("key should exist before expiry")
+	}
+
+	// Fast-forward past TTL
+	mr.FastForward(6 * time.Second)
+
+	if mr.Exists(key) {
+		t.Error("key should have expired after TTL")
+	}
+}
+
+func TestInvalidateAllUserTokens_StoresTimestamp(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ctx := context.Background()
+	before := time.Now()
+
+	err := store.InvalidateAllUserTokens(ctx, 99)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	after := time.Now()
+
+	// Retrieve and verify the timestamp
+	invalidatedAt, err := store.GetTokensInvalidatedAt(ctx, 99)
+	if err != nil {
+		t.Fatalf("GetTokensInvalidatedAt() error = %v", err)
+	}
+	if invalidatedAt.IsZero() {
+		t.Fatal("invalidatedAt should not be zero")
+	}
+
+	// Timestamp should be between before and after
+	if invalidatedAt.Before(before.Truncate(time.Second)) {
+		t.Errorf("invalidatedAt %v is before call time %v", invalidatedAt, before)
+	}
+	if invalidatedAt.After(after.Add(time.Second)) {
+		t.Errorf("invalidatedAt %v is after call end %v", invalidatedAt, after)
+	}
+}
+
+func TestInvalidateAllUserTokens_NilRedis_NoError(t *testing.T) {
+	store := &TokenStore{redis: nil, invalidationTTL: 7 * 24 * time.Hour}
+
+	err := store.InvalidateAllUserTokens(context.Background(), 1)
+	if err != nil {
+		t.Errorf("expected nil error for nil Redis, got %v", err)
+	}
+}
+
+func TestGetTokensInvalidatedAt_NoInvalidation_ReturnsZero(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ts, err := store.GetTokensInvalidatedAt(context.Background(), 999)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ts.IsZero() {
+		t.Errorf("expected zero time for non-existent invalidation, got %v", ts)
+	}
+}
+
+func TestGetTokensInvalidatedAt_NilRedis_ReturnsZero(t *testing.T) {
+	store := &TokenStore{redis: nil, invalidationTTL: 7 * 24 * time.Hour}
+
+	ts, err := store.GetTokensInvalidatedAt(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ts.IsZero() {
+		t.Errorf("expected zero time for nil Redis, got %v", ts)
+	}
+}
+
+// --- C3: incrementWithExpiry atomicity ---
+
+func TestRecordFailedLogin_IncrementsCounters(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ctx := context.Background()
+	lockout := 15 * time.Minute
+
+	// Record 3 failures
+	for i := 0; i < 3; i++ {
+		err := store.RecordFailedLogin(ctx, "user@test.com", "1.2.3.4", lockout)
+		if err != nil {
+			t.Fatalf("RecordFailedLogin() iteration %d error = %v", i, err)
+		}
+	}
+
+	// Verify email counter
+	emailKey := LoginRateEmailPrefix + "user@test.com"
+	emailVal, err := mr.Get(emailKey)
+	if err != nil {
+		t.Fatalf("Get email key error = %v", err)
+	}
+	if emailVal != "3" {
+		t.Errorf("email counter = %s, want 3", emailVal)
+	}
+
+	// Verify IP counter
+	ipKey := LoginRateIPPrefix + "1.2.3.4"
+	ipVal, err := mr.Get(ipKey)
+	if err != nil {
+		t.Fatalf("Get IP key error = %v", err)
+	}
+	if ipVal != "3" {
+		t.Errorf("IP counter = %s, want 3", ipVal)
+	}
+}
+
+func TestRecordFailedLogin_SetsExpiry(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ctx := context.Background()
+	lockout := 15 * time.Minute
+
+	err := store.RecordFailedLogin(ctx, "user@test.com", "1.2.3.4", lockout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both counters should have TTLs set
+	emailKey := LoginRateEmailPrefix + "user@test.com"
+	emailTTL := mr.TTL(emailKey)
+	if emailTTL <= 0 {
+		t.Errorf("email key TTL = %v, expected positive", emailTTL)
+	}
+
+	ipKey := LoginRateIPPrefix + "1.2.3.4"
+	ipTTL := mr.TTL(ipKey)
+	if ipTTL <= 0 {
+		t.Errorf("IP key TTL = %v, expected positive", ipTTL)
+	}
+}
+
+func TestRecordFailedLogin_ExpiryResetsCounters(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ctx := context.Background()
+	lockout := 5 * time.Second
+
+	// Record a failure
+	store.RecordFailedLogin(ctx, "user@test.com", "1.2.3.4", lockout)
+
+	// Fast-forward past lockout
+	mr.FastForward(6 * time.Second)
+
+	// Record another failure — should restart at 1
+	store.RecordFailedLogin(ctx, "user@test.com", "1.2.3.4", lockout)
+
+	emailKey := LoginRateEmailPrefix + "user@test.com"
+	emailVal, _ := mr.Get(emailKey)
+	if emailVal != "1" {
+		t.Errorf("email counter after expiry = %s, want 1 (fresh start)", emailVal)
+	}
+}
+
+func TestCheckLoginRateLimit_AllowsUnderLimit(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ctx := context.Background()
+
+	// No failures recorded — should be allowed
+	err := store.CheckLoginRateLimit(ctx, "user@test.com", "1.2.3.4", 5, 10, 15*time.Minute)
+	if err != nil {
+		t.Errorf("expected nil error (allowed), got %v", err)
+	}
+}
+
+func TestCheckLoginRateLimit_DeniesOverEmailLimit(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ctx := context.Background()
+	maxPerEmail := 3
+	lockout := 15 * time.Minute
+
+	// Record enough failures to hit the email limit
+	for i := 0; i < maxPerEmail; i++ {
+		store.RecordFailedLogin(ctx, "user@test.com", "1.2.3.4", lockout)
+	}
+
+	// Should be denied
+	err := store.CheckLoginRateLimit(ctx, "user@test.com", "1.2.3.4", maxPerEmail, 100, lockout)
+	if !errors.Is(err, ErrTooManyLoginAttempts) {
+		t.Errorf("expected ErrTooManyLoginAttempts, got %v", err)
+	}
+}
+
+func TestCheckLoginRateLimit_DeniesOverIPLimit(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ctx := context.Background()
+	maxPerIP := 2
+	lockout := 15 * time.Minute
+
+	// Record failures from different emails but same IP
+	store.RecordFailedLogin(ctx, "a@test.com", "1.2.3.4", lockout)
+	store.RecordFailedLogin(ctx, "b@test.com", "1.2.3.4", lockout)
+
+	// IP limit exceeded (each email recorded increments the IP counter)
+	err := store.CheckLoginRateLimit(ctx, "c@test.com", "1.2.3.4", 100, maxPerIP, lockout)
+	if !errors.Is(err, ErrTooManyLoginAttempts) {
+		t.Errorf("expected ErrTooManyLoginAttempts for IP limit, got %v", err)
+	}
+}
+
+func TestClearLoginRateLimit_ClearsEmailCounter(t *testing.T) {
+	mr, store := setupUserTestRedis(t, 7*24*time.Hour)
+	defer mr.Close()
+
+	ctx := context.Background()
+
+	// Record failures
+	store.RecordFailedLogin(ctx, "user@test.com", "1.2.3.4", 15*time.Minute)
+
+	// Clear
+	err := store.ClearLoginRateLimit(ctx, "user@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Email key should be gone
+	emailKey := LoginRateEmailPrefix + "user@test.com"
+	if mr.Exists(emailKey) {
+		t.Error("email counter should be cleared")
+	}
 }
