@@ -63,7 +63,7 @@ func ParseFromQuery(c *fiber.Ctx) *Params {
 
 // parseFieldOperator splits "field__operator" into parts
 // Returns field name and operator (default: OpEq)
-// Supports dot notation for relations: "country.name__contains"
+// Supports dot notation for relations: "example_country.name__contains"
 func parseFieldOperator(key string) (string, Operator) {
 	// Split by double underscore for operator
 	parts := strings.Split(key, "__")

@@ -8,10 +8,10 @@ The template includes these example domains to demonstrate patterns:
 
 | Domain | Location | Dependencies |
 |--------|----------|--------------|
-| `item` | `internal/domain/item/` | None |
-| `country` | `internal/domain/country/` | None |
-| `city` | `internal/domain/city/` | country |
-| `document` | `internal/domain/document/` | city, item |
+| `item` | `internal/domain/example_item/` | None |
+| `country` | `internal/domain/example_country/` | None |
+| `city` | `internal/domain/example_city/` | country |
+| `document` | `internal/domain/example_document/` | city, item |
 
 ## Removal Order
 
@@ -65,10 +65,10 @@ domains := []string{} // Or your new domains
 
 ```bash
 # Remove domain directories
-rm -rf internal/domain/item
-rm -rf internal/domain/country
-rm -rf internal/domain/city
-rm -rf internal/domain/document
+rm -rf internal/domain/example_item
+rm -rf internal/domain/example_country
+rm -rf internal/domain/example_city
+rm -rf internal/domain/example_document
 ```
 
 ### 4. Remove Migration Files (Optional)
@@ -116,10 +116,10 @@ Search for and remove unused imports:
 
 ```bash
 # Find files importing deleted domains
-grep -r "github.com/voidmaindev/go-template/internal/domain/item" .
-grep -r "github.com/voidmaindev/go-template/internal/domain/country" .
-grep -r "github.com/voidmaindev/go-template/internal/domain/city" .
-grep -r "github.com/voidmaindev/go-template/internal/domain/document" .
+grep -r "github.com/voidmaindev/go-template/internal/domain/example_item" .
+grep -r "github.com/voidmaindev/go-template/internal/domain/example_country" .
+grep -r "github.com/voidmaindev/go-template/internal/domain/example_city" .
+grep -r "github.com/voidmaindev/go-template/internal/domain/example_document" .
 ```
 
 ### 8. Verify Compilation
@@ -165,7 +165,7 @@ If you want to keep some example domains:
 
 1. Remove `item` and `document` from app registration
 2. Update `document` dependencies in code (or remove `document`)
-3. Remove `internal/domain/item/` and `internal/domain/document/`
+3. Remove `internal/domain/example_item/` and `internal/domain/example_document/`
 
 ### Keep only item
 
@@ -213,10 +213,10 @@ Follow the [Adding a New Domain](adding-new-domain.md) guide to create your own 
 # Step 2: Edit internal/database/seeders/self_registered_role.go
 
 # Step 3: Remove directories
-rm -rf internal/domain/item
-rm -rf internal/domain/country
-rm -rf internal/domain/city
-rm -rf internal/domain/document
+rm -rf internal/domain/example_item
+rm -rf internal/domain/example_country
+rm -rf internal/domain/example_city
+rm -rf internal/domain/example_document
 
 # Step 4: Verify
 go build ./...

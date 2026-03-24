@@ -4,11 +4,11 @@ import (
 	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/internal/domain/audit"
 	"github.com/voidmaindev/go-template/internal/domain/auth"
-	"github.com/voidmaindev/go-template/internal/domain/city"
-	"github.com/voidmaindev/go-template/internal/domain/country"
-	"github.com/voidmaindev/go-template/internal/domain/document"
+	"github.com/voidmaindev/go-template/internal/domain/example_city"
+	"github.com/voidmaindev/go-template/internal/domain/example_country"
+	"github.com/voidmaindev/go-template/internal/domain/example_document"
 	"github.com/voidmaindev/go-template/internal/domain/email"
-	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/example_item"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 )
@@ -31,11 +31,11 @@ func mainDomains() []container.Domain {
 		email.NewDomain(), // standalone, no dependencies
 		audit.NewDomain(), // depends on: user (for tokenStore)
 		auth.NewDomain(),  // depends on: user, email, rbac, audit
-		item.NewDomain(),
-		country.NewDomain(),
 
-		// Domains with dependencies
-		city.NewDomain(),     // depends on: country
-		document.NewDomain(), // depends on: city, item
+		// Example domains — delete when building your own app
+		example_item.NewDomain(),
+		example_country.NewDomain(),
+		example_city.NewDomain(),     // depends on: example_country
+		example_document.NewDomain(), // depends on: example_city, example_item
 	}
 }

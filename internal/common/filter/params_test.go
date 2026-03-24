@@ -172,13 +172,13 @@ func TestParams_Offset(t *testing.T) {
 
 func TestFilterParam_Structure(t *testing.T) {
 	param := FilterParam{
-		Field:    "country.name",
+		Field:    "example_country.name",
 		Operator: OpContains,
 		Value:    "Germany",
 	}
 
-	if param.Field != "country.name" {
-		t.Errorf("Field = %s, want country.name", param.Field)
+	if param.Field != "example_country.name" {
+		t.Errorf("Field = %s, want example_country.name", param.Field)
 	}
 	if param.Operator != OpContains {
 		t.Errorf("Operator = %s, want contains", param.Operator)

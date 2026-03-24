@@ -68,11 +68,11 @@ func TestFilterParsingIntegration(t *testing.T) {
 		},
 		{
 			name:        "relation filter",
-			queryString: "?country.name__contains=germany",
+			queryString: "?example_country.name__contains=germany",
 			wantPage:    1,
 			wantLimit:   10,
 			wantFilters: []FilterParam{
-				{Field: "country.name", Operator: OpContains, Value: "germany"},
+				{Field: "example_country.name", Operator: OpContains, Value: "germany"},
 			},
 			wantSort: nil,
 		},
@@ -131,11 +131,11 @@ func TestFilterParsingIntegration(t *testing.T) {
 		},
 		{
 			name:        "nested relation filter",
-			queryString: "?city.country.code=DEU",
+			queryString: "?example_city.example_country.code=DEU",
 			wantPage:    1,
 			wantLimit:   10,
 			wantFilters: []FilterParam{
-				{Field: "city.country.code", Operator: OpEq, Value: "DEU"},
+				{Field: "example_city.example_country.code", Operator: OpEq, Value: "DEU"},
 			},
 			wantSort: nil,
 		},

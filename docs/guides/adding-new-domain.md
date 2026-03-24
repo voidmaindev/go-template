@@ -591,14 +591,14 @@ func (v *Validator) ValidateUpdate(ctx context.Context, req *UpdateProductReques
 When your domain depends on another domain, resolve it in `Register()` via typed container keys. Example from `city` depending on `country`:
 
 ```go
-import "github.com/voidmaindev/go-template/internal/domain/country"
+import "github.com/voidmaindev/go-template/internal/domain/example_country"
 
 func (d *domain) Register(c *container.Container) {
     repo := NewRepository(c.DB)
     RepositoryKey.Set(c, repo)
 
     // Get dependency from another domain
-    countryRepo := country.RepositoryKey.MustGet(c)
+    countryRepo := example_country.RepositoryKey.MustGet(c)
 
     // Pass cross-domain dependency to service
     service := NewService(repo, countryRepo)

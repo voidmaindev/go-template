@@ -8,10 +8,10 @@ import (
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/config"
 	"github.com/voidmaindev/go-template/internal/container"
-	"github.com/voidmaindev/go-template/internal/domain/city"
-	"github.com/voidmaindev/go-template/internal/domain/country"
-	"github.com/voidmaindev/go-template/internal/domain/document"
-	"github.com/voidmaindev/go-template/internal/domain/item"
+	"github.com/voidmaindev/go-template/internal/domain/example_city"
+	"github.com/voidmaindev/go-template/internal/domain/example_country"
+	"github.com/voidmaindev/go-template/internal/domain/example_document"
+	"github.com/voidmaindev/go-template/internal/domain/example_item"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 	"github.com/voidmaindev/go-template/internal/redis"
@@ -48,10 +48,10 @@ func SetupTestSuite(t *testing.T) *TestSuite {
 	// Register all domains (rbac must be before user, as user depends on rbac.Service)
 	c.AddDomain(rbac.NewDomain())
 	c.AddDomain(user.NewDomain())
-	c.AddDomain(item.NewDomain())
-	c.AddDomain(country.NewDomain())
-	c.AddDomain(city.NewDomain())
-	c.AddDomain(document.NewDomain())
+	c.AddDomain(example_item.NewDomain())
+	c.AddDomain(example_country.NewDomain())
+	c.AddDomain(example_city.NewDomain())
+	c.AddDomain(example_document.NewDomain())
 
 	// Run migrations
 	if err := db.AutoMigrate(c.GetAllModels()...); err != nil {
@@ -115,43 +115,43 @@ func (s *TestSuite) UserRepository() user.Repository {
 }
 
 // ItemService returns the item service from the container.
-func (s *TestSuite) ItemService() item.Service {
-	return item.ServiceKey.MustGet(s.Container)
+func (s *TestSuite) ItemService() example_item.Service {
+	return example_item.ServiceKey.MustGet(s.Container)
 }
 
 // ItemRepository returns the item repository from the container.
-func (s *TestSuite) ItemRepository() item.Repository {
-	return item.RepositoryKey.MustGet(s.Container)
+func (s *TestSuite) ItemRepository() example_item.Repository {
+	return example_item.RepositoryKey.MustGet(s.Container)
 }
 
 // CountryService returns the country service from the container.
-func (s *TestSuite) CountryService() country.Service {
-	return country.ServiceKey.MustGet(s.Container)
+func (s *TestSuite) CountryService() example_country.Service {
+	return example_country.ServiceKey.MustGet(s.Container)
 }
 
 // CountryRepository returns the country repository from the container.
-func (s *TestSuite) CountryRepository() country.Repository {
-	return country.RepositoryKey.MustGet(s.Container)
+func (s *TestSuite) CountryRepository() example_country.Repository {
+	return example_country.RepositoryKey.MustGet(s.Container)
 }
 
 // CityService returns the city service from the container.
-func (s *TestSuite) CityService() city.Service {
-	return city.ServiceKey.MustGet(s.Container)
+func (s *TestSuite) CityService() example_city.Service {
+	return example_city.ServiceKey.MustGet(s.Container)
 }
 
 // CityRepository returns the city repository from the container.
-func (s *TestSuite) CityRepository() city.Repository {
-	return city.RepositoryKey.MustGet(s.Container)
+func (s *TestSuite) CityRepository() example_city.Repository {
+	return example_city.RepositoryKey.MustGet(s.Container)
 }
 
 // DocumentService returns the document service from the container.
-func (s *TestSuite) DocumentService() document.Service {
-	return document.ServiceKey.MustGet(s.Container)
+func (s *TestSuite) DocumentService() example_document.Service {
+	return example_document.ServiceKey.MustGet(s.Container)
 }
 
 // DocumentRepository returns the document repository from the container.
-func (s *TestSuite) DocumentRepository() document.Repository {
-	return document.RepositoryKey.MustGet(s.Container)
+func (s *TestSuite) DocumentRepository() example_document.Repository {
+	return example_document.RepositoryKey.MustGet(s.Container)
 }
 
 // CreateTestUser creates a test user and returns it.
@@ -196,10 +196,10 @@ func (s *TestSuite) CreateTestAdmin(email, password, name string) *user.User {
 
 // CreateTestItem creates a test item and returns it.
 // Price is in cents (e.g., 1999 = $19.99).
-func (s *TestSuite) CreateTestItem(name, description string, price int64) *item.Item {
+func (s *TestSuite) CreateTestItem(name, description string, price int64) *example_item.Item {
 	s.T.Helper()
 
-	i := &item.Item{
+	i := &example_item.Item{
 		BaseModel:   common.BaseModel{},
 		Name:        name,
 		Description: description,
@@ -214,10 +214,10 @@ func (s *TestSuite) CreateTestItem(name, description string, price int64) *item.
 }
 
 // CreateTestCountry creates a test country and returns it.
-func (s *TestSuite) CreateTestCountry(name, code string) *country.Country {
+func (s *TestSuite) CreateTestCountry(name, code string) *example_country.Country {
 	s.T.Helper()
 
-	c := &country.Country{
+	c := &example_country.Country{
 		BaseModel: common.BaseModel{},
 		Name:      name,
 		Code:      code,
@@ -231,10 +231,10 @@ func (s *TestSuite) CreateTestCountry(name, code string) *country.Country {
 }
 
 // CreateTestCity creates a test city and returns it.
-func (s *TestSuite) CreateTestCity(name string, countryID uint) *city.City {
+func (s *TestSuite) CreateTestCity(name string, countryID uint) *example_city.City {
 	s.T.Helper()
 
-	c := &city.City{
+	c := &example_city.City{
 		BaseModel: common.BaseModel{},
 		Name:      name,
 		CountryID: countryID,

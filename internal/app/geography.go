@@ -2,8 +2,8 @@ package app
 
 import (
 	"github.com/voidmaindev/go-template/internal/container"
-	"github.com/voidmaindev/go-template/internal/domain/city"
-	"github.com/voidmaindev/go-template/internal/domain/country"
+	"github.com/voidmaindev/go-template/internal/domain/example_city"
+	"github.com/voidmaindev/go-template/internal/domain/example_country"
 	"github.com/voidmaindev/go-template/internal/domain/rbac"
 	"github.com/voidmaindev/go-template/internal/domain/user"
 )
@@ -24,8 +24,8 @@ func geographyDomains() []container.Domain {
 		rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
 		user.NewDomain(), // depends on: rbac
 
-		// Geography domains
-		country.NewDomain(),
-		city.NewDomain(), // depends on: country
+		// Example geography domains — delete when building your own app
+		example_country.NewDomain(),
+		example_city.NewDomain(), // depends on: example_country
 	}
 }

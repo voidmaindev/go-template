@@ -27,7 +27,7 @@ var errResponseSent = errors.New("response already sent")
 //	    if err != nil {
 //	        return common.HandleError(c, err)
 //	    }
-//	    return common.CreatedResponse(c, item.ToResponse())
+//	    return common.CreatedResponse(c, example_item.ToResponse())
 //	}
 func ParseAndValidate[T any](c *fiber.Ctx) (*T, error) {
 	var req T
@@ -59,7 +59,7 @@ func ParseAndValidate[T any](c *fiber.Ctx) (*T, error) {
 //	    if err != nil {
 //	        return common.HandleError(c, err)
 //	    }
-//	    return common.SuccessResponse(c, item.ToResponse())
+//	    return common.SuccessResponse(c, example_item.ToResponse())
 //	}
 func ParseID(c *fiber.Ctx, paramName, resourceName string) (uint, error) {
 	id, err := c.ParamsInt(paramName)

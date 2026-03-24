@@ -46,7 +46,7 @@ func ApplyFiltersOnly(db *gorm.DB, config Config, params *Params) *gorm.DB {
 }
 
 func applyFilter(db *gorm.DB, config Config, f FilterParam, joinedRelations map[string]bool) *gorm.DB {
-	// Handle relation fields (e.g., "country.name" -> join Country, filter on name)
+	// Handle relation fields (e.g., "example_country.name" -> join Country, filter on name)
 	if strings.Contains(f.Field, ".") {
 		return applyRelationFilter(db, config, f, joinedRelations)
 	}
@@ -70,7 +70,7 @@ func applyFilter(db *gorm.DB, config Config, f FilterParam, joinedRelations map[
 }
 
 func applyRelationFilter(db *gorm.DB, config Config, f FilterParam, joinedRelations map[string]bool) *gorm.DB {
-	// Parse "country.name" -> relation="country", field="name"
+	// Parse "example_country.name" -> relation="country", field="name"
 	parts := strings.SplitN(f.Field, ".", 2)
 	if len(parts) != 2 {
 		return db
@@ -136,7 +136,7 @@ func applyOperator(db *gorm.DB, column string, op Operator, value string) *gorm.
 }
 
 func applySort(db *gorm.DB, config Config, s SortParam) *gorm.DB {
-	// Handle relation sorting (e.g., "country.name")
+	// Handle relation sorting (e.g., "example_country.name")
 	if strings.Contains(s.Field, ".") {
 		parts := strings.SplitN(s.Field, ".", 2)
 		if len(parts) != 2 {

@@ -427,7 +427,7 @@ curl -X POST http://localhost:3000/api/v1/rbac/users/5/roles \
 All domain routes are protected by RBAC middleware:
 
 ```go
-// internal/domain/item/register.go
+// internal/domain/example_item/register.go
 enforcer := rbac.EnforcerKey.MustGet(c)  // Typed key pattern
 
 items := api.Group("/items", middleware.JWTMiddleware(cfg, tokenStore))
@@ -1134,7 +1134,7 @@ func All() map[string]*App {
 
 To use this template for your project:
 
-1. Delete `internal/domain/item/`, `country/`, `city/`, `document/`
+1. Delete `internal/domain/example_item/`, `country/`, `city/`, `document/`
 2. Update `internal/app/main.go` to remove those domains
 3. Delete `internal/app/geography.go` if not needed
 4. Create your own domains

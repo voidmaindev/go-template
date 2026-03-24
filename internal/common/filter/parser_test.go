@@ -85,14 +85,14 @@ func TestParseFieldOperator(t *testing.T) {
 		},
 		{
 			name:      "relation field without operator",
-			input:     "country.name",
-			wantField: "country.name",
+			input:     "example_country.name",
+			wantField: "example_country.name",
 			wantOp:    OpEq,
 		},
 		{
 			name:      "relation field with contains operator",
-			input:     "country.name__contains",
-			wantField: "country.name",
+			input:     "example_country.name__contains",
+			wantField: "example_country.name",
 			wantOp:    OpContains,
 		},
 		{
@@ -248,14 +248,14 @@ func TestParseFromMap(t *testing.T) {
 
 	t.Run("relation filter", func(t *testing.T) {
 		params := ParseFromMap(map[string]string{
-			"country.name__contains": "Germany",
+			"example_country.name__contains": "Germany",
 		})
 
 		if len(params.Filters) != 1 {
 			t.Fatalf("Filters count = %d, want 1", len(params.Filters))
 		}
-		if params.Filters[0].Field != "country.name" {
-			t.Errorf("Filter field = %s, want country.name", params.Filters[0].Field)
+		if params.Filters[0].Field != "example_country.name" {
+			t.Errorf("Filter field = %s, want example_country.name", params.Filters[0].Field)
 		}
 		if params.Filters[0].Operator != OpContains {
 			t.Errorf("Filter operator = %s, want contains", params.Filters[0].Operator)

@@ -2,7 +2,7 @@ package filter
 
 // FilterParam represents a single filter condition
 type FilterParam struct {
-	Field    string   // Field name (e.g., "name", "country.name")
+	Field    string   // Field name (e.g., "name", "example_country.name")
 	Operator Operator // Filter operator
 	Value    string   // Filter value (as string, will be converted based on field type)
 }
