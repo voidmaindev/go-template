@@ -158,6 +158,9 @@ export default function DocumentsPage() {
   }
 
   const onSubmit = (data: FormData) => {
+    // Backend expects RFC3339 format for time.Time fields
+    const documentDate = data.document_date.includes('T') ? data.document_date : `${data.document_date}T00:00:00Z`
+
     if (editingDocument) {
       updateDocument(
         {
@@ -165,7 +168,7 @@ export default function DocumentsPage() {
           data: {
             code: data.code,
             city_id: Number(data.city_id),
-            document_date: data.document_date,
+            document_date: documentDate,
           },
         },
         { onSuccess: closeModal }
@@ -174,7 +177,7 @@ export default function DocumentsPage() {
       const payload: CreateDocumentRequest = {
         code: data.code,
         city_id: Number(data.city_id),
-        document_date: data.document_date,
+        document_date: documentDate,
         items: data.items
           .filter((i) => i.item_id > 0)
           .map((i) => ({
