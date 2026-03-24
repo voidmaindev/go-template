@@ -45,7 +45,7 @@ The app will be available at http://localhost:5178
 docker compose up -d
 
 # Development with hot reload
-docker compose --profile dev up frontend-dev
+docker compose --profile dev up frontend-test-dev
 ```
 
 ## Environment Variables
@@ -59,7 +59,7 @@ VITE_API_URL=http://localhost:3000/api/v1
 ## Project Structure
 
 ```
-frontend/
+_frontend_test/
 ├── src/
 │   ├── components/     # Reusable UI components
 │   ├── hooks/          # Custom React hooks (API calls)
