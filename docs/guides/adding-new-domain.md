@@ -35,7 +35,7 @@ Everything else is self-contained:
 
 | File | When needed |
 |------|-------------|
-| `internal/app/geography.go` (or other app files) | Domain should also run in a subset app |
+| `internal/app/example_geography.go` (or other app files) | Domain should also run in a subset app |
 | `internal/database/migrations/` | Schema *evolution* (column renames, data migrations) — NOT needed for initial table creation |
 | `internal/database/seeders/` | Domain needs seed data (e.g., default roles, test fixtures) |
 

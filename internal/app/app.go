@@ -17,7 +17,7 @@ type App struct {
 // This is the single source of truth for available apps.
 func All() map[string]*App {
 	main := MainApp()
-	geo := GeographyApp()
+	geo := ExampleGeographyApp()
 	return map[string]*App{
 		main.Name: main,
 		geo.Name:  geo,

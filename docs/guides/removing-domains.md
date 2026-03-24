@@ -45,7 +45,7 @@ func mainDomains() []container.Domain {
 }
 ```
 
-Also update any other app files (e.g., `internal/app/geography.go`) that reference these domains.
+Also update any other app files (e.g., `internal/app/example_geography.go`) that reference these domains.
 
 ### 2. Update Seeders
 

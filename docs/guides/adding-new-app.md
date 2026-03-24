@@ -47,7 +47,7 @@ Edit `internal/app/app.go` and add your app to the `All()` function:
 ```go
 func All() map[string]*App {
     main := MainApp()
-    geo := GeographyApp()
+    geo := ExampleGeographyApp()
     my := MyApp()  // Add this line
     return map[string]*App{
         main.Name: main,

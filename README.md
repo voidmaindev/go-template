@@ -96,7 +96,7 @@ Generated files:
 │   ├── app/                         # App definitions
 │   │   ├── app.go                   # App struct & registry
 │   │   ├── main.go                  # main app (all domains)
-│   │   └── geography.go             # geography app (country, city)
+│   │   └── example_geography.go             # geography app (country, city)
 │   ├── container/                   # Dependency container
 │   ├── config/                      # Configuration management
 │   ├── database/                    # Database connection
@@ -230,7 +230,7 @@ Generated files:
 ```bash
 # Run an app
 go run ./cmd/api serve main           # Run main app (all domains)
-go run ./cmd/api serve geography      # Run geography app (country, city only)
+go run ./cmd/api serve example_geography      # Run geography app (country, city only)
 
 # Database migrations
 go run ./cmd/api migrate up           # Apply all pending migrations
@@ -1118,7 +1118,7 @@ func myAppDomains() []container.Domain {
 ```go
 func All() map[string]*App {
     main := MainApp()
-    geo := GeographyApp()
+    geo := ExampleGeographyApp()
     my := MyApp()  // Add your app
     return map[string]*App{
         main.Name: main,
@@ -1136,7 +1136,7 @@ To use this template for your project:
 
 1. Delete `internal/domain/example_item/`, `country/`, `city/`, `document/`
 2. Update `internal/app/main.go` to remove those domains
-3. Delete `internal/app/geography.go` if not needed
+3. Delete `internal/app/example_geography.go` if not needed
 4. Create your own domains
 
 ## Configuration

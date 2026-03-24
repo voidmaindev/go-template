@@ -157,17 +157,17 @@ func MainApp() *App {
     }
 }
 
-// internal/app/geography.go - Subset of domains
-func GeographyApp() *App {
+// internal/app/example_geography.go - Subset of domains
+func ExampleGeographyApp() *App {
     return &App{
-        Name:        "geography",
+        Name:        "example_geography",
         Description: "Geography-only app",
-        Domains:     geographyDomains,
+        Domains:     exampleGeographyDomains,
     }
 }
 ```
 
-Run specific app: `go run ./cmd/api serve main` or `go run ./cmd/api serve geography`
+Run specific app: `go run ./cmd/api serve main` or `go run ./cmd/api serve example_geography`
 
 ## Generic Repository Pattern
 

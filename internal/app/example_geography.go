@@ -8,17 +8,18 @@ import (
 	"github.com/voidmaindev/go-template/internal/domain/user"
 )
 
-// GeographyApp returns the geography service application configuration.
+// ExampleGeographyApp returns an example geography service configuration.
 // A lightweight service focused on country and city management.
-func GeographyApp() *App {
+// Delete this when building your own app.
+func ExampleGeographyApp() *App {
 	return &App{
-		Name:        "geography",
-		Description: "Geography service (countries and cities)",
-		Domains:     geographyDomains,
+		Name:        "example_geography",
+		Description: "Example geography service (countries and cities)",
+		Domains:     exampleGeographyDomains,
 	}
 }
 
-func geographyDomains() []container.Domain {
+func exampleGeographyDomains() []container.Domain {
 	return []container.Domain{
 		// Core domains (user depends on rbac)
 		rbac.NewDomain(), // must be registered first (user depends on rbac.Service)
