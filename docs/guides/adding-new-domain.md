@@ -17,6 +17,28 @@ internal/domain/<name>/
 └── validation.go  # Custom validation (optional)
 ```
 
+## What Lives Inside vs. Outside the Domain Folder
+
+Almost everything happens inside `internal/domain/<name>/`. There is exactly **one mandatory external change**:
+
+| File | Change | Why |
+|------|--------|-----|
+| `internal/app/main.go` | Add import + `yourDomain.NewDomain()` to `mainDomains()` | Go has no package auto-discovery; this 2-line change registers the domain |
+
+Everything else is self-contained:
+- **Routes** self-register via the `Routes()` method
+- **Tables** auto-create via `Models()` + GORM AutoMigrate on startup
+- **DI wiring** happens in `Register()` using typed container keys
+- **Cross-domain deps** resolved via container keys (e.g., `country.RepositoryKey.MustGet(c)`)
+
+### Optional external changes (advanced cases only)
+
+| File | When needed |
+|------|-------------|
+| `internal/app/geography.go` (or other app files) | Domain should also run in a subset app |
+| `internal/database/migrations/` | Schema *evolution* (column renames, data migrations) — NOT needed for initial table creation |
+| `internal/database/seeders/` | Domain needs seed data (e.g., default roles, test fixtures) |
+
 ## Step-by-Step Guide
 
 ### 1. Create the Model (`model.go`)
@@ -51,6 +73,7 @@ func (Product) FilterConfig() filter.Config {
             "price":      {DBColumn: "price", Type: filter.TypeNumber, Operators: filter.NumberOps, Sortable: true},
             "sku":        {DBColumn: "sku", Type: filter.TypeString, Operators: filter.StringOps, Sortable: true},
             "created_at": {DBColumn: "created_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
+            "updated_at": {DBColumn: "updated_at", Type: filter.TypeDate, Operators: filter.DateOps, Sortable: true},
         },
     }
 }
@@ -142,7 +165,7 @@ func NewRepository(db *gorm.DB) Repository {
 }
 
 func (r *repository) FindBySKU(ctx context.Context, sku string) (*Product, error) {
-    return r.FindOne(ctx, common.ByField("sku", sku))
+    return r.FindOne(ctx, map[string]any{"sku": sku})
 }
 ```
 
@@ -159,6 +182,7 @@ import (
     "github.com/voidmaindev/go-template/internal/common"
     "github.com/voidmaindev/go-template/internal/common/errors"
     "github.com/voidmaindev/go-template/internal/common/filter"
+    "github.com/voidmaindev/go-template/pkg/utils"
 )
 
 type Service interface {
@@ -223,7 +247,7 @@ func (s *service) GetByID(ctx context.Context, id uint) (*Product, error) {
         if errors.IsNotFound(err) {
             return nil, ErrProductNotFound
         }
-        return nil, errors.Internal(domainName, err)
+        return nil, errors.Internal(domainName, err).WithOperation("GetByID")
     }
     return product, nil
 }
@@ -243,39 +267,42 @@ func (s *service) Create(ctx context.Context, req *CreateProductRequest) (*Produ
     }
 
     if err := s.repo.Create(ctx, product); err != nil {
-        return nil, errors.Internal(domainName, err)
+        return nil, errors.Internal(domainName, err).WithOperation("Create")
     }
     return product, nil
 }
 
 func (s *service) Update(ctx context.Context, id uint, req *UpdateProductRequest) (*Product, error) {
-    product, err := s.GetByID(ctx, id)
+    product, err := s.repo.FindByID(ctx, id)
     if err != nil {
-        return nil, err
+        if errors.IsNotFound(err) {
+            return nil, ErrProductNotFound
+        }
+        return nil, errors.Internal(domainName, err).WithOperation("Update")
     }
 
-    if req.Name != nil {
-        product.Name = *req.Name
-    }
-    if req.Description != nil {
-        product.Description = *req.Description
-    }
-    if req.Price != nil {
-        product.Price = *req.Price
+    // Map non-nil fields from request to model
+    if err := utils.UpdateModel(product, req); err != nil {
+        return nil, errors.Internal(domainName, err).WithOperation("Update")
     }
 
     if err := s.repo.Update(ctx, product); err != nil {
-        return nil, errors.Internal(domainName, err)
+        return nil, errors.Internal(domainName, err).WithOperation("Update")
     }
     return product, nil
 }
 
 func (s *service) Delete(ctx context.Context, id uint) error {
-    if _, err := s.GetByID(ctx, id); err != nil {
-        return err
+    product, err := s.repo.FindByID(ctx, id)
+    if err != nil {
+        if errors.IsNotFound(err) {
+            return ErrProductNotFound
+        }
+        return errors.Internal(domainName, err).WithOperation("Delete")
     }
-    if err := s.repo.Delete(ctx, id); err != nil {
-        return errors.Internal(domainName, err)
+
+    if err := s.repo.Delete(ctx, product.ID); err != nil {
+        return errors.Internal(domainName, err).WithOperation("Delete")
     }
     return nil
 }
@@ -442,7 +469,7 @@ func (d *domain) Routes(api fiber.Router, c *container.Container) {
 
 ### 8. Add Domain to App
 
-Edit `internal/app/main.go`:
+Edit `internal/app/main.go` (the only file outside your domain folder):
 
 ```go
 import (
@@ -465,12 +492,14 @@ func mainDomains() []container.Domain {
 
 ```bash
 go run ./cmd/api serve main
-# Migrations run automatically on startup
+# Migrations run automatically on startup via GORM AutoMigrate
 ```
 
 ## Optional Files
 
 ### Query Specifications (`specs.go`)
+
+Specs must implement both `Apply` and `ApplyGorm`, include constructor functions, and have compile-time interface checks:
 
 ```go
 package product
@@ -480,21 +509,45 @@ import (
     "gorm.io/gorm"
 )
 
-type BySKU struct {
+// BySKU finds product by exact SKU
+type BySKUSpec struct {
     SKU string
 }
 
-func (s BySKU) ApplyGorm(db *gorm.DB) *gorm.DB {
+func BySKU(sku string) BySKUSpec {
+    return BySKUSpec{SKU: sku}
+}
+
+func (s BySKUSpec) Apply(query any) any {
+    return s.ApplyGorm(common.AsGormDB(query))
+}
+
+func (s BySKUSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
     return db.Where("sku = ?", s.SKU)
 }
 
-type ByPriceRange struct {
+// ByPriceRange finds products within a price range
+type PriceRangeSpec struct {
     Min, Max int64
 }
 
-func (s ByPriceRange) ApplyGorm(db *gorm.DB) *gorm.DB {
+func ByPriceRange(min, max int64) PriceRangeSpec {
+    return PriceRangeSpec{Min: min, Max: max}
+}
+
+func (s PriceRangeSpec) Apply(query any) any {
+    return s.ApplyGorm(common.AsGormDB(query))
+}
+
+func (s PriceRangeSpec) ApplyGorm(db *gorm.DB) *gorm.DB {
     return db.Where("price BETWEEN ? AND ?", s.Min, s.Max)
 }
+
+// Ensure all specs implement GormSpecification at compile time
+var (
+    _ common.GormSpecification = BySKUSpec{}
+    _ common.GormSpecification = PriceRangeSpec{}
+)
 ```
 
 ### Custom Validation (`validation.go`)
@@ -504,47 +557,124 @@ package product
 
 import (
     "context"
-    "fmt"
 
     "github.com/voidmaindev/go-template/internal/common/validation"
-    "github.com/voidmaindev/go-template/pkg/validator"
 )
 
 type Validator struct {
-    validator *validator.Validator
-    repo      Repository
+    validator *validation.Validator
 }
 
-func NewValidator(repo Repository) *Validator {
+func NewValidator() *Validator {
     return &Validator{
-        validator: validator.New(),
-        repo:      repo,
+        validator: validation.New(),
     }
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, req *CreateProductRequest) *validation.Result {
     return validation.NewBuilder(ctx).
-        Struct(v.validator, req).
-        CustomWithCode("sku", "DUPLICATE", func(ctx context.Context) error {
-            existing, _ := v.repo.FindBySKU(ctx, req.SKU)
-            if existing != nil {
-                return fmt.Errorf("product with SKU '%s' already exists", req.SKU)
-            }
-            return nil
-        }).
+        StructWith(v.validator, req).
         Result()
 }
+
+func (v *Validator) ValidateUpdate(ctx context.Context, req *UpdateProductRequest) *validation.Result {
+    return validation.NewBuilder(ctx).
+        StructWith(v.validator, req).
+        Result()
+}
+```
+
+## Advanced Patterns
+
+### Cross-Domain Dependencies
+
+When your domain depends on another domain, resolve it in `Register()` via typed container keys. Example from `city` depending on `country`:
+
+```go
+import "github.com/voidmaindev/go-template/internal/domain/country"
+
+func (d *domain) Register(c *container.Container) {
+    repo := NewRepository(c.DB)
+    RepositoryKey.Set(c, repo)
+
+    // Get dependency from another domain
+    countryRepo := country.RepositoryKey.MustGet(c)
+
+    // Pass cross-domain dependency to service
+    service := NewService(repo, countryRepo)
+    ServiceKey.Set(c, service)
+
+    handler := NewHandler(service)
+    HandlerKey.Set(c, handler)
+}
+```
+
+**Important:** Registration order in `internal/app/main.go` must respect dependencies — `country` must appear before `city` in the slice.
+
+### Nested Routes
+
+A domain can register routes under another domain's path. Example from `city`:
+
+```go
+func (d *domain) Routes(api fiber.Router, c *container.Container) {
+    // ... standard city routes at /cities ...
+
+    // Nested route under countries
+    countries := api.Group("/countries", middleware.JWTMiddlewareWithInvalidator(jwtConfig, tokenStore, tokenStore))
+    countries.Get("/:countryId/cities", rateLimiter.ForTier(middleware.TierAPIRead),
+        middleware.RequirePermission(enforcer, "city", rbac.ActionRead), handler.ListByCountry)
+}
+```
+
+### Optional Domain Interfaces
+
+Domains can implement additional interfaces beyond the required `container.Domain`:
+
+**`DependencyDeclarer`** — declares dependencies for startup validation:
+
+```go
+func (d *domain) Dependencies() []string {
+    return []string{"country"} // must be registered before this domain
+}
+```
+
+**`Shutdowner`** — performs cleanup during graceful shutdown:
+
+```go
+func (d *domain) Shutdown(ctx context.Context) error {
+    // Close connections, flush buffers, etc.
+    return nil
+}
+```
+
+### Multiple Models per Domain
+
+A domain can manage multiple related tables by returning them all from `Models()`:
+
+```go
+func (d *domain) Models() []any {
+    return []any{&Document{}, &DocumentItem{}}
+}
+```
+
+### Domains Without Routes or Models
+
+Not all domains need routes or models. For example, the `email` domain provides only a service:
+
+```go
+func (d *domain) Models() []any { return nil }
+func (d *domain) Routes(api fiber.Router, c *container.Container) {} // no-op
 ```
 
 ## Checklist
 
 - [ ] Created `internal/domain/<name>/` folder
-- [ ] Created `model.go` with GORM model and FilterConfig
-- [ ] Created `dto.go` with request/response types
+- [ ] Created `model.go` with GORM model, `TableName()`, and `FilterConfig()` (including `updated_at`)
+- [ ] Created `dto.go` with request/response types and `ToResponse()` method
 - [ ] Created `errors.go` with domain-specific errors
-- [ ] Created `repository.go` with data access layer
-- [ ] Created `service.go` with business logic
+- [ ] Created `repository.go` with `FindOne(ctx, map[string]any{...})` pattern
+- [ ] Created `service.go` with `utils.UpdateModel` and `.WithOperation()` on all errors
 - [ ] Created `handler.go` with HTTP handlers
 - [ ] Created `register.go` with DI and routes
-- [ ] Added domain to app in `internal/app/`
+- [ ] Added domain to `internal/app/main.go` (the one external file)
 - [ ] Tested CRUD operations
