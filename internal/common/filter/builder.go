@@ -2,17 +2,24 @@ package filter
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/jinzhu/inflection"
 	"gorm.io/gorm"
 )
 
+// safeIdentifier validates that a SQL identifier (table or column name) contains
+// only safe characters to prevent SQL injection, even from misconfigured developer configs.
+var safeIdentifier = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
 // Apply applies filters, sorting, and pagination to a GORM query
 func Apply(db *gorm.DB, config Config, params *Params) *gorm.DB {
 	query := db
 
-	// Track joined relations to avoid duplicate joins
+	// Track joined relations to avoid duplicate joins.
+	// Shared between filters and sort so that sorting by a relation field
+	// adds the join even if no filter references that relation.
 	joinedRelations := make(map[string]bool)
 
 	// Apply filters
@@ -22,7 +29,7 @@ func Apply(db *gorm.DB, config Config, params *Params) *gorm.DB {
 
 	// Apply sorting
 	for _, s := range params.Sort {
-		query = applySort(query, config, s)
+		query = applySort(query, config, s, joinedRelations)
 	}
 
 	// Apply pagination
@@ -90,6 +97,11 @@ func applyRelationFilter(db *gorm.DB, config Config, f FilterParam, joinedRelati
 	// Build join table name (pluralize relation name)
 	joinTable := pluralize(strings.ToLower(relationConfig.Relation))
 
+	// Defense-in-depth: validate identifiers contain only safe characters
+	if !safeIdentifier.MatchString(joinTable) || !safeIdentifier.MatchString(fieldName) {
+		return db
+	}
+
 	// Only join if not already joined
 	if !joinedRelations[joinTable] {
 		db = db.Joins(fmt.Sprintf("LEFT JOIN %s ON %s.%s = %s.id",
@@ -115,11 +127,11 @@ func applyOperator(db *gorm.DB, column string, op Operator, value string) *gorm.
 	case OpLte:
 		return db.Where(column+" <= ?", value)
 	case OpContains:
-		return db.Where(column+" ILIKE ?", "%"+escapeLikeWildcards(value)+"%")
+		return db.Where(column+" ILIKE ? ESCAPE '\\'", "%"+escapeLikeWildcards(value)+"%")
 	case OpStartsWith:
-		return db.Where(column+" ILIKE ?", escapeLikeWildcards(value)+"%")
+		return db.Where(column+" ILIKE ? ESCAPE '\\'", escapeLikeWildcards(value)+"%")
 	case OpEndsWith:
-		return db.Where(column+" ILIKE ?", "%"+escapeLikeWildcards(value))
+		return db.Where(column+" ILIKE ? ESCAPE '\\'", "%"+escapeLikeWildcards(value))
 	case OpIn:
 		values := strings.Split(value, ",")
 		// Trim whitespace from each value
@@ -135,7 +147,7 @@ func applyOperator(db *gorm.DB, column string, op Operator, value string) *gorm.
 	return db
 }
 
-func applySort(db *gorm.DB, config Config, s SortParam) *gorm.DB {
+func applySort(db *gorm.DB, config Config, s SortParam, joinedRelations map[string]bool) *gorm.DB {
 	// Handle relation sorting (e.g., "example_country.name")
 	if strings.Contains(s.Field, ".") {
 		parts := strings.SplitN(s.Field, ".", 2)
@@ -154,12 +166,24 @@ func applySort(db *gorm.DB, config Config, s SortParam) *gorm.DB {
 		}
 
 		joinTable := pluralize(strings.ToLower(relationConfig.Relation))
+
+		// Defense-in-depth: validate identifiers contain only safe characters
+		if !safeIdentifier.MatchString(joinTable) || !safeIdentifier.MatchString(fieldName) {
+			return db
+		}
+
+		// Add the join if not already joined by a filter
+		if !joinedRelations[joinTable] {
+			db = db.Joins(fmt.Sprintf("LEFT JOIN %s ON %s.%s = %s.id",
+				joinTable, config.TableName, relationConfig.RelationFK, joinTable))
+			joinedRelations[joinTable] = true
+		}
+
 		column := fmt.Sprintf("%s.%s", joinTable, fieldName)
 		order := "ASC"
 		if s.Desc {
 			order = "DESC"
 		}
-		// Note: JOIN should already be applied by filter, or we need to add it
 		return db.Order(fmt.Sprintf("%s %s", column, order))
 	}
 

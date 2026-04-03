@@ -416,18 +416,21 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 	if err != nil {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
+	defer func() {
+		if err != nil {
+			gormTx.Rollback()
+		}
+	}()
 
-	if err := txRepo.DeleteExternalIdentitiesByUserID(ctx, id); err != nil {
-		gormTx.Rollback()
+	if err = txRepo.DeleteExternalIdentitiesByUserID(ctx, id); err != nil {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	if err := txRepo.Delete(ctx, id); err != nil {
-		gormTx.Rollback()
+	if err = txRepo.Delete(ctx, id); err != nil {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 
-	if err := gormTx.Commit().Error; err != nil {
+	if err = gormTx.Commit().Error; err != nil {
 		return errors.Internal(domainName, err).WithOperation("Delete")
 	}
 

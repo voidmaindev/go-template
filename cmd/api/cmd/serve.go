@@ -153,6 +153,7 @@ func runServe(cmd *cobra.Command, args []string) {
 		ReadTimeout:           cfg.Server.ReadTimeout,
 		WriteTimeout:          cfg.Server.WriteTimeout,
 		IdleTimeout:           cfg.Server.IdleTimeout,
+		BodyLimit:             cfg.Server.BodyLimit,
 		DisableStartupMessage: !cfg.App.Debug,
 		ErrorHandler:          customErrorHandler,
 		// Security: Configure trusted proxy settings for accurate IP detection

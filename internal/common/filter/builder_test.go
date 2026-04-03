@@ -186,7 +186,7 @@ func TestApplySort_SkipsNonSortableFields(t *testing.T) {
 	}
 
 	// This should not panic
-	result := applySort(nil, config, sort)
+	result := applySort(nil, config, sort, make(map[string]bool))
 
 	// Should return the same db (nil in this case)
 	if result != nil {
@@ -203,7 +203,7 @@ func TestApplySort_SkipsUnknownFields(t *testing.T) {
 	}
 
 	// This should not panic
-	result := applySort(nil, config, sort)
+	result := applySort(nil, config, sort, make(map[string]bool))
 
 	// Should return the same db (nil in this case)
 	if result != nil {

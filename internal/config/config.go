@@ -43,6 +43,7 @@ type ServerConfig struct {
 	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
 	IdleTimeout     time.Duration `mapstructure:"idle_timeout"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+	BodyLimit       int           `mapstructure:"body_limit"` // Maximum request body size in bytes (default 4MB)
 }
 
 // DatabaseConfig holds PostgreSQL configuration
@@ -247,6 +248,7 @@ func setDefaults() {
 	viper.SetDefault("server.write_timeout", 10*time.Second)
 	viper.SetDefault("server.idle_timeout", 120*time.Second)
 	viper.SetDefault("server.shutdown_timeout", 30*time.Second)
+	viper.SetDefault("server.body_limit", 4*1024*1024) // 4MB default
 
 	// Database defaults
 	viper.SetDefault("database.host", "localhost")
@@ -370,6 +372,7 @@ func bindEnvVars() error {
 	mustBindEnv(&errs, "server.write_timeout", "SERVER_WRITE_TIMEOUT")
 	mustBindEnv(&errs, "server.idle_timeout", "SERVER_IDLE_TIMEOUT")
 	mustBindEnv(&errs, "server.shutdown_timeout", "SERVER_SHUTDOWN_TIMEOUT")
+	mustBindEnv(&errs, "server.body_limit", "SERVER_BODY_LIMIT")
 
 	// Database
 	mustBindEnv(&errs, "database.host", "DB_HOST")
