@@ -44,8 +44,15 @@ var RateLimiterFactoryKey = container.Key[*RateLimiterFactory]("middleware.rateL
 // contextKey is a typed key for context/locals values to avoid collisions
 type contextKey string
 
-// UserIDKey is the typed key for storing user ID in Fiber locals (set by JWT middleware)
-const UserIDKey contextKey = "user_id"
+// Fiber locals keys — use these constants instead of string literals
+// to get compile-time safety and prevent typos.
+const (
+	UserIDKey    contextKey = "user_id"
+	EmailKey     contextKey = "email"
+	ClaimsKey    contextKey = "claims"
+	UserEmailKey contextKey = "user_email"
+	UserRoleKey  contextKey = "user_role"
+)
 
 // RateLimiterFactory creates rate limiters with shared Redis connection and config
 type RateLimiterFactory struct {

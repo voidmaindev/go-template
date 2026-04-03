@@ -18,9 +18,12 @@ var reservedParams = map[string]bool{
 // Syntax: ?field__operator=value (e.g., ?name__contains=Ber)
 // Default operator is "eq" if not specified (?name=Berlin)
 func ParseFromQuery(c *fiber.Ctx) *Params {
+	defSize := getDefaultPageSize()
+	maxSize := getMaxPageSize()
+
 	params := &Params{
 		Page:  c.QueryInt("page", 1),
-		Limit: c.QueryInt("page_size", 10),
+		Limit: c.QueryInt("page_size", defSize),
 	}
 
 	// Ensure valid pagination values
@@ -28,10 +31,10 @@ func ParseFromQuery(c *fiber.Ctx) *Params {
 		params.Page = 1
 	}
 	if params.Limit < 1 {
-		params.Limit = 10
+		params.Limit = defSize
 	}
-	if params.Limit > 100 {
-		params.Limit = 100 // Max limit to prevent abuse
+	if params.Limit > maxSize {
+		params.Limit = maxSize
 	}
 
 	// Parse sort
@@ -96,7 +99,7 @@ func ParseFromMap(m map[string]string) *Params {
 			}
 		case "page_size":
 			// Parse page size
-			if v := parseIntSafe(value); v > 0 && v <= 100 {
+			if v := parseIntSafe(value); v > 0 && v <= getMaxPageSize() {
 				params.Limit = v
 			}
 		case "sort":

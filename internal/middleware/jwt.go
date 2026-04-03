@@ -146,8 +146,8 @@ func OptionalJWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist, inva
 
 		// Store claims in context
 		c.Locals(UserIDKey, claims.UserID)
-		c.Locals("email", claims.Email)
-		c.Locals("claims", claims)
+		c.Locals(EmailKey, claims.Email)
+		c.Locals(ClaimsKey, claims)
 
 		return c.Next()
 	}

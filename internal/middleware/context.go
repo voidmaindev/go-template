@@ -61,7 +61,7 @@ func UserContextEnrichment() fiber.Handler {
 
 // GetUserEmailFromContext retrieves user email from fiber context
 func GetUserEmailFromContext(c *fiber.Ctx) string {
-	if email := c.Locals("user_email"); email != nil {
+	if email := c.Locals(UserEmailKey); email != nil {
 		if str, ok := email.(string); ok {
 			return str
 		}
@@ -71,7 +71,7 @@ func GetUserEmailFromContext(c *fiber.Ctx) string {
 
 // GetUserRoleFromContext retrieves user role from fiber context
 func GetUserRoleFromContext(c *fiber.Ctx) string {
-	if role := c.Locals("user_role"); role != nil {
+	if role := c.Locals(UserRoleKey); role != nil {
 		if str, ok := role.(string); ok {
 			return str
 		}

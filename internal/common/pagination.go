@@ -24,6 +24,7 @@ var (
 
 // InitPagination initializes pagination defaults from configuration.
 // Should be called once at application startup after config is loaded.
+// Also syncs the filter package's pagination limits.
 func InitPagination(defPageSize, maxSize int) {
 	paginationMu.Lock()
 	defer paginationMu.Unlock()
@@ -38,6 +39,9 @@ func InitPagination(defPageSize, maxSize int) {
 	if defaultPageSize > maxPageSize {
 		defaultPageSize = maxPageSize
 	}
+
+	// Sync filter package pagination limits
+	filter.InitPagination(defaultPageSize, maxPageSize)
 }
 
 // GetDefaultPageSize returns the configured default page size

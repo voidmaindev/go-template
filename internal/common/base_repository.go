@@ -30,7 +30,10 @@ func NewBaseRepository[T any](db *gorm.DB, entityName string) *BaseRepository[T]
 
 // Create inserts a new entity into the database
 func (r *BaseRepository[T]) Create(ctx context.Context, entity *T) error {
-	return r.db.WithContext(ctx).Create(entity).Error
+	if err := r.db.WithContext(ctx).Create(entity).Error; err != nil {
+		return r.wrapError("Create", err)
+	}
+	return nil
 }
 
 // CreateBatch inserts multiple entities in batches
@@ -38,7 +41,10 @@ func (r *BaseRepository[T]) CreateBatch(ctx context.Context, entities []T, batch
 	if batchSize <= 0 {
 		batchSize = 100
 	}
-	return r.db.WithContext(ctx).CreateInBatches(entities, batchSize).Error
+	if err := r.db.WithContext(ctx).CreateInBatches(entities, batchSize).Error; err != nil {
+		return r.wrapError("CreateBatch", err)
+	}
+	return nil
 }
 
 // FindByID retrieves an entity by its primary key.
@@ -159,22 +165,34 @@ func (r *BaseRepository[T]) FindOne(ctx context.Context, condition map[string]an
 
 // Update updates an existing entity
 func (r *BaseRepository[T]) Update(ctx context.Context, entity *T) error {
-	return r.db.WithContext(ctx).Save(entity).Error
+	if err := r.db.WithContext(ctx).Save(entity).Error; err != nil {
+		return r.wrapError("Update", err)
+	}
+	return nil
 }
 
 // UpdateFields updates specific fields of an entity
 func (r *BaseRepository[T]) UpdateFields(ctx context.Context, id uint, fields map[string]any) error {
-	return r.db.WithContext(ctx).Model(new(T)).Where("id = ?", id).Updates(fields).Error
+	if err := r.db.WithContext(ctx).Model(new(T)).Where("id = ?", id).Updates(fields).Error; err != nil {
+		return r.wrapError("UpdateFields", err)
+	}
+	return nil
 }
 
 // Delete soft-deletes an entity by ID
 func (r *BaseRepository[T]) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(new(T), id).Error
+	if err := r.db.WithContext(ctx).Delete(new(T), id).Error; err != nil {
+		return r.wrapError("Delete", err)
+	}
+	return nil
 }
 
 // HardDelete permanently removes an entity
 func (r *BaseRepository[T]) HardDelete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Unscoped().Delete(new(T), id).Error
+	if err := r.db.WithContext(ctx).Unscoped().Delete(new(T), id).Error; err != nil {
+		return r.wrapError("HardDelete", err)
+	}
+	return nil
 }
 
 // Exists checks if an entity exists with given conditions.
@@ -187,7 +205,7 @@ func (r *BaseRepository[T]) Exists(ctx context.Context, condition map[string]any
 		Limit(1).
 		Scan(&exists).Error
 	if err != nil {
-		return false, err
+		return false, r.wrapError("Exists", err)
 	}
 	return exists, nil
 }
@@ -200,7 +218,7 @@ func (r *BaseRepository[T]) Count(ctx context.Context, condition map[string]any)
 		query = query.Where(condition)
 	}
 	if err := query.Count(&count).Error; err != nil {
-		return 0, err
+		return 0, r.wrapError("Count", err)
 	}
 	return count, nil
 }
@@ -239,6 +257,17 @@ func (r *BaseRepository[T]) Transaction(ctx context.Context, fn func(txRepo Repo
 // infrastructure concerns to consumers.
 func (r *BaseRepository[T]) DB() *gorm.DB {
 	return r.db
+}
+
+// wrapError wraps a database error with repository context (domain, operation, entity name).
+// Preserves existing DomainErrors and wraps raw errors as Internal.
+func (r *BaseRepository[T]) wrapError(operation string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return commonerrors.Internal(repositoryDomain, err).
+		WithOperation(operation).
+		WithDetail("entity", r.entityName)
 }
 
 // applyPreloads applies eager loading to the query

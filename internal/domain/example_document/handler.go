@@ -24,7 +24,7 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) Create(c *fiber.Ctx) error {
 	req, err := common.ParseAndValidate[CreateDocumentRequest](c)
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	doc, err := h.service.Create(c.Context(), req)
@@ -48,7 +48,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 func (h *Handler) GetByID(c *fiber.Ctx) error {
 	id, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	doc, err := h.service.GetByIDWithDetails(c.Context(), id)
@@ -63,12 +63,12 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 func (h *Handler) Update(c *fiber.Ctx) error {
 	id, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	req, err := common.ParseAndValidate[UpdateDocumentRequest](c)
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	doc, err := h.service.Update(c.Context(), id, req)
@@ -90,7 +90,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	id, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	if err := h.service.Delete(c.Context(), id); err != nil {
@@ -121,12 +121,12 @@ func (h *Handler) List(c *fiber.Ctx) error {
 func (h *Handler) AddItem(c *fiber.Ctx) error {
 	documentID, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	req, err := common.ParseAndValidate[AddDocumentItemRequest](c)
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	docItem, err := h.service.AddItem(c.Context(), documentID, req)
@@ -145,17 +145,17 @@ func (h *Handler) AddItem(c *fiber.Ctx) error {
 func (h *Handler) UpdateItem(c *fiber.Ctx) error {
 	documentID, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	itemID, err := common.ParseID(c, "itemId", "document item")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	req, err := common.ParseAndValidate[UpdateDocumentItemRequest](c)
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	docItem, err := h.service.UpdateItem(c.Context(), documentID, itemID, req)
@@ -170,12 +170,12 @@ func (h *Handler) UpdateItem(c *fiber.Ctx) error {
 func (h *Handler) RemoveItem(c *fiber.Ctx) error {
 	documentID, err := common.ParseID(c, "id", "document")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	itemID, err := common.ParseID(c, "itemId", "document item")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	if err := h.service.RemoveItem(c.Context(), documentID, itemID); err != nil {

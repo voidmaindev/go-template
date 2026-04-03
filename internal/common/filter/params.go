@@ -1,5 +1,45 @@
 package filter
 
+import "sync"
+
+// paginationDefaults holds configurable page size limits.
+// Initialized via InitPagination at startup; safe for concurrent reads after init.
+var (
+	paginationMu     sync.RWMutex
+	defaultPageSize  = 10
+	maxPageSize      = 100
+)
+
+// InitPagination sets default and maximum page sizes for the filter package.
+// Should be called once at startup after config is loaded.
+func InitPagination(defSize, maxSize int) {
+	paginationMu.Lock()
+	defer paginationMu.Unlock()
+	if defSize > 0 {
+		defaultPageSize = defSize
+	}
+	if maxSize > 0 {
+		maxPageSize = maxSize
+	}
+	if defaultPageSize > maxPageSize {
+		defaultPageSize = maxPageSize
+	}
+}
+
+// getDefaultPageSize returns the configured default page size.
+func getDefaultPageSize() int {
+	paginationMu.RLock()
+	defer paginationMu.RUnlock()
+	return defaultPageSize
+}
+
+// getMaxPageSize returns the configured maximum page size.
+func getMaxPageSize() int {
+	paginationMu.RLock()
+	defer paginationMu.RUnlock()
+	return maxPageSize
+}
+
 // FilterParam represents a single filter condition
 type FilterParam struct {
 	Field    string   // Field name (e.g., "name", "example_country.name")
@@ -25,7 +65,7 @@ type Params struct {
 func DefaultParams() *Params {
 	return &Params{
 		Page:  1,
-		Limit: 10,
+		Limit: getDefaultPageSize(),
 	}
 }
 

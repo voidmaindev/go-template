@@ -24,7 +24,7 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) Create(c *fiber.Ctx) error {
 	req, err := common.ParseAndValidate[CreateCountryRequest](c)
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	country, err := h.service.Create(c.Context(), req)
@@ -42,7 +42,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 func (h *Handler) GetByID(c *fiber.Ctx) error {
 	id, err := common.ParseID(c, "id", "country")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	country, err := h.service.GetByID(c.Context(), id)
@@ -57,12 +57,12 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 func (h *Handler) Update(c *fiber.Ctx) error {
 	id, err := common.ParseID(c, "id", "country")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	req, err := common.ParseAndValidate[UpdateCountryRequest](c)
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	country, err := h.service.Update(c.Context(), id, req)
@@ -80,7 +80,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	id, err := common.ParseID(c, "id", "country")
 	if err != nil {
-		return nil
+		return nil // response already sent
 	}
 
 	if err := h.service.Delete(c.Context(), id); err != nil {
