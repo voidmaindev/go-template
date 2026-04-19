@@ -22,11 +22,15 @@ import (
 )
 
 const (
-	appleAuthURL     = "https://appleid.apple.com/auth/authorize"
-	appleTokenURL    = "https://appleid.apple.com/auth/token"
-	appleKeysURL     = "https://appleid.apple.com/auth/keys"
-	appleIssuer      = "https://appleid.apple.com"
-	jwksCacheTTL     = 24 * time.Hour
+	appleAuthURL  = "https://appleid.apple.com/auth/authorize"
+	appleTokenURL = "https://appleid.apple.com/auth/token"
+	appleKeysURL  = "https://appleid.apple.com/auth/keys"
+	appleIssuer   = "https://appleid.apple.com"
+	jwksCacheTTL  = 24 * time.Hour
+	// jwksMinRefetchGap rate-limits forced JWKS refreshes triggered by a
+	// token carrying an unknown `kid`. Without it, an attacker could spam
+	// unknown-kid tokens to hammer Apple's keys endpoint.
+	jwksMinRefetchGap = 5 * time.Minute
 )
 
 // appleJWKS represents Apple's JWKS response
@@ -205,22 +209,30 @@ func (p *appleProvider) GetUserInfo(ctx context.Context, idToken string) (*OAuth
 	return userInfo, nil
 }
 
-// getPublicKey retrieves the public key for a given key ID
+// getPublicKey retrieves the public key for a given key ID.
+//
+// Three paths:
+//  1. Hit: cached kid, TTL fresh → return.
+//  2. Cache stale or empty → regular refresh.
+//  3. Cache fresh but kid missing (likely Apple rotated keys) → force-refresh,
+//     rate-limited so unknown-kid floods can't DoS Apple's JWKS endpoint.
 func (p *appleProvider) getPublicKey(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
-	// Try cache first
 	p.cache.mu.RLock()
-	if key, ok := p.cache.keys[kid]; ok && time.Since(p.cache.fetchedAt) < jwksCacheTTL {
+	fresh := len(p.cache.keys) > 0 && time.Since(p.cache.fetchedAt) < jwksCacheTTL
+	if key, ok := p.cache.keys[kid]; ok && fresh {
 		p.cache.mu.RUnlock()
 		return key, nil
 	}
+	sinceFetch := time.Since(p.cache.fetchedAt)
 	p.cache.mu.RUnlock()
 
-	// Fetch fresh keys
-	if err := p.fetchJWKS(ctx); err != nil {
+	// Cache is fresh but this kid isn't in it → Apple likely rotated.
+	// Force a refresh, but not more often than jwksMinRefetchGap.
+	force := fresh && sinceFetch >= jwksMinRefetchGap
+	if err := p.fetchJWKS(ctx, force); err != nil {
 		return nil, err
 	}
 
-	// Try again after refresh
 	p.cache.mu.RLock()
 	key, ok := p.cache.keys[kid]
 	p.cache.mu.RUnlock()
@@ -232,13 +244,15 @@ func (p *appleProvider) getPublicKey(ctx context.Context, kid string) (*ecdsa.Pu
 	return key, nil
 }
 
-// fetchJWKS fetches Apple's public keys from the JWKS endpoint
-func (p *appleProvider) fetchJWKS(ctx context.Context) error {
+// fetchJWKS fetches Apple's public keys from the JWKS endpoint.
+// When force is true, the TTL guard is bypassed — used for cache-miss refreshes
+// triggered by an unknown `kid` in a token header.
+func (p *appleProvider) fetchJWKS(ctx context.Context, force bool) error {
 	p.cache.mu.Lock()
 	defer p.cache.mu.Unlock()
 
 	// Double-check after acquiring write lock
-	if time.Since(p.cache.fetchedAt) < jwksCacheTTL && len(p.cache.keys) > 0 {
+	if !force && time.Since(p.cache.fetchedAt) < jwksCacheTTL && len(p.cache.keys) > 0 {
 		return nil
 	}
 

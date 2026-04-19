@@ -211,7 +211,12 @@ func HandleError(c *fiber.Ctx, err error) error {
 	return InternalServerErrorResponse(c)
 }
 
-// HandleDomainError handles typed domain errors with structured response
+// HandleDomainError handles typed domain errors with structured response.
+//
+// Internal errors (CodeInternal) never leak Details to the client: those fields
+// may carry diagnostic context (stack snippets, DSN fragments, driver messages)
+// attached upstream via .WithDetails(). The raw DomainError is still logged
+// server-side with full context; only the outbound payload is sanitized.
 func HandleDomainError(c *fiber.Ctx, de *errors.DomainError) error {
 	requestID := getRequestID(c)
 
@@ -221,7 +226,7 @@ func HandleDomainError(c *fiber.Ctx, de *errors.DomainError) error {
 		Domain:  de.Domain,
 	}
 
-	if len(de.Details) > 0 {
+	if len(de.Details) > 0 && de.Code != errors.CodeInternal {
 		errInfo.Details = de.Details
 	}
 

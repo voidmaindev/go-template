@@ -20,6 +20,11 @@ const (
 	StatusHealthy   Status = "healthy"
 	StatusUnhealthy Status = "unhealthy"
 	StatusDegraded  Status = "degraded"
+
+	// checkTimeout bounds every individual check. A hung dependency (DB, Redis,
+	// custom probe) must not stall the readiness probe — kubelet would otherwise
+	// fail to mark the pod unready and traffic keeps flowing.
+	checkTimeout = 5 * time.Second
 )
 
 // CheckFunc is a function that performs a health check.
@@ -95,8 +100,11 @@ func (h *HealthChecker) Readiness(ctx context.Context) HealthResponse {
 		go func(name string, check CheckFunc) {
 			defer wg.Done()
 
+			checkCtx, cancel := context.WithTimeout(ctx, checkTimeout)
+			defer cancel()
+
 			start := time.Now()
-			err := check(ctx)
+			err := check(checkCtx)
 			latency := time.Since(start)
 
 			result := CheckResult{

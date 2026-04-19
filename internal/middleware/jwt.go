@@ -43,7 +43,12 @@ func JWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist) fiber.Handle
 // JWTMiddlewareWithInvalidator creates JWT authentication middleware with token invalidation support
 func JWTMiddlewareWithInvalidator(cfg *config.JWTConfig, blacklist TokenBlacklist, invalidator TokenInvalidator) fiber.Handler {
 	return jwtware.New(jwtware.Config{
-		SigningKey: jwtware.SigningKey{Key: []byte(cfg.SecretKey)},
+		// Pin algorithm to HS256 so a token forged with a different `alg` header
+		// (e.g. RS256 via key-confusion, or "none") is rejected at parse time.
+		SigningKey: jwtware.SigningKey{
+			JWTAlg: jwt.SigningMethodHS256.Alg(),
+			Key:    []byte(cfg.SecretKey),
+		},
 		ContextKey: "user",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			if err.Error() == "Missing or malformed JWT" {

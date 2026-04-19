@@ -89,6 +89,17 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // @Failure 429 {object} common.Response "Too many login attempts"
 // @Router /auth/login [post]
 func (h *Handler) Login(c *fiber.Ctx) error {
+	// Constant-time response: pad the whole handler to MinPasswordResponseTime
+	// so unknown-email, invalid-password, and valid-credential paths are
+	// indistinguishable by latency (prevents user enumeration via timing).
+	start := time.Now()
+	defer func() {
+		elapsed := time.Since(start)
+		if elapsed < h.jwtConfig.MinPasswordResponseTime {
+			time.Sleep(h.jwtConfig.MinPasswordResponseTime - elapsed)
+		}
+	}()
+
 	req, err := common.ParseAndValidate[LoginRequest](c)
 	if err != nil {
 		return nil

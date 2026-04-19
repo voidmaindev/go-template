@@ -171,8 +171,12 @@ func (s *service) VerifyEmail(ctx context.Context, token string) error {
 		return errors.Internal(domainName, err).WithOperation("VerifyEmail")
 	}
 
-	// Delete token only after successful DB update
-	s.tokenStore.DeleteVerificationToken(ctx, token)
+	// Delete token only after successful DB update. If the delete fails the
+	// token will still expire at TTL, but replay is possible until then — log
+	// so the on-call can correlate with a Redis outage.
+	if delErr := s.tokenStore.DeleteVerificationToken(ctx, token); delErr != nil {
+		s.logger.Warn(ctx, "failed to delete verification token after use", "error", delErr.Error(), "userID", u.ID)
+	}
 
 	// Send welcome email (best effort)
 	go func() {
@@ -276,8 +280,11 @@ func (s *service) ResetPassword(ctx context.Context, req *ResetPasswordRequest) 
 		return errors.Internal(domainName, err).WithOperation("ResetPassword")
 	}
 
-	// Delete token only after successful DB update
-	s.tokenStore.DeletePasswordResetToken(ctx, req.Token)
+	// Delete token only after successful DB update. See note on verification
+	// token above — TTL bounds exposure, but surface delete failures.
+	if delErr := s.tokenStore.DeletePasswordResetToken(ctx, req.Token); delErr != nil {
+		s.logger.Warn(ctx, "failed to delete password reset token after use", "error", delErr.Error(), "userID", userID)
+	}
 
 	// Invalidate all existing sessions (security: revoke tokens on password reset)
 	if err := s.userTokenStore.InvalidateAllUserTokens(ctx, userID); err != nil {
