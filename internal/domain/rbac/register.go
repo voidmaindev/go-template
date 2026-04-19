@@ -10,11 +10,6 @@ import (
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
-// External component keys (to avoid import cycles with user domain)
-const (
-	userTokenStoreKey = "user.tokenStore"
-)
-
 // auditAdapter adapts audit.Service to rbac.AuditLogger interface
 type auditAdapter struct {
 	svc audit.Service
@@ -93,13 +88,11 @@ func (d *domain) Register(c *container.Container) {
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := HandlerKey.MustGet(c)
-	tokenStore := container.MustGetAs[middleware.TokenBlacklist](c, userTokenStoreKey)
+	tokenStore := middleware.TokenBlacklistKey.MustGet(c)
+	tokenInvalidator := middleware.TokenInvalidatorKey.MustGet(c)
 	enforcer := EnforcerKey.MustGet(c)
 	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT
-
-	// Get tokenStore as TokenInvalidator too (same underlying type)
-	tokenInvalidator := container.MustGetAs[middleware.TokenInvalidator](c, userTokenStoreKey)
 
 	// Wire up audit logger if available (audit domain may not be registered)
 	if auditSvc, ok := audit.ServiceKey.Get(c); ok {

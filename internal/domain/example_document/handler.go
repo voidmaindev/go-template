@@ -1,8 +1,6 @@
 package example_document
 
 import (
-	"errors"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
@@ -29,16 +27,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 	doc, err := h.service.Create(c.Context(), req)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrDocumentCodeExists):
-			return common.ConflictResponse(c, "document code already exists")
-		case errors.Is(err, ErrCityNotFound):
-			return common.BadRequestResponse(c, "city not found")
-		case errors.Is(err, ErrItemNotFound):
-			return common.BadRequestResponse(c, "one or more items not found")
-		default:
-			return common.HandleError(c, err)
-		}
+		return common.HandleError(c, err)
 	}
 
 	return common.CreatedResponse(c, doc.ToResponse())
@@ -73,14 +62,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 
 	doc, err := h.service.Update(c.Context(), id, req)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrDocumentCodeExists):
-			return common.ConflictResponse(c, "document code already exists")
-		case errors.Is(err, ErrCityNotFound):
-			return common.BadRequestResponse(c, "city not found")
-		default:
-			return common.HandleError(c, err)
-		}
+		return common.HandleError(c, err)
 	}
 
 	return common.SuccessResponse(c, doc.ToResponse())
@@ -131,10 +113,6 @@ func (h *Handler) AddItem(c *fiber.Ctx) error {
 
 	docItem, err := h.service.AddItem(c.Context(), documentID, req)
 	if err != nil {
-		// ErrItemNotFound → 400: the referenced item ID in the request is invalid
-		if errors.Is(err, ErrItemNotFound) {
-			return common.BadRequestResponse(c, "item not found")
-		}
 		return common.HandleError(c, err)
 	}
 

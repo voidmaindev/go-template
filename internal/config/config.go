@@ -475,11 +475,22 @@ func bindEnvVars() error {
 	return errors.Join(errs...)
 }
 
-// DSN returns the PostgreSQL connection string
+// DSN returns the PostgreSQL connection string.
+// Contains the password in plaintext — pass only to the database driver.
+// For logs or error messages, use SafeDSN instead.
 func (c *DatabaseConfig) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode,
+	)
+}
+
+// SafeDSN returns the PostgreSQL connection string with the password redacted.
+// Safe to include in logs, error messages, and diagnostics.
+func (c *DatabaseConfig) SafeDSN() string {
+	return fmt.Sprintf(
+		"host=%s port=%d user=%s password=*** dbname=%s sslmode=%s",
+		c.Host, c.Port, c.User, c.DBName, c.SSLMode,
 	)
 }
 

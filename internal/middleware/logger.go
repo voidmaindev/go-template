@@ -60,11 +60,16 @@ func SetupSlogLogger(app *fiber.App) {
 		latency := time.Since(start)
 		status := c.Response().StatusCode()
 
-		// Record Prometheus metrics (skip /metrics endpoint to avoid collection conflicts)
+		// Record Prometheus metrics using the route template (e.g. /users/:id),
+		// not the raw path — per-ID time series would blow up cardinality.
 		if path != "/metrics" {
+			route := c.Route().Path
+			if route == "" {
+				route = "unmatched"
+			}
 			telemetry.RecordHTTPRequest(
 				method,
-				path,
+				route,
 				strconv.Itoa(status),
 				latency.Seconds(),
 			)

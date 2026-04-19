@@ -56,7 +56,7 @@ func (r *BaseRepository[T]) FindByID(ctx context.Context, id uint) (*T, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, commonerrors.NotFound(repositoryDomain, r.entityName)
 		}
-		return nil, err
+		return nil, r.wrapError("FindByID", err)
 	}
 	return &entity, nil
 }
@@ -81,7 +81,7 @@ func (r *BaseRepository[T]) FindAll(ctx context.Context, pagination *Pagination)
 		return query.Find(&entities).Error
 	}, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, r.wrapError("FindAll", err)
 	}
 
 	return entities, total, nil
@@ -107,7 +107,7 @@ func (r *BaseRepository[T]) FindByCondition(ctx context.Context, condition map[s
 		return query.Find(&entities).Error
 	}, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, r.wrapError("FindByCondition", err)
 	}
 
 	return entities, total, nil
@@ -143,7 +143,7 @@ func (r *BaseRepository[T]) FindAllFiltered(ctx context.Context, params *filter.
 		return query.Find(&entities).Error
 	}, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, r.wrapError("FindAllFiltered", err)
 	}
 
 	return entities, total, nil
@@ -158,7 +158,7 @@ func (r *BaseRepository[T]) FindOne(ctx context.Context, condition map[string]an
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, commonerrors.NotFound(repositoryDomain, r.entityName)
 		}
-		return nil, err
+		return nil, r.wrapError("FindOne", err)
 	}
 	return &entity, nil
 }

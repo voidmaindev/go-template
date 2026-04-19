@@ -13,11 +13,13 @@ var (
 	// ErrDocumentCodeExists is returned when trying to create document with existing code
 	ErrDocumentCodeExists = errors.AlreadyExists(domainName, "document", "code")
 
-	// ErrCityNotFound is returned when the referenced city cannot be found
-	ErrCityNotFound = errors.NotFound(domainName, "city")
+	// ErrInvalidCityRef is returned when a request payload references a city ID
+	// that does not exist. Input validation, so maps to HTTP 400.
+	ErrInvalidCityRef = errors.Validation(domainName, "referenced city not found")
 
-	// ErrItemNotFound is returned when the referenced item cannot be found
-	ErrItemNotFound = errors.NotFound(domainName, "item")
+	// ErrInvalidItemRef is returned when a request payload references an item ID
+	// that does not exist. Input validation, so maps to HTTP 400.
+	ErrInvalidItemRef = errors.Validation(domainName, "referenced item not found")
 
 	// ErrDocumentItemNotFound is returned when a document item cannot be found
 	ErrDocumentItemNotFound = errors.NotFound(domainName, "document item")

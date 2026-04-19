@@ -73,7 +73,7 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	// Validate city exists
 	if _, err := s.cityRepo.FindByID(ctx, req.CityID); err != nil {
 		if errors.IsNotFound(err) {
-			return nil, ErrCityNotFound
+			return nil, ErrInvalidCityRef
 		}
 		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
@@ -82,7 +82,7 @@ func (s *service) Create(ctx context.Context, req *CreateDocumentRequest) (*Docu
 	for _, itemReq := range req.Items {
 		if _, err := s.productRepo.FindByID(ctx, itemReq.ItemID); err != nil {
 			if errors.IsNotFound(err) {
-				return nil, ErrItemNotFound
+				return nil, ErrInvalidItemRef
 			}
 			return nil, errors.Internal(domainName, err).WithOperation("Create")
 		}
@@ -195,7 +195,7 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateDocumentReques
 		_, err := s.cityRepo.FindByID(ctx, *req.CityID)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				return nil, ErrCityNotFound
+				return nil, ErrInvalidCityRef
 			}
 			return nil, errors.Internal(domainName, err).WithOperation("Update")
 		}
@@ -278,7 +278,7 @@ func (s *service) AddItem(ctx context.Context, documentID uint, req *AddDocument
 	product, err := s.productRepo.FindByID(ctx, req.ItemID)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, ErrItemNotFound
+			return nil, ErrInvalidItemRef
 		}
 		return nil, errors.Internal(domainName, err).WithOperation("AddItem")
 	}

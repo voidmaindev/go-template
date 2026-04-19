@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	"github.com/voidmaindev/go-template/internal/common/ctxutil"
 	"github.com/voidmaindev/go-template/internal/common/errors"
 	"github.com/voidmaindev/go-template/internal/common/filter"
 	"github.com/voidmaindev/go-template/internal/common/logging"
@@ -27,11 +28,21 @@ type Service interface {
 	Shutdown(ctx context.Context) error
 }
 
+// queuedEntry bundles an audit entry with the request/trace correlation IDs
+// captured from the caller's context at enqueue time. The request context
+// itself cannot cross the goroutine boundary (it's typically cancelled when
+// the request completes), so we preserve only the correlation metadata.
+type queuedEntry struct {
+	entry     *AuditEntry
+	requestID string
+	traceID   string
+}
+
 // service implements the Service interface
 type service struct {
 	repo   Repository
 	logger *logging.Logger
-	queue  chan *AuditEntry
+	queue  chan queuedEntry
 	done   chan struct{}
 }
 
@@ -40,7 +51,7 @@ func NewService(repo Repository) Service {
 	s := &service{
 		repo:   repo,
 		logger: logging.New(domainName),
-		queue:  make(chan *AuditEntry, 1000),
+		queue:  make(chan queuedEntry, 1000),
 		done:   make(chan struct{}),
 	}
 	go s.worker()
@@ -56,8 +67,13 @@ func (s *service) Log(ctx context.Context, entry *AuditEntry) error {
 // LogAsync queues an audit log entry for asynchronous processing.
 // If the queue is full, the entry is dropped and a warning is logged.
 func (s *service) LogAsync(ctx context.Context, entry *AuditEntry) {
+	q := queuedEntry{
+		entry:     entry,
+		requestID: ctxutil.GetRequestID(ctx),
+		traceID:   ctxutil.GetTraceID(ctx),
+	}
 	select {
-	case s.queue <- entry:
+	case s.queue <- q:
 		// queued
 	default:
 		s.logger.Warn(ctx, "audit queue full, dropping entry",
@@ -68,14 +84,23 @@ func (s *service) LogAsync(ctx context.Context, entry *AuditEntry) {
 }
 
 // worker processes audit entries from the queue until the channel is closed.
+// Each entry runs on a fresh background context seeded with the request/trace
+// IDs captured at enqueue time, so logs remain correlatable to the original
+// request without being cancelled when that request ends.
 func (s *service) worker() {
 	defer close(s.done)
-	for entry := range s.queue {
-		bgCtx := context.Background()
-		if err := s.Log(bgCtx, entry); err != nil {
-			s.logger.Error(bgCtx, "failed to create audit log", err,
-				"action", entry.Action,
-				"userID", entry.UserID,
+	for q := range s.queue {
+		ctx := context.Background()
+		if q.requestID != "" {
+			ctx = ctxutil.WithRequestID(ctx, q.requestID)
+		}
+		if q.traceID != "" {
+			ctx = ctxutil.WithTraceID(ctx, q.traceID)
+		}
+		if err := s.Log(ctx, q.entry); err != nil {
+			s.logger.Error(ctx, "failed to create audit log", err,
+				"action", q.entry.Action,
+				"userID", q.entry.UserID,
 			)
 		}
 	}

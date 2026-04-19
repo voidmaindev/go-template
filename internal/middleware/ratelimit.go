@@ -89,13 +89,31 @@ func (f *RateLimiterFactory) ForTier(tier Tier) fiber.Handler {
 		result, err := f.redis.RateLimitCheck(ctx, key, limit, f.window)
 
 		if err != nil {
-			// Fail open - allow request but log warning
-			slog.Warn("rate limit check failed, allowing request",
-				"error", err,
-				"tier", tier,
-				"key", key,
-			)
-			return c.Next()
+			// Fail closed for auth tiers — otherwise a Redis outage is an open
+			// brute-force window. Read-path tiers fail open to preserve availability.
+			switch tier {
+			case TierAuth, TierAuthUser:
+				slog.Warn("rate limit check failed, refusing request",
+					"error", err,
+					"tier", tier,
+					"key", key,
+				)
+				c.Set(RetryAfterHeader, "1")
+				return c.Status(fiber.StatusServiceUnavailable).JSON(common.Response{
+					Success: false,
+					Error: &common.ErrorInfo{
+						Code:    "SERVICE_UNAVAILABLE",
+						Message: "rate limiter unavailable, please retry shortly",
+					},
+				})
+			default:
+				slog.Warn("rate limit check failed, allowing request",
+					"error", err,
+					"tier", tier,
+					"key", key,
+				)
+				return c.Next()
+			}
 		}
 
 		// Set rate limit headers

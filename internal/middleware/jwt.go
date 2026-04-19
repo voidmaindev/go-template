@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/config"
+	"github.com/voidmaindev/go-template/internal/container"
 	"github.com/voidmaindev/go-template/pkg/utils"
 )
 
@@ -22,6 +23,17 @@ type TokenBlacklist interface {
 type TokenInvalidator interface {
 	GetTokensInvalidatedAt(ctx context.Context, userID uint) (time.Time, error)
 }
+
+// Typed container keys for the JWT-related interfaces. Domains that provide
+// a concrete token store (e.g. the user domain) register it under these keys
+// so consumers can retrieve it without runtime interface assertions:
+//
+//	middleware.TokenBlacklistKey.Set(c, tokenStore)   // compile-time checked
+//	tb := middleware.TokenBlacklistKey.MustGet(c)     // returns TokenBlacklist
+var (
+	TokenBlacklistKey   = container.Key[TokenBlacklist]("middleware.tokenBlacklist")
+	TokenInvalidatorKey = container.Key[TokenInvalidator]("middleware.tokenInvalidator")
+)
 
 // JWTMiddleware creates JWT authentication middleware
 func JWTMiddleware(cfg *config.JWTConfig, blacklist TokenBlacklist) fiber.Handler {

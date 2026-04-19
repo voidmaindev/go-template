@@ -37,7 +37,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, req *CreateDocumentReque
 		_, err := v.cityRepo.FindByID(ctx, req.CityID)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				return ErrCityNotFound
+				return ErrInvalidCityRef
 			}
 			return err
 		}
@@ -86,7 +86,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, id uint, req *UpdateDocu
 			_, err := v.cityRepo.FindByID(ctx, *req.CityID)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return ErrCityNotFound
+					return ErrInvalidCityRef
 				}
 				return err
 			}
@@ -122,7 +122,7 @@ func (v *Validator) ValidateAddItem(ctx context.Context, req *AddDocumentItemReq
 		_, err := v.productRepo.FindByID(ctx, req.ItemID)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				return ErrItemNotFound
+				return ErrInvalidItemRef
 			}
 			return err
 		}

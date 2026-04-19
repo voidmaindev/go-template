@@ -70,8 +70,26 @@ type service struct {
 	logger         *logging.Logger
 }
 
-// NewService creates a new user service.
+// NewService creates a new user service. Panics on a misconfigured dependency
+// set, since every field here is load-bearing for user/auth/RBAC flows and a
+// nil value would otherwise surface as an opaque NPE on the first request.
 func NewService(cfg ServiceConfig) Service {
+	switch {
+	case cfg.Repo == nil:
+		panic("user.NewService: Repo is required")
+	case cfg.TokenStore == nil:
+		panic("user.NewService: TokenStore is required")
+	case cfg.JWTConfig == nil:
+		panic("user.NewService: JWTConfig is required")
+	case cfg.SelfRegConfig == nil:
+		panic("user.NewService: SelfRegConfig is required")
+	case cfg.SecurityConfig == nil:
+		panic("user.NewService: SecurityConfig is required")
+	case cfg.RBACService == nil:
+		panic("user.NewService: RBACService is required (register rbac domain before user)")
+	case cfg.Enforcer == nil:
+		panic("user.NewService: Enforcer is required (register rbac domain before user)")
+	}
 	return &service{
 		repo:           cfg.Repo,
 		tokenStore:     cfg.TokenStore,

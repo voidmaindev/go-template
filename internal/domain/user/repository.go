@@ -2,11 +2,24 @@ package user
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/voidmaindev/go-template/internal/common"
+	commonerrors "github.com/voidmaindev/go-template/internal/common/errors"
 	"gorm.io/gorm"
 )
+
+// repoDomain is used for wrapping repository errors with a consistent domain tag.
+const repoDomain = "user"
+
+// wrapRepoErr wraps a raw DB error with domain + operation context. Returns nil on nil.
+func wrapRepoErr(op string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return commonerrors.Internal(repoDomain, err).WithOperation(op)
+}
 
 // Repository defines the user repository interface.
 // It extends common.Repository[User] with domain-specific queries
@@ -77,17 +90,20 @@ func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, err
 
 // DeleteExternalIdentitiesByUserID soft-deletes all external identities for a user
 func (r *repository) DeleteExternalIdentitiesByUserID(ctx context.Context, userID uint) error {
-	return r.DB().WithContext(ctx).Where("user_id = ?", userID).Delete(&ExternalIdentity{}).Error
+	return wrapRepoErr("DeleteExternalIdentitiesByUserID",
+		r.DB().WithContext(ctx).Where("user_id = ?", userID).Delete(&ExternalIdentity{}).Error)
 }
 
 // UpdateEmailVerifiedAt sets the email_verified_at timestamp for a user
 func (r *repository) UpdateEmailVerifiedAt(ctx context.Context, id uint, verifiedAt time.Time) error {
-	return r.DB().WithContext(ctx).Model(&User{}).Where("id = ?", id).Update("email_verified_at", verifiedAt).Error
+	return wrapRepoErr("UpdateEmailVerifiedAt",
+		r.DB().WithContext(ctx).Model(&User{}).Where("id = ?", id).Update("email_verified_at", verifiedAt).Error)
 }
 
 // UpdatePassword updates a user's password hash
 func (r *repository) UpdatePassword(ctx context.Context, id uint, hashedPassword string) error {
-	return r.DB().WithContext(ctx).Model(&User{}).Where("id = ?", id).Update("password", hashedPassword).Error
+	return wrapRepoErr("UpdatePassword",
+		r.DB().WithContext(ctx).Model(&User{}).Where("id = ?", id).Update("password", hashedPassword).Error)
 }
 
 // FindExternalIdentityByProvider finds an external identity by provider and provider ID
@@ -97,7 +113,10 @@ func (r *repository) FindExternalIdentityByProvider(ctx context.Context, provide
 		Where("provider = ? AND provider_id = ?", provider, providerID).
 		First(&identity).Error
 	if err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, commonerrors.NotFound(repoDomain, "external_identity")
+		}
+		return nil, wrapRepoErr("FindExternalIdentityByProvider", err)
 	}
 	return &identity, nil
 }
@@ -106,7 +125,7 @@ func (r *repository) FindExternalIdentityByProvider(ctx context.Context, provide
 func (r *repository) FindExternalIdentitiesByUserID(ctx context.Context, userID uint) ([]ExternalIdentity, error) {
 	var identities []ExternalIdentity
 	if err := r.DB().WithContext(ctx).Where("user_id = ?", userID).Find(&identities).Error; err != nil {
-		return nil, err
+		return nil, wrapRepoErr("FindExternalIdentitiesByUserID", err)
 	}
 	return identities, nil
 }
@@ -116,12 +135,13 @@ func (r *repository) CountExternalIdentitiesByUserID(ctx context.Context, userID
 	var count int64
 	err := r.DB().WithContext(ctx).Model(&ExternalIdentity{}).
 		Where("user_id = ?", userID).Count(&count).Error
-	return count, err
+	return count, wrapRepoErr("CountExternalIdentitiesByUserID", err)
 }
 
 // CreateExternalIdentity creates a new external identity record
 func (r *repository) CreateExternalIdentity(ctx context.Context, identity *ExternalIdentity) error {
-	return r.DB().WithContext(ctx).Create(identity).Error
+	return wrapRepoErr("CreateExternalIdentity",
+		r.DB().WithContext(ctx).Create(identity).Error)
 }
 
 // DeleteExternalIdentityByProvider deletes an identity for a specific user and provider
@@ -129,14 +149,14 @@ func (r *repository) DeleteExternalIdentityByProvider(ctx context.Context, userI
 	result := r.DB().WithContext(ctx).
 		Where("user_id = ? AND provider = ?", userID, provider).
 		Delete(&ExternalIdentity{})
-	return result.RowsAffected, result.Error
+	return result.RowsAffected, wrapRepoErr("DeleteExternalIdentityByProvider", result.Error)
 }
 
 // BeginTx starts a GORM transaction and returns a repository scoped to it
 func (r *repository) BeginTx(ctx context.Context) (Repository, *gorm.DB, error) {
 	tx := r.DB().WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, nil, tx.Error
+		return nil, nil, wrapRepoErr("BeginTx", tx.Error)
 	}
 	txRepo := &repository{
 		BaseRepository: common.NewBaseRepository[User](tx, "user"),

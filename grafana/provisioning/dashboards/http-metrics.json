@@ -635,8 +635,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, sum(rate(go_template_http_requests_total[5m])) by (path))",
-          "legendFormat": "{{path}}",
+          "expr": "topk(10, sum(rate(go_template_http_requests_total[5m])) by (route))",
+          "legendFormat": "{{route}}",
           "refId": "A"
         }
       ],

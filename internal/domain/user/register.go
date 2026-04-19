@@ -42,6 +42,11 @@ func (d *domain) Register(c *container.Container) {
 	// Initialize token store (uses Redis) - handles token blacklisting, login rate limiting, and token invalidation
 	tokenStore := NewTokenStore(c.Redis, c.Config.JWT.RefreshTokenExpiry)
 	TokenStoreKey.Set(c, tokenStore)
+	// Also expose under middleware's typed interface keys so other domains can
+	// retrieve it without runtime type assertions. The Set calls here are
+	// compile-time checked against the interfaces via generics.
+	middleware.TokenBlacklistKey.Set(c, tokenStore)
+	middleware.TokenInvalidatorKey.Set(c, tokenStore)
 
 	// Initialize repository
 	repo := NewRepository(c.DB)

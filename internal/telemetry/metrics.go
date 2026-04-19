@@ -52,7 +52,7 @@ func NewMetrics(namespace string) *Metrics {
 				Name:      "http_requests_total",
 				Help:      "Total number of HTTP requests",
 			},
-			[]string{"method", "path", "status"},
+			[]string{"method", "route", "status"},
 		),
 		HTTPRequestDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -61,7 +61,7 @@ func NewMetrics(namespace string) *Metrics {
 				Help:      "HTTP request duration in seconds",
 				Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 			},
-			[]string{"method", "path", "status"},
+			[]string{"method", "route", "status"},
 		),
 		HTTPRequestsInFlight: promauto.NewGauge(
 			prometheus.GaugeOpts{
@@ -198,10 +198,12 @@ func GetMetrics() *Metrics {
 }
 
 // RecordHTTPRequest records an HTTP request metric.
-func RecordHTTPRequest(method, path, status string, duration float64) {
+// route should be the route template (e.g. "/users/:id"), not the raw request path,
+// to keep Prometheus label cardinality bounded.
+func RecordHTTPRequest(method, route, status string, duration float64) {
 	m := GetMetrics()
-	m.HTTPRequestsTotal.WithLabelValues(method, path, status).Inc()
-	m.HTTPRequestDuration.WithLabelValues(method, path, status).Observe(duration)
+	m.HTTPRequestsTotal.WithLabelValues(method, route, status).Inc()
+	m.HTTPRequestDuration.WithLabelValues(method, route, status).Observe(duration)
 }
 
 // RecordDBQuery records a database query metric.

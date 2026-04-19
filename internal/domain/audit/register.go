@@ -9,10 +9,10 @@ import (
 	"github.com/voidmaindev/go-template/internal/middleware"
 )
 
-// External component keys (to avoid import cycles)
+// External component keys (to avoid import cycles with rbac — audit must not
+// import rbac because rbac already imports audit for its audit adapter).
 const (
-	userTokenStoreKey = "user.tokenStore"
-	rbacEnforcerKey   = "rbac.enforcer"
+	rbacEnforcerKey = "rbac.enforcer"
 )
 
 // Component keys for this domain (typed for compile-time safety)
@@ -71,8 +71,8 @@ func (d *domain) Shutdown(ctx context.Context) error {
 // Routes registers HTTP routes for this domain
 func (d *domain) Routes(api fiber.Router, c *container.Container) {
 	handler := HandlerKey.MustGet(c)
-	tokenStore := container.MustGetAs[middleware.TokenBlacklist](c, userTokenStoreKey)
-	tokenInvalidator := container.MustGetAs[middleware.TokenInvalidator](c, userTokenStoreKey)
+	tokenStore := middleware.TokenBlacklistKey.MustGet(c)
+	tokenInvalidator := middleware.TokenInvalidatorKey.MustGet(c)
 	enforcer := container.MustGetAs[*casbin.TransactionalEnforcer](c, rbacEnforcerKey)
 	rateLimiter := middleware.RateLimiterFactoryKey.MustGet(c)
 	jwtConfig := &c.Config.JWT

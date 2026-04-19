@@ -1,8 +1,6 @@
 package example_city
 
 import (
-	"errors"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common"
 	"github.com/voidmaindev/go-template/internal/common/filter"
@@ -29,10 +27,6 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 	city, err := h.service.Create(c.Context(), req)
 	if err != nil {
-		// ErrCountryNotFound → 400: the referenced country ID in the request is invalid
-		if errors.Is(err, ErrCountryNotFound) {
-			return common.BadRequestResponse(c, "country not found")
-		}
 		return common.HandleError(c, err)
 	}
 
@@ -68,10 +62,6 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 
 	city, err := h.service.Update(c.Context(), id, req)
 	if err != nil {
-		// ErrCountryNotFound → 400: the referenced country ID in the request is invalid
-		if errors.Is(err, ErrCountryNotFound) {
-			return common.BadRequestResponse(c, "country not found")
-		}
 		return common.HandleError(c, err)
 	}
 
@@ -120,10 +110,6 @@ func (h *Handler) ListByCountry(c *fiber.Ctx) error {
 
 	result, err := h.service.ListByCountry(c.Context(), countryID, pagination)
 	if err != nil {
-		// ErrCountryNotFound → 404: the country resource itself doesn't exist
-		if errors.Is(err, ErrCountryNotFound) {
-			return common.NotFoundResponse(c, "country")
-		}
 		return common.HandleError(c, err)
 	}
 

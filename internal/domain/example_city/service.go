@@ -38,11 +38,11 @@ func NewService(repo Repository, countryRepo example_country.Repository) Service
 
 // Create creates a new city
 func (s *service) Create(ctx context.Context, req *CreateCityRequest) (*City, error) {
-	// Validate country exists
+	// Validate country exists — bad FK in the payload is a 400, not a 404.
 	countryEntity, err := s.countryRepo.FindByID(ctx, req.CountryID)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, ErrCountryNotFound
+			return nil, ErrInvalidCountryRef
 		}
 		return nil, errors.Internal(domainName, err).WithOperation("Create")
 	}
@@ -95,12 +95,13 @@ func (s *service) Update(ctx context.Context, id uint, req *UpdateCityRequest) (
 		return nil, errors.Internal(domainName, err).WithOperation("Update")
 	}
 
-	// Handle CountryID validation separately (FK constraint)
+	// Handle CountryID validation separately (FK constraint) — bad FK in the
+	// payload is a 400, not a 404.
 	if req.CountryID != nil {
 		countryEntity, err := s.countryRepo.FindByID(ctx, *req.CountryID)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				return nil, ErrCountryNotFound
+				return nil, ErrInvalidCountryRef
 			}
 			return nil, errors.Internal(domainName, err).WithOperation("Update")
 		}
