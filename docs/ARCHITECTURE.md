@@ -232,9 +232,11 @@ return nil, errors.Internal(domainName, err).WithOperation("GetByID")
 
 ## Observability
 
-- **Structured Logging**: slog with domain/operation context
+- **Structured Logging**: slog JSON to stdout with domain/operation/request_id context
+- **Log Aggregation**: Grafana Loki via Alloy sidecar (Docker stdout tail) — see [observability.md](observability.md)
 - **Distributed Tracing**: OpenTelemetry with OTLP export
 - **Metrics**: Prometheus at `/metrics`
+- **Error Tracking**: Sentry — panics, `CodeInternal` domain errors, and `slog.Error` mirrored as events with per-request hub (request_id, route, user_id)
 - **Health Checks**: `/healthz` (liveness), `/readyz` (readiness)
 
 ## Rate Limiting

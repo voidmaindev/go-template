@@ -27,6 +27,8 @@ A production-ready Go backend template using Fiber v2, GORM, PostgreSQL, and Red
 - **GORM Go Code Migrations**: Versioned database migrations with rollback support
 - **OpenTelemetry Tracing**: Distributed tracing with OTLP export
 - **Prometheus Metrics**: HTTP, database, and business metrics at `/metrics`
+- **Error Tracking**: Sentry SDK wired in (panics, internal errors, `slog.Error` mirroring) — no-op until you set `SENTRY_DSN`
+- **Log Aggregation**: Grafana Loki via Alloy sidecar — tails container stdout, no app-side log shipping
 - **Request Timeouts**: Configurable per-operation timeout middleware
 - **Rate Limiting**: With standard headers (`X-RateLimit-*`)
 - **Request Correlation**: Request ID in all error responses
@@ -1277,6 +1279,20 @@ Configuration can be set via environment variables or `config.yaml` file. Enviro
 | `OTLP_INSECURE` | true | Use insecure connection |
 | `TELEMETRY_SAMPLING_RATIO` | 1.0 | Trace sampling ratio (0.0-1.0) |
 
+### Sentry (Error Tracking)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SENTRY_ENABLED` | true | Disable to skip init entirely |
+| `SENTRY_DSN` | _empty_ | Empty = no-op (warns once at startup) |
+| `SENTRY_ENVIRONMENT` | falls back to `APP_ENV` | `development` / `staging` / `production` |
+| `SENTRY_RELEASE` | dev | Auto-overridden by `BUILD_SHA` (Dockerfile ldflags) |
+| `SENTRY_TRACES_SAMPLE_RATE` | 0.0 | Errors only — performance tracing stays in OTel |
+| `SENTRY_ATTACH_STACKTRACE` | true | Attach stacktrace to all events |
+| `SENTRY_DEBUG` | false | Verbose SDK logging |
+
+See [docs/observability.md](docs/observability.md) for the full integration story (Sentry + Loki).
+
 ## Observability
 
 ### Prometheus Metrics
@@ -1323,7 +1339,9 @@ This starts:
 |---------|-----|-------------|
 | Jaeger | http://localhost:16686 | Distributed tracing UI |
 | Prometheus | http://localhost:9090 | Metrics database & query |
-| Grafana | http://localhost:3001 | Dashboards (admin/admin) |
+| Grafana | http://localhost:3001 | Dashboards + Loki Explore (admin/admin) |
+| Loki | http://localhost:3100 | Log aggregation (queried via Grafana) |
+| Alloy | _sidecar, no UI_ | Tails Docker stdout, ships JSON logs to Loki |
 
 Enable telemetry in your `.env`:
 ```bash
@@ -1349,7 +1367,7 @@ All dashboards use the `go_template_*` metric prefix and auto-refresh every 30 s
 ```
 grafana/provisioning/
 ├── datasources/
-│   └── prometheus.yml    # Auto-configured Prometheus connection
+│   └── datasource.yml    # Auto-configured Prometheus + Loki datasources
 └── dashboards/
     ├── dashboards.yml    # Dashboard provider config
     ├── go-runtime.json   # Go runtime metrics
