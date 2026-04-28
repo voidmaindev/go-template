@@ -7,6 +7,7 @@ require (
 	github.com/casbin/casbin/v3 v3.8.1
 	github.com/casbin/gorm-adapter/v3 v3.40.0
 	github.com/getkin/kin-openapi v0.133.0
+	github.com/getsentry/sentry-go v0.46.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-playground/validator/v10 v10.17.0
 	github.com/gofiber/contrib/jwt v1.0.8

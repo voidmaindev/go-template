@@ -54,6 +54,14 @@ services:
       - OTLP_ENDPOINT=${OTLP_ENDPOINT:-jaeger:4318}
       - OTLP_INSECURE=${OTLP_INSECURE:-true}
       - TELEMETRY_SAMPLING_RATIO=${TELEMETRY_SAMPLING_RATIO:-1.0}
+      # Sentry — empty DSN is a deliberate no-op so cloning the template just works.
+      - SENTRY_ENABLED=${SENTRY_ENABLED:-true}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-}
+      - SENTRY_RELEASE=${SENTRY_RELEASE:-dev}
+      - SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE:-0.0}
+      - SENTRY_ATTACH_STACKTRACE=${SENTRY_ATTACH_STACKTRACE:-true}
+      - SENTRY_DEBUG=${SENTRY_DEBUG:-false}
       # CORS
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:5178,http://localhost:5179,http://localhost:5180,http://localhost:5181}
       # Rate Limiting (higher limits for development)
@@ -175,6 +183,54 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+      - loki
+    restart: unless-stopped
+    networks:
+      - go-template-network
+
+  # Loki — log storage. Uses the shipped local-config.yaml (BoltDB +
+  # filesystem), which is the right starting point for a template; swap
+  # for object storage in production.
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: go-template-loki
+    profiles:
+      - observability
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - go-template-network
+
+  # Grafana Alloy — tails Docker container stdout JSON and ships to Loki.
+  # The /var/run/docker.sock mount is privileged-equivalent; fine for local
+  # dev, but production should use a per-host agent or file-based tailing.
+  alloy:
+    image: grafana/alloy:latest
+    container_name: go-template-alloy
+    profiles:
+      - observability
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./config/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      loki:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - go-template-network
@@ -188,6 +244,10 @@ volumes:
     name: go-template-prometheus-data
   grafana_data:
     name: go-template-grafana-data
+  loki_data:
+    name: go-template-loki-data
+  alloy_data:
+    name: go-template-alloy-data
 
 networks:
   go-template-network:

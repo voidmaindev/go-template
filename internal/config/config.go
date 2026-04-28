@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -26,6 +27,7 @@ type Config struct {
 	Email            EmailConfig            `mapstructure:"email"`
 	OAuth            OAuthConfig            `mapstructure:"oauth"`
 	Security         SecurityConfig         `mapstructure:"security"`
+	Sentry           SentryConfig           `mapstructure:"sentry"`
 }
 
 // AppConfig holds application-level configuration
@@ -163,6 +165,19 @@ type OAuthProviderConfig struct {
 	RedirectURL  string `mapstructure:"redirect_url"`
 }
 
+// SentryConfig holds Sentry error-tracking configuration.
+// Empty DSN with Enabled=true is a no-op (warns at startup) so a freshly
+// cloned template runs without requiring a DSN.
+type SentryConfig struct {
+	Enabled          bool    `mapstructure:"enabled"`
+	DSN              string  `mapstructure:"dsn"`
+	Environment      string  `mapstructure:"environment"`
+	Release          string  `mapstructure:"release"`
+	TracesSampleRate float64 `mapstructure:"traces_sample_rate"`
+	AttachStacktrace bool    `mapstructure:"attach_stacktrace"`
+	Debug            bool    `mapstructure:"debug"`
+}
+
 // SecurityConfig holds security-related settings
 type SecurityConfig struct {
 	LoginRateLimitPerEmail int           `mapstructure:"login_rate_limit_per_email"` // Max failed login attempts per email
@@ -189,6 +204,15 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Sentry environment defaults to app environment when unset
+	if cfg.Sentry.Environment == "" {
+		cfg.Sentry.Environment = cfg.App.Environment
+	}
+	// BUILD_SHA env var (set via Dockerfile ldflags or CI) overrides the literal "dev"
+	if sha := os.Getenv("BUILD_SHA"); sha != "" {
+		cfg.Sentry.Release = sha
 	}
 
 	// Validate configuration
@@ -289,6 +313,15 @@ func setDefaults() {
 	viper.SetDefault("telemetry.otlp_endpoint", "localhost:4318")
 	viper.SetDefault("telemetry.otlp_insecure", true)
 	viper.SetDefault("telemetry.sampling_ratio", 1.0)
+
+	// Sentry defaults — Enabled=true with empty DSN is a deliberate no-op
+	viper.SetDefault("sentry.enabled", true)
+	viper.SetDefault("sentry.dsn", "")
+	viper.SetDefault("sentry.environment", "") // resolved from app.environment after unmarshal
+	viper.SetDefault("sentry.release", "dev")
+	viper.SetDefault("sentry.traces_sample_rate", 0.0) // errors only; performance stays in OTel
+	viper.SetDefault("sentry.attach_stacktrace", true)
+	viper.SetDefault("sentry.debug", false)
 
 	// Seed defaults (password intentionally empty - must be set in production)
 	viper.SetDefault("seed.admin_email", "admin@admin.com")
@@ -413,6 +446,16 @@ func bindEnvVars() error {
 	mustBindEnv(&errs, "telemetry.otlp_endpoint", "OTLP_ENDPOINT")
 	mustBindEnv(&errs, "telemetry.otlp_insecure", "OTLP_INSECURE")
 	mustBindEnv(&errs, "telemetry.sampling_ratio", "TELEMETRY_SAMPLING_RATIO")
+
+	// Sentry — bare SENTRY_* names match the SDK convention (sentry-go reads
+	// SENTRY_DSN natively); deliberately not under the APP_ prefix.
+	mustBindEnv(&errs, "sentry.enabled", "SENTRY_ENABLED")
+	mustBindEnv(&errs, "sentry.dsn", "SENTRY_DSN")
+	mustBindEnv(&errs, "sentry.environment", "SENTRY_ENVIRONMENT")
+	mustBindEnv(&errs, "sentry.release", "SENTRY_RELEASE")
+	mustBindEnv(&errs, "sentry.traces_sample_rate", "SENTRY_TRACES_SAMPLE_RATE")
+	mustBindEnv(&errs, "sentry.attach_stacktrace", "SENTRY_ATTACH_STACKTRACE")
+	mustBindEnv(&errs, "sentry.debug", "SENTRY_DEBUG")
 
 	// Seed
 	mustBindEnv(&errs, "seed.admin_email", "SEED_ADMIN_EMAIL")

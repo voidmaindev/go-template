@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"runtime/debug"
 
+	sentrygo "github.com/getsentry/sentry-go"
 	"github.com/gofiber/fiber/v2"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/voidmaindev/go-template/internal/common"
@@ -31,6 +32,15 @@ func SetupCustomRecovery(app *fiber.App, isDevelopment bool) {
 					"path", c.Path(),
 					"method", c.Method(),
 				)
+
+				// Capture in Sentry — the per-request hub already carries
+				// request_id/route/user_id tags. RecoverWithContext attaches
+				// the panic value and a stack trace.
+				if hub := sentrygo.GetHubFromContext(c.UserContext()); hub != nil {
+					hub.RecoverWithContext(c.UserContext(), r)
+				} else {
+					sentrygo.CurrentHub().Recover(r)
+				}
 
 				if isDevelopment {
 					// In development, log the stack trace

@@ -15,8 +15,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Build SHA threaded into the binary via ldflags. Used for Sentry release
+# tagging. CI sets it via --build-arg BUILD_SHA=$GITHUB_SHA; defaults to "dev".
+ARG BUILD_SHA=dev
+
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-w -s -X main.buildSHA=${BUILD_SHA}" \
+    -o main ./cmd/api
 
 # Production stage
 FROM alpine:3.19

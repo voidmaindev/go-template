@@ -1,9 +1,17 @@
 package common
 
 import (
+	"context"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/voidmaindev/go-template/internal/common/errors"
 )
+
+// OnInternalError, if set, is invoked for every CodeInternal domain error
+// that reaches the response layer. Wired by serve.go to forward to Sentry.
+// Kept as a function variable so this package never imports observability
+// code, preventing an import cycle and a hard dependency.
+var OnInternalError func(ctx context.Context, de *errors.DomainError, requestID string)
 
 // Response represents a standard API response
 type Response struct {
@@ -228,6 +236,11 @@ func HandleDomainError(c *fiber.Ctx, de *errors.DomainError) error {
 
 	if len(de.Details) > 0 && de.Code != errors.CodeInternal {
 		errInfo.Details = de.Details
+	}
+
+	// Forward internal errors to the observability layer (Sentry) when wired.
+	if de.Code == errors.CodeInternal && OnInternalError != nil {
+		OnInternalError(c.UserContext(), de, requestID)
 	}
 
 	return c.Status(de.HTTPStatus()).JSON(Response{

@@ -14,6 +14,11 @@ type Config struct {
 	Development bool   // development mode (pretty output)
 }
 
+// currentHandler holds the active root handler so it can be wrapped after
+// Setup (e.g. by EnableSentryHandler). Not thread-safe — call only during
+// startup before goroutines spawn.
+var currentHandler slog.Handler
+
 // Setup initializes the global slog logger
 func Setup(cfg *Config) {
 	var level slog.Level
@@ -40,7 +45,19 @@ func Setup(cfg *Config) {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
 
+	currentHandler = handler
 	slog.SetDefault(slog.New(handler))
+}
+
+// EnableSentryHandler wraps the active slog handler so that error-level
+// records are mirrored to Sentry while still being written to stdout.
+// Must be called after Setup; no-op if Setup hasn't run.
+func EnableSentryHandler(wrap func(slog.Handler) slog.Handler) {
+	if currentHandler == nil || wrap == nil {
+		return
+	}
+	currentHandler = wrap(currentHandler)
+	slog.SetDefault(slog.New(currentHandler))
 }
 
 // SetupFromEnv configures logger based on environment
@@ -54,7 +71,6 @@ func SetupFromEnv(environment string, debug bool) {
 
 	if environment == "development" || debug {
 		cfg.Level = "debug"
-		cfg.Format = "text"
 		cfg.Development = true
 	}
 

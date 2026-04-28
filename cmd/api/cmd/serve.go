@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/spf13/cobra"
@@ -22,6 +23,7 @@ import (
 	"github.com/voidmaindev/go-template/internal/health"
 	"github.com/voidmaindev/go-template/internal/logger"
 	"github.com/voidmaindev/go-template/internal/middleware"
+	sentryobs "github.com/voidmaindev/go-template/internal/observability/sentry"
 	"github.com/voidmaindev/go-template/internal/redis"
 	"github.com/voidmaindev/go-template/internal/telemetry"
 )
@@ -63,6 +65,18 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Setup logger based on environment
 	logger.SetupFromEnv(cfg.App.Environment, cfg.App.Debug)
+
+	// Initialize Sentry. With Enabled=true and an empty DSN this is a no-op,
+	// so freshly cloned templates run without external configuration.
+	if _, err := sentryobs.Init(cfg.Sentry); err != nil {
+		slog.Error("Sentry init failed", "error", err)
+	}
+	if sentryobs.Enabled() {
+		// Mirror slog.Error records to Sentry while keeping stdout JSON intact.
+		logger.EnableSentryHandler(sentryobs.NewSlogHandler)
+		// Forward CodeInternal domain errors emitted from response.go to Sentry.
+		common.OnInternalError = sentryobs.CaptureDomainError
+	}
 
 	// Initialize pagination defaults from config
 	common.InitPagination(cfg.Pagination.DefaultPageSize, cfg.Pagination.MaxPageSize)
@@ -167,6 +181,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Setup global middleware
 	fiberApp.Use(middleware.RequestIDMiddleware()) // Add request ID first for tracing
+	fiberApp.Use(sentryobs.Hub())                  // Per-request Sentry hub (no-op when Sentry is disabled)
 	fiberApp.Use(middleware.SecurityHeaders())     // Add security headers
 	if cfg.App.IsProduction() {
 		fiberApp.Use(middleware.StrictTransportSecurity(31536000))
@@ -223,6 +238,12 @@ func runServe(cmd *cobra.Command, args []string) {
 	// This ensures DB, Redis, and domain resources are released
 	// regardless of whether shutdown was graceful or timed out.
 	cleanup := func(shutdownCtx context.Context) {
+		// Flush queued Sentry events first — domain shutdown closes the
+		// network paths Sentry needs to deliver in-flight reports.
+		if !sentryobs.Flush(2 * time.Second) {
+			slog.Warn("Sentry flush timed out")
+		}
+
 		// Shutdown domain services (LIFO order) before closing infrastructure
 		if err := c.Shutdown(shutdownCtx); err != nil {
 			slog.Error("Error shutting down domains", "error", err)

@@ -1,0 +1,70 @@
+// Grafana Alloy configuration — tails Docker container stdout/stderr,
+// parses slog JSON, and ships to the Loki sidecar.
+//
+// Labels are kept low-cardinality on purpose: { service, container_name,
+// env, level }. High-cardinality fields like request_id and user_id stay
+// in the log body and are queried via LogQL `| json` instead.
+
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Friendly container name (strip the leading "/")
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container_name"
+  }
+
+  // Compose service name -> "service" label
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  // Compose project name -> "project" label
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "project"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.containers.output
+  forward_to    = [loki.process.app.receiver]
+  labels        = { env = "local" }
+  relabel_rules = discovery.relabel.containers.rules
+}
+
+loki.process "app" {
+  forward_to = [loki.write.default.receiver]
+
+  // Parse slog JSON; missing fields are silently ignored.
+  stage.json {
+    expressions = {
+      level = "level",
+      msg   = "msg",
+    }
+  }
+
+  // Promote level to a label (low cardinality: debug/info/warn/error).
+  stage.labels {
+    values = { level = "" }
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
