@@ -4,11 +4,20 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/spf13/viper"
 )
+
+// knownDefaultSecrets are JWT secrets shipped in repo defaults/examples
+// (viper default, .env.example, docker-compose fallback). Any of them in
+// production means a publicly known signing key.
+var knownDefaultSecrets = []string{
+	"your-super-secret-key-change-in-production-min-32-chars",
+	"change-this-secret-in-production",
+}
 
 // Config holds all configuration for the application
 type Config struct {
@@ -234,7 +243,7 @@ func (c *Config) Validate() error {
 		if c.JWT.SecretKey == "" {
 			return errors.New("JWT_SECRET is required in production")
 		}
-		if c.JWT.SecretKey == "your-super-secret-key-change-in-production-min-32-chars" {
+		if slices.Contains(knownDefaultSecrets, c.JWT.SecretKey) {
 			return errors.New("JWT_SECRET must be changed from the default value in production")
 		}
 	}

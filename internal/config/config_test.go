@@ -173,6 +173,23 @@ func TestConfig_Validate_Production(t *testing.T) {
 			errorMsg:  "must be changed from the default",
 		},
 		{
+			name: "production with docker-compose fallback secret",
+			config: Config{
+				App: AppConfig{
+					Environment: "production",
+				},
+				JWT: JWTConfig{
+					// Exactly 32 chars — passes the length check, must still be denied
+					SecretKey: "change-this-secret-in-production",
+				},
+				Database: DatabaseConfig{
+					Host: "db.example.com",
+				},
+			},
+			wantError: true,
+			errorMsg:  "must be changed from the default",
+		},
+		{
 			name: "production with short secret",
 			config: Config{
 				App: AppConfig{

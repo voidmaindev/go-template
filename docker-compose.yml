@@ -39,7 +39,7 @@ services:
       - REDIS_RETRY_ATTEMPTS=${REDIS_RETRY_ATTEMPTS:-5}
       - REDIS_RETRY_DELAY=${REDIS_RETRY_DELAY:-5s}
       # JWT
-      - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-key-change-in-production-min-32-chars}
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-168h}
       - JWT_ISSUER=${JWT_ISSUER:-go-template}
