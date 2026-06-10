@@ -155,6 +155,10 @@ type OAuthConfig struct {
 	Google   OAuthProviderConfig `mapstructure:"google"`
 	Facebook OAuthProviderConfig `mapstructure:"facebook"`
 	Apple    OAuthProviderConfig `mapstructure:"apple"`
+	// AllowedRedirectURLs is a comma-separated list of origins (scheme://host[:port])
+	// that OAuth flows may redirect to with tokens. Empty = absolute URLs rejected
+	// (relative same-origin paths are always allowed).
+	AllowedRedirectURLs string `mapstructure:"allowed_redirect_urls"`
 }
 
 // OAuthProviderConfig holds settings for a single OAuth provider
@@ -364,6 +368,7 @@ func setDefaults() {
 	viper.SetDefault("security.login_lockout_duration", 15*time.Minute) // 15 minute lockout
 
 	// OAuth defaults (all disabled by default)
+	viper.SetDefault("oauth.allowed_redirect_urls", "")
 	viper.SetDefault("oauth.google.enabled", false)
 	viper.SetDefault("oauth.google.client_id", "")
 	viper.SetDefault("oauth.google.client_secret", "")
@@ -491,6 +496,9 @@ func bindEnvVars() error {
 	mustBindEnv(&errs, "email.from", "EMAIL_FROM")
 	mustBindEnv(&errs, "email.from_name", "EMAIL_FROM_NAME")
 	mustBindEnv(&errs, "email.sendgrid.api_key", "SENDGRID_API_KEY")
+
+	// OAuth - shared
+	mustBindEnv(&errs, "oauth.allowed_redirect_urls", "OAUTH_ALLOWED_REDIRECT_URLS")
 
 	// OAuth - Google
 	mustBindEnv(&errs, "oauth.google.enabled", "OAUTH_GOOGLE_ENABLED")

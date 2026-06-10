@@ -2,6 +2,9 @@ package auth
 
 import (
 	"context"
+	"net/url"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/casbin/casbin/v3"
@@ -26,17 +29,18 @@ const (
 
 // service implements the Service interface
 type service struct {
-	userRepo       user.Repository
-	tokenStore     *TokenStore
-	userTokenStore *user.TokenStore
-	emailSvc       email.Service
-	rbacSvc        rbac.Service
-	auditLogger    audit.Logger
-	enforcer       *casbin.TransactionalEnforcer
-	selfRegConfig  *config.SelfRegistrationConfig
-	oauthConfig    *config.OAuthConfig
-	oauthRegistry  *OAuthRegistry
-	logger         *logging.Logger
+	userRepo         user.Repository
+	tokenStore       *TokenStore
+	userTokenStore   *user.TokenStore
+	emailSvc         email.Service
+	rbacSvc          rbac.Service
+	auditLogger      audit.Logger
+	enforcer         *casbin.TransactionalEnforcer
+	selfRegConfig    *config.SelfRegistrationConfig
+	oauthConfig      *config.OAuthConfig
+	oauthRegistry    *OAuthRegistry
+	allowedRedirects []string // normalized origins (scheme://host) allowed for OAuth redirect_url
+	logger           *logging.Logger
 }
 
 // NewService creates a new auth service
@@ -52,18 +56,61 @@ func NewService(
 	oauthConfig *config.OAuthConfig,
 ) Service {
 	return &service{
-		userRepo:       userRepo,
-		tokenStore:     tokenStore,
-		userTokenStore: userTokenStore,
-		emailSvc:       emailSvc,
-		rbacSvc:        rbacSvc,
-		auditLogger:    auditLogger,
-		enforcer:       enforcer,
-		selfRegConfig:  selfRegConfig,
-		oauthConfig:    oauthConfig,
-		oauthRegistry:  NewOAuthRegistry(oauthConfig),
-		logger:         logging.New(domainName),
+		userRepo:         userRepo,
+		tokenStore:       tokenStore,
+		userTokenStore:   userTokenStore,
+		emailSvc:         emailSvc,
+		rbacSvc:          rbacSvc,
+		auditLogger:      auditLogger,
+		enforcer:         enforcer,
+		selfRegConfig:    selfRegConfig,
+		oauthConfig:      oauthConfig,
+		oauthRegistry:    NewOAuthRegistry(oauthConfig),
+		allowedRedirects: parseAllowedRedirects(oauthConfig.AllowedRedirectURLs),
+		logger:           logging.New(domainName),
 	}
+}
+
+// parseAllowedRedirects normalizes the comma-separated allowlist into
+// scheme://host origins. Invalid entries are dropped.
+func parseAllowedRedirects(raw string) []string {
+	var origins []string
+	for entry := range strings.SplitSeq(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		u, err := url.Parse(entry)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			continue
+		}
+		origins = append(origins, u.Scheme+"://"+strings.ToLower(u.Host))
+	}
+	return origins
+}
+
+// validateRedirectURL ensures a client-supplied redirect_url cannot leak OAuth
+// tokens to an attacker-controlled origin. Empty values (direct API flow) and
+// same-origin relative paths are allowed; absolute URLs must match a configured
+// allowlist origin exactly.
+func (s *service) validateRedirectURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	// Same-origin relative path; "//host" and "/\host" are scheme-relative
+	// redirects in browsers, so they must be treated as absolute.
+	if strings.HasPrefix(raw, "/") && !strings.HasPrefix(raw, "//") && !strings.HasPrefix(raw, "/\\") {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ErrOAuthRedirectNotAllowed
+	}
+	origin := u.Scheme + "://" + strings.ToLower(u.Host)
+	if slices.Contains(s.allowedRedirects, origin) {
+		return nil
+	}
+	return ErrOAuthRedirectNotAllowed
 }
 
 // SelfRegister handles email-based self-registration
@@ -300,6 +347,12 @@ func (s *service) GetOAuthURL(ctx context.Context, provider, redirectURL string)
 	// Check if self-registration is enabled
 	if !s.selfRegConfig.Enabled {
 		return "", "", ErrSelfRegDisabled
+	}
+
+	// Reject redirect URLs outside the allowlist before minting state —
+	// the callback redirects there with tokens in the URL fragment.
+	if err := s.validateRedirectURL(redirectURL); err != nil {
+		return "", "", err
 	}
 
 	p := s.oauthRegistry.Get(provider)

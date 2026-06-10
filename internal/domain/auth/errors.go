@@ -43,6 +43,10 @@ var (
 	ErrOAuthStateMismatch = errors.New(domainName, errors.CodeBadRequest).
 				WithMessage("OAuth state mismatch")
 
+	// ErrOAuthRedirectNotAllowed is returned when redirect_url is not in the configured allowlist
+	ErrOAuthRedirectNotAllowed = errors.New(domainName, errors.CodeBadRequest).
+					WithMessage("redirect_url is not in the allowed list")
+
 	// ErrOAuthCodeExchange is returned when OAuth code exchange fails
 	ErrOAuthCodeExchange = errors.New(domainName, errors.CodeBadRequest).
 				WithMessage("failed to exchange OAuth code")
