@@ -81,11 +81,14 @@ func runServe(cmd *cobra.Command, args []string) {
 	// Initialize pagination defaults from config
 	common.InitPagination(cfg.Pagination.DefaultPageSize, cfg.Pagination.MaxPageSize)
 
-	// Override from flags if provided
-	if port, _ := cmd.Flags().GetInt("port"); port != 0 {
+	// Override from flags only when explicitly passed — flag defaults must
+	// not clobber values from env/config file
+	if cmd.Flags().Changed("port") {
+		port, _ := cmd.Flags().GetInt("port")
 		cfg.Server.Port = port
 	}
-	if host, _ := cmd.Flags().GetString("host"); host != "" {
+	if cmd.Flags().Changed("host") {
+		host, _ := cmd.Flags().GetString("host")
 		cfg.Server.Host = host
 	}
 
@@ -94,6 +97,7 @@ func runServe(cmd *cobra.Command, args []string) {
 		"description", a.Description,
 		"env", cfg.App.Environment,
 		"debug", cfg.App.Debug,
+		"addr", cfg.Server.Addr(),
 	)
 
 	// Connect to database
@@ -170,17 +174,21 @@ func runServe(cmd *cobra.Command, args []string) {
 		BodyLimit:             cfg.Server.BodyLimit,
 		DisableStartupMessage: !cfg.App.Debug,
 		ErrorHandler:          customErrorHandler,
-		// Security: Configure trusted proxy settings for accurate IP detection
-		// In production behind a reverse proxy, enable proxy checking
-		EnableTrustedProxyCheck: cfg.App.IsProduction(),
+		// Security: X-Forwarded-For is only honored when the direct peer is in
+		// TrustedProxies. With the check disabled, Fiber trusts the header from
+		// ANY client — spoofable IPs for rate limiting and audit logs — so it
+		// must stay enabled in every environment.
+		EnableTrustedProxyCheck: true,
 		// Use X-Forwarded-For header for client IP when behind proxy
 		ProxyHeader: fiber.HeaderXForwardedFor,
 		// Trust private network proxies (adjust for your infrastructure)
 		TrustedProxies: []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1"},
 	})
 
-	// Setup global middleware
-	fiberApp.Use(middleware.RequestIDMiddleware()) // Add request ID first for tracing
+	// Setup global middleware. Recovery must be first so panics in any later
+	// middleware are still caught and turned into a structured 500.
+	middleware.SetupCustomRecovery(fiberApp, cfg.App.IsDevelopment())
+	fiberApp.Use(middleware.RequestIDMiddleware()) // Request ID early for tracing
 	fiberApp.Use(sentryobs.Hub())                  // Per-request Sentry hub (no-op when Sentry is disabled)
 	fiberApp.Use(middleware.SecurityHeaders())     // Add security headers
 	if cfg.App.IsProduction() {
@@ -188,7 +196,6 @@ func runServe(cmd *cobra.Command, args []string) {
 	}
 	middleware.SetupCORS(fiberApp, cfg)
 	middleware.SetupSlogLogger(fiberApp)
-	middleware.SetupCustomRecovery(fiberApp, cfg.App.IsDevelopment())
 
 	// Setup health check routes (/healthz, /readyz, /health)
 	healthChecker := health.DefaultHealthChecker(db, redisClient.Client, cfg.Telemetry.ServiceVersion)
