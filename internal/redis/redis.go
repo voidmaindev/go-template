@@ -2,8 +2,11 @@ package redis
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -210,6 +213,16 @@ func (c *Client) RateLimitCheck(ctx context.Context, key string, limit int, wind
 	windowStart := now - window.Milliseconds()
 	resetAt := now + window.Milliseconds()
 
+	// Generate the ZSET member client-side: Redis seeds Lua's math.random
+	// deterministically per script invocation, so same-millisecond requests
+	// would produce identical members and overwrite each other in ZADD,
+	// allowing the rate limit to be bypassed by pipelined bursts.
+	suffix := make([]byte, 8)
+	if _, err := rand.Read(suffix); err != nil {
+		return nil, fmt.Errorf("rate limit member generation failed: %w", err)
+	}
+	member := strconv.FormatInt(now, 10) + ":" + hex.EncodeToString(suffix)
+
 	// Lua script for atomic sliding window rate limiting
 	// 1. Remove old entries outside the window
 	// 2. Count current entries
@@ -230,8 +243,8 @@ func (c *Client) RateLimitCheck(ctx context.Context, key string, limit int, wind
 
 		-- Check if under limit
 		if count < limit then
-			-- Add new entry with unique member to prevent same-millisecond collision
-			local member = now .. ":" .. math.random(1000000)
+			-- Member is generated client-side (ARGV[5]) to guarantee uniqueness
+			local member = ARGV[5]
 			redis.call('ZADD', key, now, member)
 			-- Set expiry to window duration
 			redis.call('PEXPIRE', key, window_ms)
@@ -243,7 +256,7 @@ func (c *Client) RateLimitCheck(ctx context.Context, key string, limit int, wind
 		end
 	`)
 
-	result, err := script.Run(ctx, c.Client, []string{key}, now, windowStart, limit, window.Milliseconds()).Slice()
+	result, err := script.Run(ctx, c.Client, []string{key}, now, windowStart, limit, window.Milliseconds(), member).Slice()
 	if err != nil {
 		return nil, fmt.Errorf("rate limit script failed: %w", err)
 	}

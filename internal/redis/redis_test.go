@@ -254,3 +254,67 @@ func TestIncrWithExpiry_ShortExpiry(t *testing.T) {
 		t.Errorf("TTL = %v, expected positive", ttl)
 	}
 }
+
+// ================================
+// RateLimitCheck tests
+// ================================
+
+// Regression test: the Lua script previously built the ZSET member with
+// math.random, which Redis seeds deterministically per invocation — all
+// same-millisecond requests collapsed into one ZSET entry, bypassing the
+// limit. A tight loop guarantees same-millisecond calls.
+func TestRateLimitCheck_CountsEveryRequest(t *testing.T) {
+	mr, client := setupMiniredis(t)
+	defer mr.Close()
+	defer client.Close()
+
+	ctx := context.Background()
+	key := "ratelimit:test"
+	limit := 5
+
+	allowed := 0
+	denied := 0
+	for i := 0; i < 10; i++ {
+		result, err := client.RateLimitCheck(ctx, key, limit, time.Minute)
+		if err != nil {
+			t.Fatalf("RateLimitCheck() error = %v", err)
+		}
+		if result.Allowed {
+			allowed++
+			wantRemaining := limit - allowed
+			if result.Remaining != wantRemaining {
+				t.Errorf("request %d: Remaining = %d, want %d", i+1, result.Remaining, wantRemaining)
+			}
+		} else {
+			denied++
+			if result.ResetAt <= time.Now().Add(-time.Second).Unix() {
+				t.Errorf("request %d: ResetAt = %d, expected future timestamp", i+1, result.ResetAt)
+			}
+		}
+	}
+
+	if allowed != limit {
+		t.Errorf("allowed = %d, want %d", allowed, limit)
+	}
+	if denied != 10-limit {
+		t.Errorf("denied = %d, want %d", denied, 10-limit)
+	}
+}
+
+func TestRateLimitCheck_IndependentKeys(t *testing.T) {
+	mr, client := setupMiniredis(t)
+	defer mr.Close()
+	defer client.Close()
+
+	ctx := context.Background()
+
+	for _, key := range []string{"ratelimit:a", "ratelimit:b"} {
+		result, err := client.RateLimitCheck(ctx, key, 1, time.Minute)
+		if err != nil {
+			t.Fatalf("RateLimitCheck(%q) error = %v", key, err)
+		}
+		if !result.Allowed {
+			t.Errorf("first request on %q should be allowed", key)
+		}
+	}
+}
